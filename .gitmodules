@@ -1,0 +1,3 @@
+[submodule "external/MicroMouseTemplate"]
+	path = external/MicroMouseTemplate
+	url = git@github.com:JesseJabezArendse/MicroMouseTemplate.git
