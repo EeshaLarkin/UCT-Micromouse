@@ -9,7 +9,7 @@ The main code repository is at [https://github.com/EEEUCT/Micromouse](https://gi
 You will need the code from both these repositories to develop the required software and program your micro-mouse.
 
 ## Note on Cloning
-This repository uses a Git Submodule for the core microcontroller kernel. To clone this repository with all required files, run:
+This repository uses a Git Submodule for the core microcontroller kernel (Jesse Arendse's 'MicroMouseTemplate' from the Github page [https://github.com/JesseJabezArendse/MicroMouseTemplate](https://github.com/JesseJabezArendse/MicroMouseTemplate)). To clone this repository with all required files, run:
 ```bash
 git clone --recursive https://github.com/nicollsf/UCT-Micromouse.git
 ```
