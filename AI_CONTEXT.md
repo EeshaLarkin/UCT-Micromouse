@@ -1,100 +1,80 @@
 # AI_CONTEXT.md
 
 ## 1. Project Overview & Context
-* **Course/Project:** University of Cape Town (UCT) Micromouse Design Project (Course Codes: EEE3097S / EEE3098S / EEE3099S).
+* **Course/Project:** University of Cape Town (UCT) Micromouse Design Project (EEE3097S / EEE3098S / EEE3099S).
 * **Role:** Course Convenor (2026 Academic Year Rollout).
-* **Core Philosophy Change:** For 2026, the assignment centers around a high-level **Software Paradigm Design Choice**. Students must implement, document, and defend their selected software framework within their engineering portfolios to satisfy ECSA Graduate Attribute 3 (Engineering Design).
+* **Distribution Paradigm:** Native MATLAB Project Toolbox Add-On deployment.
+* **Core Philosophy:** Software paradigm selection serves as an explicit design challenge for ECSA GA 3 / GA 5 compliance tracking.
 
 ---
 
-## 2. The Two Student Paradigms (The Student's Choice)
-Students must select and implement **one** of the following two development tracks:
+## 2. Micromouse Kernel Design Principles
+The Kernel functions as a lean register proxy bridging hardware peripherals to a network socket interface. It contains no closed-loop tracking algorithms or pathfinders.
 
-### Track 1: Classic Model-Based Design (MBD) Track
-* **Workflow:** Students design their navigation state-machines, wall-following trajectory filters, and high-frequency PID controllers entirely within **MATLAB/Simulink**.
-* **Hardware Execution:** Simulink Coder compiles these visual blocks into optimized bare-metal C code. This code is cross-compiled via the GNU ARM toolchain and flashed directly onto the hardware.
-* **Simulation/Grading:** Code executes natively inside an isolated external instance, communicating via network sockets back into the central autograding master engine.
+### A. Communication Infrastructure
+1. Communication occurs over network sockets using highly predictable, lightweight textual string packets.
+2. Downlink frames actuate motor velocities or update configuration registers; Uplink frames pipe sensory updates back to userland.
 
-### Track 2: On-Chip Low-Level Scripting Track (MicroPython + C Kernel Proxy)
-* **Workflow:** Students write their high-frequency closed-loop control strategies (e.g., motor speed sync, encoder tracking, IMU yaw correction, wall-following PIDs) and high-level maze-solving algorithms entirely in **MicroPython** executing directly on the mouse.
-* **Hardware Execution:** An on-chip co-processing scheme is used. MicroPython runs the high-frequency control loop (~100 Hz). It passes atomic hardware actuation commands (raw PWM velocities like `micromouse.set_pwm(45, 55)`) and fetches raw data frames through ultra-low-latency native C module bindings connected directly to a pre-compiled C Hardware Proxy Kernel.
-* **Simulation/Grading:** Desktop Python executes the identical script on a host computer. A local wrapper library maps the low-level atomic API commands and sensory queries through an IPC TCP/IP loopback socket into the legacy Simulink autograder backend.
+### B. Self-Describing Field-Level Encoding
+To optimize communication bandwidth without creating brittle global states, the kernel uses self-describing field variants:
+1. **Absolute by Default:** Variables are reported as actual total values by default (e.g., `"lenc"` for Left Encoder, `"renc"` for Right Encoder).
+2. **Delta Field Variants:** High-frequency accumulators can be configured to transmit as relative deltas. When acting as a delta, the kernel prefixes the JSON key with a `+` (e.g., `"+lenc"`, `"+renc"`).
+3. **Full Dump Sync:** A `"sync": 1` request forces the kernel to emit a complete baseline frame using strictly absolute field keys (`"lenc"`, `"renc"`, etc.), allowing the userland application to lock its shadow state perfectly.
 
----
-
-## 3. Existing Legacy Infrastructure Baseline
-The template hardware baseline stems from Jesse's custom **STMicroelectronics STM32L476VETx** configuration:
-* **Hardware Drivers Available:** `Motors.c/h` (PWM output & encoder counting) , `ADCs.c/h` (Analog IR distance walls) , `VL53L1X.c/h` (I2C long-range Time-of-Flight laser) , and `IMU.c/h` (Gyroscope orientation tracking).
-* **Legacy Simulation Communication:** Simulink simulates virtual maze mechanics , pushes synthetic sensor data down via an ASCII "JSON-lite" key-value format parsed with static `sscanf()` , and reads back target control intents at $100\text{ Hz}$.
-
----
-
-## 4. Co-Simulation & Dual-Evaluation Architecture
-To completely eliminate visual block insertion errors (such as students visually reordering Inport/Outport indices and breaking harness connections), **all programmatic block manipulation is removed**. 
-
-The Simulink Autograder engine behaves exclusively as a **TCP/IP Local Loopback Socket Server (`localhost:8000`)**. The simulation loop is split across two variant paths managed by a **Variant Subsystem Block**:
-
-```text
-+---------------------------------------------------------------------------------+
-|                        YOUR SIMULINK AUTOGRADER ENGINE                          |
-|    - Always acts as a Local Network Socket Server (localhost:8000)              |
-|    - Streams JSON Sensor Strings  <===>  Reads JSON Actuator Strings            |
-+---------------------------------------------------------------------------------+
-^
-| (Deterministic TCP/IP Socket Stream)
-v
-+-------------------------------+-------------------------------+
-|                                                               |
-v (Track 1: Simulink Choice)                                    v (Track 2: Python Choice)
-+-------------------------------+                               +-------------------------------+
-|      STANDALONE MATLAB APP    |                               |     STANDALONE PYTHON APP     |
-| - Student's compiled model    |                               | - Student's main.py script    |
-|   runs as an isolated instance|                               |   runs natively in Python     |
-| - Uses TCP Client blocks to   |                               | - Uses native socket library  |
-|   exchange JSON data strings  |                               |   to exchange JSON data string|
-+-------------------------------+                               +-------------------------------+
-```
-
-* **Track 1 Evaluation:** The grading engine runs the native compiled model directly inside the kinematic simulator environment.
-* **Track 2 Evaluation:** The grading engine replaces the student block with standard Instrument Control Toolbox **TCP/IP Send** and **TCP/IP Receive** blocks. The autograder fires up the student's `.py` script as a background process. Simulink sends virtual sensor parameters to `localhost:8000`, the Python script handles them using standard dictionary maps (`json.loads()`), updates its maze matrices, and replies with a macro directive command string.
+### C. Configuration Command Set Protocol
+The network parsing interface maps parameters using single-character keys to eliminate messaging overhead:
+* **Actuation (`"a"`)**: Direct motor adjustments via arrays, e.g., `{"a":[left_pwm, right_pwm]}`.
+* **Poll Request (`"p"`)**: Manual pull indicator string `{"p":1}` to demand an instantaneous sensor payload update.
+* **Configuration (`"c"`)**: Explicit properties adjustments:
+  * `{"c":{"rate":100}}`: Periodic update stream loop frequency in Hz ($0 = \text{Polled Mode}$).
+  * `{"c":{"enc_mode":"d"}}`: Tells the kernel to use the `"+lenc"` and `"+renc"` delta variants for encoder fields. `"a"` reverts to absolute.
+  * `{"c":{"sync":1}}`: Forces the kernel to emit an absolute, full baseline frame on the next tick.
 
 ---
 
-## 5. MicroPython-to-C Hardware Kernel Architecture
+## 3. Co-Simulation & Autograding Parity
+The master Simulink Autograder engine behaves exclusively as a **TCP/IP Local Loopback Socket Server (`localhost:8000`)** streaming the exact same JSON-lite data formats as the physical Tier 1 C Kernel.
 
-```text
-+---------------------------------------------------------------------------------+
-|                                 STM32L476 SILICON                               |
-+---------------------------------------------------------------------------------+
-|  [USERLAND LAYER]                                                               |
-|  MicroPython Runtime Environment (~1 Hz to 5 Hz Macro Decision-Making Loop)     |
-|  - Tracks 16x16 Grid Array Matrices, Exploration Logic, and Routing Path        |
-|  - Invokes Native C Module Bindings (e.g., micromouse.move_forward(180))        |
-+---------------------------------------------------------------------------------+
-|
-|  On-Chip Inter-Process Messaging
-|  Latency: < 1 microsecond (Direct SRAM Pointers)
-v
-+---------------------------------------------------------------------------------+
-|  [HARDWARE ABSURDITY KERNEL]                                                    |
-|  Pre-Compiled Bare-Metal C Engine (Deterministic 1 kHz Interrupt Loops)         |
-|  - Executes high-frequency Real-Time Motor PID Cascades & Trajectory Tracking   |
-|  - Integrates IMU Gyro Angular Velocity over time to compute strict Heading     |
-|  - Directly wraps Jesse's legacy files (Motors.c, IMU.c, VL53L0X.c)             |
-+---------------------------------------------------------------------------------+
-```
+### The "Polymorphic" Autograding Pipeline
+The autograder evaluates students based on a single, hardware-agnostic Python script (`main.py`). The student does not maintain separate "mouse" and "PC" versions.
+1. **Physical Hardware (PikaScript):** When deployed to the mouse, `import uct_mouse` binds directly to the native C-Kernel registers via `.pyi` stubs and the Rust pre-compiler.
+2. **Autograder (Simulink/PC):** When submitted to the autograder, the student's script runs on the PC alongside a Desktop Mock version of `uct_mouse.py`. This mock wrapper silently intercepts the student's hardware calls (e.g., `mouse.get_tof_l()`) and translates them into TCP JSON requests to the Simulink virtual maze. The student's logic remains completely untouched, evaluating seamlessly against the virtual environment.
 
-### Safety & Stability Isolation
-High-frequency physical control operations (e.g., sample-by-sample gyro integration, motor current correction, and PID adjustments) are **explicitly managed by the C Kernel** inside deterministic $1\text{ kHz}$ hardware interrupts. If MicroPython undergoes a garbage collection pause or a slow algorithmic processing step, the robot will **not** fly out of control; the C kernel safely maintains tracking control while waiting for the next macro instruction.
-
-### The Handshake & Synchronization Rule
-Compound operations like turning $90^\circ$ or moving forward one cell length ($180\text{ mm}$) are designed as blocking actions. Calling `micromouse.move_forward(180)` in MicroPython triggers the underlying kernel handler, which puts the MicroPython execution thread to sleep/blocked. The C kernel drives the motors, tracks the encoders at a high frequency, and only releases control back to the MicroPython engine by returning a synchronization token (`\nOK\n` or direct function return) **after the physical movement settles completely**.
+Whether a student submits a standalone Simulink binary, a MicroPython script, or a compiled desktop C process, the autograder launches their code as an independent background task, exchanges packets at 100 Hz in a lock-step query-response loop, and utilizes strict 0.5-second socket timeouts to isolate the grading engine from student logic crashes or infinite loops.
 
 ---
 
-## 6. Target Implementation Tasks for the AI Collaborator
-Please assist with implementing the following building blocks:
+## 4. Direction Sheet for AI Collaborator
+When instructed to build, reference this exact configuration schema:
 
-1.  **Task 1 (MicroPython C Module Bindings):** Write the C wrapper boilerplate exposing Jesse's low-level variables as a native MicroPython C module (`micromouse`), mapping high-level Python commands to internal kernel functions.
-2.  **Task 2 (Co-Simulation Python Wrapper):** Write the desktop-side `micromouse.py` fallback module that implements the exact same API signatures, but packages the commands into TCP network frames communicating over a socket interface to port 8000 for Simulink autograding.
-3.  **Task 3 (The C Kernel Blocking Control Loops):** Write the C code for `kernel_move_straight(int16_t mm)` and `kernel_execute_turn(int16_t degrees)` that safely loops on top of Jesse's non-blocking drivers, integrating the IMU data and handling the blocking synchronization mechanism cleanly.
+1. **Phase 1 (Completed):** Establish the Tier 1 C Kernel Bedrock. This includes the `serial_interface.c` network proxy, OLED stabilization, and physical hardware bug fixes.
+2. **Phase 2 (Active):** Build the Tier 2 Python Abstraction Library. This involves developing the closed-loop control algorithms (e.g., PID tracking, `move_cells()`, `turn_deg()`) using the `micromouse.py` socket proxy.
+3. **Phase 3 (Upcoming):** Verify Simulink autograder TCP/IP integration and evaluate Tier 3 userland maze-solving scripts.
+
+---
+
+## 5. Three-Tier Deployment Architecture
+The system is strictly divided into three distinct layers to preserve the kernel's language-agnostic purity while supporting standalone on-mouse execution:
+
+### Tier 1: The Base C Kernel (The Bedrock)
+* **Role:** A lean register proxy and JSON-lite network bridge.
+* **Rules:** Strictly "dumb". Contains absolutely no closed-loop tracking, PID controllers, or high-level maneuver commands (like `turn_90`). Operates purely on raw PWM inputs and raw sensor outputs.
+
+### Tier 2: The Control Library / Abstraction Layer (`uct_mouse.py`)
+* **Role:** Provides hardware-agnostic functional abstractions (e.g., `set_pwm()`, `get_tof_l()`).
+* **Rules:** Operates polymorphically. On the physical mouse, it binds natively to C. On the PC (for Desktop Co-Simulation and Autograding), it acts as a proxy, packaging requests into JSON and piping them over Serial/TCP.
+
+### Tier 3: The User Application (`main.py` / Simulink Controller)
+* **Role:** The actual maze-solving intelligence.
+* **Rules:** Written entirely using the Tier 2 API. Students test this logic on their laptops against the physical mouse (via Serial tether), then submit the exact same file to the Autograder (which grades it via TCP loopback to Simulink).
+
+---
+
+## 6. Hardware Quirks & Known States
+* **The 72 MHz / 80 MHz Silicon Lottery:** Due to grey-market silicon or missing HSI factory calibration trims in this specific batch of STM32s, some boards successfully achieve the targeted `80 MHz` PLL clock, while identically flashed sister boards cap out at `72 MHz`.
+  * **Impact:** A board running at 72 MHz while programmed for 80 MHz will calculate incorrect UART baud dividers (an 11.1% error), causing the Python dashboard to see garbage hex and hang on connection.
+  * **Fix:** The standard firmware strictly targets the healthy `80 MHz` (using `USART1->BRR = 694`). If a specific chassis hangs on connect but runs perfectly when the divider is swapped to `625`, that board is a 72 MHz outlier and must be labelled.
+* **Randomized Motor Polarity:** Depending on how the physical DC motor leads were soldered by students/technicians, the chassis might spin backwards or in circles when given a forward command.
+  * **Impact:** If students try to flip negative signs in their high-level PID math, their code will fail against the standardized Simulink Autograder.
+  * **Fix:** Abstracted at the Tier 1 level. The C Kernel uses `#define POLARITY_L` and `POLARITY_R` (set to `1` or `-1`) in `micromouse_kernel.c` to mathematically normalize the physical wiring before the PWM pulse ever hits the timer register.
+* **Left Motor Reverse Casting Bug:** In older ARM GCC toolchains, passing a signed 8-bit negative integer into the standard `<stdlib.h>` `abs()` function mangles the sign bit, causing the left wheel to brake instead of reverse. The C Kernel explicitly bypasses this with a native hardware timer override (`TIM3->CCR4 = -actual_l`).

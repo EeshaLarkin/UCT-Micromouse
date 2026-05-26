@@ -1,0 +1,308 @@
+#include "micromouse_kernel.h"
+#include <stdio.h>
+#include <string.h>
+#include <stddef.h> // For offsetof()
+
+// Hardware proxy implementation
+#include "stm32l4xx_hal.h"
+// Include Jesse's hardware drivers from the MicroMouseTemplate submodule
+#include "Motors.h"
+
+// Suppress macro redefinition warning from IMU.h
+#ifdef I2C_TIMEOUT
+#undef I2C_TIMEOUT
+#endif
+#include "IMU.h"
+
+#include "VL53L0X.h"
+
+#include "INA219.h"
+#include "ADCs.h"
+#include "SSD1306.h"
+#include "main.h"
+
+// Expose Jesse's underlying global hardware variables
+extern int8_t MOTOR_LS;
+extern int8_t MOTOR_RS;
+extern float IMU_Gyro[3];
+extern VL53L0_t TOF_left_result;
+extern VL53L0_t TOF_centre_result;
+extern VL53L0_t TOF_right_result;
+extern int16_t Vbattery;
+
+// 2026 Generation Hardware Hooks:
+// Encoders are not yet implemented in the base Simulink hardware template.
+// These will eventually be updated by EXTI/Timer interrupts as pulses arrive.
+volatile int32_t leftEncoderCount = 0;
+volatile int32_t rightEncoderCount = 0;
+
+static KernelState_t current_state;
+static KernelState_t shadow_state;
+static volatile uint32_t watchdog_timer_ms = 0;
+static uint32_t stream_rate_hz = 25; // Lower default to prevent 115200 baud bandwidth saturation
+static bool force_sync = false;
+static bool use_delta_enc = false;
+static char kernel_error_msg[64] = "";
+
+// Hardware-specific wiring polarities (1 = normal, -1 = reversed)
+// Standard differential drive usually requires one to be -1. Adjust as needed per physical board.
+#define POLARITY_L 1
+#define POLARITY_R 1 
+
+// -------------------------------------------------------------
+// Telemetry Configuration Table
+// -------------------------------------------------------------
+typedef enum { VAR_UINT8, VAR_UINT16, VAR_INT32, VAR_FLOAT_3DP, VAR_FLOAT_2DP } VarType_t;
+
+typedef struct {
+    const char* name;
+    size_t offset;
+    VarType_t type;
+    bool allow_delta;
+} TelemetryField_t;
+
+#define FIELD(n, t, d) {#n, offsetof(KernelState_t, n), t, d}
+
+static const TelemetryField_t telemetry_table[] = {
+    FIELD(tof_l,  VAR_UINT16,    false), FIELD(tof_c,  VAR_UINT16,    false), FIELD(tof_r,  VAR_UINT16,    false),
+    FIELD(ir_fl,  VAR_UINT16,    false), FIELD(ir_fr,  VAR_UINT16,    false),
+    FIELD(ir_sl,  VAR_UINT16,    false), FIELD(ir_sr,  VAR_UINT16,    false),
+    FIELD(lenc,   VAR_INT32,     true),  FIELD(renc,   VAR_INT32,     true),
+    FIELD(gyro,   VAR_FLOAT_3DP, false), FIELD(v_batt, VAR_FLOAT_2DP, false),
+    FIELD(btn1,   VAR_UINT8,     false), FIELD(btn2,   VAR_UINT8,     false)
+};
+
+static const int num_telemetry_fields = sizeof(telemetry_table) / sizeof(telemetry_table[0]);
+
+void kernel_init(void) {
+    memset(&current_state, 0, sizeof(KernelState_t));
+    memset(&shadow_state, 0, sizeof(KernelState_t));
+    watchdog_timer_ms = 0;
+
+}
+
+void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
+    // Apply hardware-specific wiring polarities
+    int16_t actual_l = left_pwm * POLARITY_L;
+    int16_t actual_r = right_pwm * POLARITY_R;
+
+    current_state.left_pwm = left_pwm;   // Report the original INTENT back to telemetry
+    current_state.right_pwm = right_pwm; 
+    
+    MOTOR_LS = (int8_t)actual_l;
+    MOTOR_RS = (int8_t)actual_r;
+    watchdog_timer_ms = 0; // Feed watchdog on standalone internal actuation
+
+    // Bypass Jesse's int8_t abs() logic which causes signed integer casting faults 
+    // on the Left Motor. Apply the hardware timer mapping natively here:
+    if (actual_l >= 0) {
+        TIM3->CCR3 = actual_l;
+        TIM3->CCR4 = 0;
+    } else {
+        TIM3->CCR3 = 0;
+        TIM3->CCR4 = -actual_l; 
+    }
+
+    if (actual_r >= 0) {
+        TIM4->CCR1 = actual_r;
+        TIM4->CCR2 = 0;
+    } else {
+        TIM4->CCR1 = 0;
+        TIM4->CCR2 = -actual_r;
+    }
+
+    // Only enable the motor driver if there's actual movement requested.
+    // Otherwise, explicitly disable it for safety and to prevent any boot-up glitches.
+    if (left_pwm != 0 || right_pwm != 0) {
+        HAL_GPIO_WritePin(MOTOR_EN_GPIO_Port, MOTOR_EN_Pin, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(MOTOR_EN_GPIO_Port, MOTOR_EN_Pin, GPIO_PIN_RESET);
+    }
+}
+
+const KernelState_t* kernel_get_state(void) {
+    return &current_state;
+}
+
+void kernel_parse_downlink(const char* rx_string) {
+    // Feed the watchdog on any communication
+    watchdog_timer_ms = 0;
+
+    if (rx_string[0] != '{') {
+        snprintf(kernel_error_msg, sizeof(kernel_error_msg), "missing opening brace");
+        return;
+    }
+
+    if (strstr(rx_string, "\"a\":") != NULL) {
+        int pwm_l, pwm_r;
+        // Use standard %d to avoid newlib-nano %hd stripping bugs, and safely check return code
+        if (sscanf(rx_string, "{\"a\":[%d,%d]}", &pwm_l, &pwm_r) == 2) {
+            kernel_set_pwm((int16_t)pwm_l, (int16_t)pwm_r);
+        } else {
+            snprintf(kernel_error_msg, sizeof(kernel_error_msg), "actuator parse failed");
+        }
+    } 
+    else if (strstr(rx_string, "\"c\":") != NULL) {
+        int rate;
+        if (strstr(rx_string, "\"rate\":") != NULL) {
+            if (sscanf(rx_string, "{\"c\":{\"rate\":%d}}", &rate) == 1) {
+                stream_rate_hz = (uint32_t)rate;
+            } else {
+                snprintf(kernel_error_msg, sizeof(kernel_error_msg), "rate parse failed");
+            }
+        }
+        if (strstr(rx_string, "\"sync\":1") != NULL) force_sync = true;
+        if (strstr(rx_string, "\"enc_mode\":\"d\"") != NULL) use_delta_enc = true;
+        if (strstr(rx_string, "\"enc_mode\":\"a\"") != NULL) use_delta_enc = false;
+    }
+    else if (strstr(rx_string, "\"p\":") != NULL) {
+        // Polling ping, handled implicitly
+    }
+    else {
+        snprintf(kernel_error_msg, sizeof(kernel_error_msg), "unknown command");
+    }
+}
+
+uint32_t kernel_get_stream_rate_hz(void) {
+    return stream_rate_hz;
+}
+
+int kernel_generate_uplink(char* tx_buffer, int max_len) {
+    // 1. Snapshot the physical hardware state into our current_state struct before transmitting
+    current_state.tof_l = TOF_left_result.Distance;
+    current_state.tof_c = TOF_centre_result.Distance;
+    current_state.tof_r = TOF_right_result.Distance;
+    current_state.ir_fl = 0; // TODO: Connect to Jesse's IR drivers
+    current_state.ir_fr = 0; 
+    current_state.ir_sl = 0;
+    current_state.ir_sr = 0;
+    current_state.lenc = leftEncoderCount;
+    current_state.renc = rightEncoderCount;
+    current_state.gyro   = IMU_Gyro[2];          // Assuming Z is the yaw axis
+    current_state.v_batt = (float)Vbattery / 1000.0f; 
+    current_state.btn1 = 0;  // TODO: Connect to board tactile button 1
+    current_state.btn2 = 0;  // TODO: Connect to board tactile button 2
+
+    // 2. Generate the JSON string (Absolute or Delta-Shadow based on configuration)
+    int written = snprintf(tx_buffer, max_len, "{");
+    bool first = true;
+    
+    // If there is a pending error message, broadcast it immediately
+    if (kernel_error_msg[0] != '\0') {
+        written += snprintf(tx_buffer + written, max_len - written, "\"err\":\"%s\"", kernel_error_msg);
+        kernel_error_msg[0] = '\0';
+        first = false;
+    }
+
+    if (force_sync) {
+        if (!first) { written += snprintf(tx_buffer + written, max_len - written, ","); }
+        written += snprintf(tx_buffer + written, max_len - written, "\"sync\":1");
+        first = false;
+    }
+
+    for (int i = 0; i < num_telemetry_fields; i++) {
+        const TelemetryField_t* f = &telemetry_table[i];
+        void* curr_ptr = (uint8_t*)&current_state + f->offset;
+        void* shadow_ptr = (uint8_t*)&shadow_state + f->offset;
+
+        // Calculate data size for memory comparison
+        size_t sz = (f->type == VAR_UINT8) ? 1 : ((f->type == VAR_UINT16) ? 2 : 4);
+
+        // Sparse Encoding Check: Skip unchanged fields unless forcing an absolute baseline
+        if (!force_sync && (memcmp(curr_ptr, shadow_ptr, sz) == 0)) {
+            continue; 
+        }
+
+        if (!first) { written += snprintf(tx_buffer + written, max_len - written, ","); }
+        first = false;
+
+        bool do_delta = (use_delta_enc && f->allow_delta && !force_sync);
+        const char* pfx = do_delta ? "+" : "";
+
+        switch(f->type) {
+            case VAR_UINT8:  written += snprintf(tx_buffer+written, max_len-written, "\"%s%s\":%u", pfx, f->name, *(uint8_t*)curr_ptr); break;
+            case VAR_UINT16: written += snprintf(tx_buffer+written, max_len-written, "\"%s%s\":%u", pfx, f->name, *(uint16_t*)curr_ptr); break;
+            case VAR_INT32:  {
+                int32_t val = do_delta ? (*(int32_t*)curr_ptr - *(int32_t*)shadow_ptr) : *(int32_t*)curr_ptr;
+                written += snprintf(tx_buffer+written, max_len-written, "\"%s%s\":%ld", pfx, f->name, val);
+                break; }
+            case VAR_FLOAT_3DP:
+            case VAR_FLOAT_2DP: {
+                float val = *(float*)curr_ptr;
+                int i_part = (int)val, frac_mult = (f->type == VAR_FLOAT_3DP) ? 1000 : 100;
+                int f_part = (int)(val * frac_mult) % frac_mult;
+                if (f_part < 0) f_part = -f_part;
+                const char* fmt = (f->type == VAR_FLOAT_3DP) ? "\"%s\":%s%d.%03d" : "\"%s\":%s%d.%02d";
+                written += snprintf(tx_buffer+written, max_len-written, fmt, f->name, (val < 0 && i_part == 0) ? "-" : "", i_part, f_part);
+                break; }
+        }
+    }
+
+    written += snprintf(tx_buffer + written, max_len - written, "}\r\n");
+        
+    shadow_state = current_state;
+    force_sync = false;
+    
+    return written;
+}
+
+void kernel_watchdog_tick(void) {
+    watchdog_timer_ms++;
+    
+    // Evaluate EXACTLY ONCE at the 1-second mark to eliminate register spam!
+    if (watchdog_timer_ms == 1001) {
+        // Physically disable the motor driver IC for absolute safety
+        HAL_GPIO_WritePin(MOTOR_EN_GPIO_Port, MOTOR_EN_Pin, GPIO_PIN_RESET);
+        
+        current_state.left_pwm = 0;
+        current_state.right_pwm = 0;
+        
+        MOTOR_LS = 0;
+        MOTOR_RS = 0;
+        
+        TIM3->CCR3 = 0;
+        TIM3->CCR4 = 0;
+        TIM4->CCR1 = 0;
+        TIM4->CCR2 = 0;
+    }
+}
+
+void kernel_update_display(void) {
+    // Limit I2C display updates to 2Hz to completely eliminate visible OLED scanline tearing
+    static uint32_t last_display_time = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_display_time < 500) return; 
+    last_display_time = now;
+
+    char buf[32];
+    
+    // 1. The Yellow Zone (Top 16 Pixels)
+    SSD1306_GotoXY(0, 0);
+    SSD1306_Puts("   UCT MOUSE      ", &Font_7x10, SSD1306_COLOR_WHITE);
+
+    // 2. The Blue Zone (Starts at y=16)
+    // We pad with spaces ("%-4d", "   ") to overwrite old characters without needing to Fill(BLACK)
+    SSD1306_GotoXY(0, 16);
+    snprintf(buf, sizeof(buf), "CMD: %-4d  %-4d   ", current_state.left_pwm, current_state.right_pwm);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_GotoXY(0, 28);
+    snprintf(buf, sizeof(buf), "TOF: %-3u %-3u %-3u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_GotoXY(0, 40);
+    int vbatt_int = (int)current_state.v_batt;
+    int vbatt_frac = (int)(current_state.v_batt * 100.0f) % 100;
+    snprintf(buf, sizeof(buf), "BAT: %d.%02d V       ", vbatt_int, vbatt_frac < 0 ? -vbatt_frac : vbatt_frac);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_GotoXY(0, 52);
+    if (watchdog_timer_ms > 1000) {
+        SSD1306_Puts("WDG: CUTOFF       ", &Font_7x10, SSD1306_COLOR_WHITE);
+    } else {
+        snprintf(buf, sizeof(buf), "WDG: %-4lu ms      ", watchdog_timer_ms);
+        SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+    }
+
+    SSD1306_UpdateScreen();
+}

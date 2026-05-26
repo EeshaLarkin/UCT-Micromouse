@@ -1,1 +1,15 @@
+# Build Artifacts
+build/
+*.elf
+*.map
+*.bin
+*.o
+*.obj
+
+# Python Caches
+__pycache__/
+*.pyc
+
+# OS Files
 .DS_Store
+._*

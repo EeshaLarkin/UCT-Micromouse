@@ -1,0 +1,19 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Flash Micromouse",
+            "type": "shell",
+            "command": "st-flash",
+            "args": [
+                "--reset",
+                "write",
+                "${workspaceFolder}/build/YOUR_FIRMWARE_NAME.bin",
+                "0x08000000"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}
+
