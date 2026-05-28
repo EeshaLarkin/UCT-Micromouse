@@ -75,6 +75,14 @@ The system is strictly divided into three distinct layers to preserve the kernel
 
 ---
 
+## 7. Official Repository Structure
+To prevent autograder scripts and simulation engines from leaking into student submissions, the MATLAB repository is strictly divided:
+* **`matlab/models/`**: **The Brain.** Contains strictly student-facing deployment models (`StudentTemplate.slx`, `UCT_KDeploy.slx`) and student utility block libraries (`devel_lib.slx`).
+* **`matlab/simulator/`**: **The Body.** Contains the isolated physical plant engines (`dhaouadi2013_lib.slx`). 
+* **`matlab/autograder/`**: **The Judge.** Contains the unified TCP server, maze matrices, and milestone evaluation scripts.
+
+---
+
 ## 6. Hardware Quirks & Known States
 * **The 72 MHz / 80 MHz Silicon Lottery:** Due to grey-market silicon or missing HSI factory calibration trims in this specific batch of STM32s, some boards successfully achieve the targeted `80 MHz` PLL clock, while identically flashed sister boards cap out at `72 MHz`.
   * **Impact:** A board running at 72 MHz while programmed for 80 MHz will calculate incorrect UART baud dividers (an 11.1% error), causing the Python dashboard to see garbage hex and hang on connection.
