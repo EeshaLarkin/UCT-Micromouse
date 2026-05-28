@@ -36,6 +36,12 @@ file(GLOB_RECURSE MIDDLEWARE_SOURCES "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_D
 file(GLOB_RECURSE PIKA_SOURCES "pikascript/pikascript-api/*.c" "pikascript/pikascript-core/*.c" "pikascript/pikascript-lib/*.c")
 file(GLOB STARTUP_SCRIPT "${TEMPLATE_DIR}/Core/Startup/*.s")
 
+# 3.1 Locate Simulink Autocoded Sources (Exclude ert_main.c to prevent main() collisions)
+file(GLOB SIMULINK_SOURCES "matlab/models/UCT_KDeploy_ert_rtw/*.c")
+if(SIMULINK_SOURCES)
+    list(FILTER SIMULINK_SOURCES EXCLUDE REGEX "ert_main\\.c")
+endif()
+
 # Mute Jesse's application loops so we can supply our own cleanly
 set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/main.c" APPEND PROPERTY COMPILE_DEFINITIONS 
     "main=jesse_legacy_main" 
@@ -53,6 +59,7 @@ add_executable(${EXECUTABLE}
     ${MIDDLEWARE_SOURCES}
     ${STARTUP_SCRIPT}
     ${PIKA_SOURCES}
+    ${SIMULINK_SOURCES}
 )
 
 # 4. Add the required include directories
@@ -70,6 +77,7 @@ target_include_directories(${EXECUTABLE} PRIVATE
     pikascript/pikascript-api
     pikascript/pikascript-core
     pikascript/pikascript-lib
+    matlab/models/UCT_KDeploy_ert_rtw
 )
 
 # 5. STM32 Specific Compiler Definitions

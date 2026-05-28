@@ -37,6 +37,12 @@ extern UART_HandleTypeDef huart1;
 // If it fails (which happens on some Mac versions), this prevents the linker from crashing!
 __attribute__((weak)) const unsigned char pikaModules_py_a[] = "";
 
+// Provide a weak fallback for the Simulink generated step function.
+// If a student compiles a Simulink model, their step function will override this.
+// If they use Python, this does nothing and safely returns.
+__attribute__((weak)) void UCT_KDeploy_initialize(void) {}
+__attribute__((weak)) void UCT_KDeploy_step(void) {}
+
 // -------------------------------------------------------------
 // Route Python print() statements directly to the USB Serial Port
 // -------------------------------------------------------------
@@ -96,6 +102,8 @@ int main(void) {
     // located in pikascript-api/pikaScript.c
     PikaObj *pikaMain = pikaScriptInit();
     
+    // 7. Initialize Simulink Autocoded Logic (if compiled into the firmware)
+    UCT_KDeploy_initialize();
 
     while (1) {
         refreshADCs();
@@ -103,6 +111,13 @@ int main(void) {
         refreshTOFValues();
         refreshIMUValues();
         refreshINA219Values();
+        
+        // 8. Execute Simulink Autocoded Logic
+        // We add a 3-second boot delay to prevent motor startup surges 
+        // from browning out the ST-Link chip during Mac USB enumeration!
+        if (HAL_GetTick() > 3000) {
+            UCT_KDeploy_step();
+        }
 
         kernel_update_display();
         serial_interface_tick();

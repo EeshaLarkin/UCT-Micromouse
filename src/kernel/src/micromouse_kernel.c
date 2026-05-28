@@ -44,6 +44,13 @@ static bool force_sync = false;
 static bool use_delta_enc = false;
 static char kernel_error_msg[64] = "";
 
+// --- Simulink Display Override Buffers ---
+static char g_oled_header[20] = "";
+static char g_oled_line1[20] = "";
+static char g_oled_line2[20] = "";
+static char g_oled_line3[20] = "";
+static char g_oled_line4[20] = "";
+
 // Hardware-specific wiring polarities (1 = normal, -1 = reversed)
 // Standard differential drive usually requires one to be -1. Adjust as needed per physical board.
 #define POLARITY_L 1
@@ -267,6 +274,27 @@ void kernel_watchdog_tick(void) {
     }
 }
 
+void kernel_set_oled_header(const char* text) {
+    if (text) strncpy(g_oled_header, text, sizeof(g_oled_header) - 1);
+    g_oled_header[sizeof(g_oled_header) - 1] = '\0';
+}
+void kernel_set_oled_line1(const char* text) {
+    if (text) strncpy(g_oled_line1, text, sizeof(g_oled_line1) - 1);
+    g_oled_line1[sizeof(g_oled_line1) - 1] = '\0';
+}
+void kernel_set_oled_line2(const char* text) {
+    if (text) strncpy(g_oled_line2, text, sizeof(g_oled_line2) - 1);
+    g_oled_line2[sizeof(g_oled_line2) - 1] = '\0';
+}
+void kernel_set_oled_line3(const char* text) {
+    if (text) strncpy(g_oled_line3, text, sizeof(g_oled_line3) - 1);
+    g_oled_line3[sizeof(g_oled_line3) - 1] = '\0';
+}
+void kernel_set_oled_line4(const char* text) {
+    if (text) strncpy(g_oled_line4, text, sizeof(g_oled_line4) - 1);
+    g_oled_line4[sizeof(g_oled_line4) - 1] = '\0';
+}
+
 void kernel_update_display(void) {
     // Limit I2C display updates to 2Hz to completely eliminate visible OLED scanline tearing
     static uint32_t last_display_time = 0;
@@ -274,34 +302,50 @@ void kernel_update_display(void) {
     if (now - last_display_time < 500) return; 
     last_display_time = now;
 
-    char buf[32];
-    
-    // 1. The Yellow Zone (Top 16 Pixels)
-    SSD1306_GotoXY(0, 0);
-    SSD1306_Puts("   UCT MOUSE      ", &Font_7x10, SSD1306_COLOR_WHITE);
-
-    // 2. The Blue Zone (Starts at y=16)
-    // We pad with spaces ("%-4d", "   ") to overwrite old characters without needing to Fill(BLACK)
-    SSD1306_GotoXY(0, 16);
-    snprintf(buf, sizeof(buf), "CMD: %-4d  %-4d   ", current_state.left_pwm, current_state.right_pwm);
-    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
-
-    SSD1306_GotoXY(0, 28);
-    snprintf(buf, sizeof(buf), "TOF: %-3u %-3u %-3u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
-    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
-
-    SSD1306_GotoXY(0, 40);
-    int vbatt_int = (int)current_state.v_batt;
-    int vbatt_frac = (int)(current_state.v_batt * 100.0f) % 100;
-    snprintf(buf, sizeof(buf), "BAT: %d.%02d V       ", vbatt_int, vbatt_frac < 0 ? -vbatt_frac : vbatt_frac);
-    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
-
-    SSD1306_GotoXY(0, 52);
-    if (watchdog_timer_ms > 1000) {
-        SSD1306_Puts("WDG: CUTOFF       ", &Font_7x10, SSD1306_COLOR_WHITE);
+    // Check if Simulink is providing display data. If so, use it.
+    if (g_oled_header[0] != '\0' || g_oled_line1[0] != '\0' || 
+        g_oled_line2[0] != '\0' || g_oled_line3[0] != '\0' || 
+        g_oled_line4[0] != '\0') {
+        SSD1306_GotoXY(0, 0);
+        SSD1306_Puts(g_oled_header, &Font_7x10, SSD1306_COLOR_WHITE);
+        SSD1306_GotoXY(0, 16);
+        SSD1306_Puts(g_oled_line1, &Font_7x10, SSD1306_COLOR_WHITE);
+        SSD1306_GotoXY(0, 28);
+        SSD1306_Puts(g_oled_line2, &Font_7x10, SSD1306_COLOR_WHITE);
+        SSD1306_GotoXY(0, 40);
+        SSD1306_Puts(g_oled_line3, &Font_7x10, SSD1306_COLOR_WHITE);
+        SSD1306_GotoXY(0, 52);
+        SSD1306_Puts(g_oled_line4, &Font_7x10, SSD1306_COLOR_WHITE);
     } else {
-        snprintf(buf, sizeof(buf), "WDG: %-4lu ms      ", watchdog_timer_ms);
+        char buf[32];
+        
+        // 1. The Yellow Zone (Top 16 Pixels)
+        SSD1306_GotoXY(0, 0);
+        SSD1306_Puts("   UCT MOUSE      ", &Font_7x10, SSD1306_COLOR_WHITE);
+
+        // 2. The Blue Zone (Starts at y=16)
+        // We pad with spaces ("%-4d", "   ") to overwrite old characters without needing to Fill(BLACK)
+        SSD1306_GotoXY(0, 16);
+        snprintf(buf, sizeof(buf), "CMD: %-4d  %-4d   ", current_state.left_pwm, current_state.right_pwm);
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+        SSD1306_GotoXY(0, 28);
+        snprintf(buf, sizeof(buf), "TOF: %-3u %-3u %-3u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
+        SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+        SSD1306_GotoXY(0, 40);
+        int vbatt_int = (int)current_state.v_batt;
+        int vbatt_frac = (int)(current_state.v_batt * 100.0f) % 100;
+        snprintf(buf, sizeof(buf), "BAT: %d.%02d V       ", vbatt_int, vbatt_frac < 0 ? -vbatt_frac : vbatt_frac);
+        SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+        SSD1306_GotoXY(0, 52);
+        if (watchdog_timer_ms > 1000) {
+            SSD1306_Puts("WDG: CUTOFF       ", &Font_7x10, SSD1306_COLOR_WHITE);
+        } else {
+            snprintf(buf, sizeof(buf), "WDG: %-4lu ms      ", watchdog_timer_ms);
+            SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+        }
     }
 
     SSD1306_UpdateScreen();

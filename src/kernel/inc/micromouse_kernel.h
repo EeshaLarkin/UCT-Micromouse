@@ -39,4 +39,11 @@ void kernel_watchdog_tick(void);
 uint32_t kernel_get_stream_rate_hz(void);
 void kernel_update_display(void);
 
+// --- Simulink Display Overrides ---
+void kernel_set_oled_header(const char* text);
+void kernel_set_oled_line1(const char* text);
+void kernel_set_oled_line2(const char* text);
+void kernel_set_oled_line3(const char* text);
+void kernel_set_oled_line4(const char* text);
+
 #endif // MICROMOUSE_KERNEL_H

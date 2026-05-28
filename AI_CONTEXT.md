@@ -40,6 +40,10 @@ The autograder evaluates students based on a single, hardware-agnostic Python sc
 1. **Physical Hardware (PikaScript):** When deployed to the mouse, `import uct_mouse` binds directly to the native C-Kernel registers via `.pyi` stubs and the Rust pre-compiler.
 2. **Autograder (Simulink/PC):** When submitted to the autograder, the student's script runs on the PC alongside a Desktop Mock version of `uct_mouse.py`. This mock wrapper silently intercepts the student's hardware calls (e.g., `mouse.get_tof_l()`) and translates them into TCP JSON requests to the Simulink virtual maze. The student's logic remains completely untouched, evaluating seamlessly against the virtual environment.
 
+### Simulink Desktop Co-Simulation (Native Tether)
+The system also supports native desktop co-simulation directly within MATLAB without requiring a background Python server. 
+When a student clicks "Run" in Simulink, the Embedded Coder compiles the `simulink_wrapper.c` file using the Mac/PC's local compiler. An `#ifndef __arm__` directive routes the C-Caller blocks to a native POSIX USB Serial driver that automatically hijacks the `/dev/cu.usbmodem` port and streams JSON to the physical kernel at 100Hz.
+
 Whether a student submits a standalone Simulink binary, a MicroPython script, or a compiled desktop C process, the autograder launches their code as an independent background task, exchanges packets at 100 Hz in a lock-step query-response loop, and utilizes strict 0.5-second socket timeouts to isolate the grading engine from student logic crashes or infinite loops.
 
 ---
@@ -47,9 +51,10 @@ Whether a student submits a standalone Simulink binary, a MicroPython script, or
 ## 4. Direction Sheet for AI Collaborator
 When instructed to build, reference this exact configuration schema:
 
-1. **Phase 1 (Completed):** Establish the Tier 1 C Kernel Bedrock. This includes the `serial_interface.c` network proxy, OLED stabilization, and physical hardware bug fixes.
-2. **Phase 2 (Active):** Build the Tier 2 Python Abstraction Library. This involves developing the closed-loop control algorithms (e.g., PID tracking, `move_cells()`, `turn_deg()`) using the `micromouse.py` socket proxy.
+1. **Phase 1 (Completed):** Establish the Tier 1 C Kernel Bedrock. This includes the `serial_interface.c` network proxy, OLED display overrides, generic key-value application logging, and physical hardware bug fixes.
+2. **Phase 2 (Completed):** Build the Tier 2 Simulink/Python Abstraction Layer (`simulink_wrapper.c`). Ensure complete polymorphic execution: the exact same Simulink model must compile natively to the STM32 (`Cmd+B`) and run live over USB tether (`Run` button).
 3. **Phase 3 (Upcoming):** Verify Simulink autograder TCP/IP integration and evaluate Tier 3 userland maze-solving scripts.
+4. **Phase 4 (Upcoming):** Implement the hardware timer interrupts (EXTI/TIM) for the wheel encoders in the C-Kernel to close the physical control loop.
 
 ---
 
@@ -60,13 +65,13 @@ The system is strictly divided into three distinct layers to preserve the kernel
 * **Role:** A lean register proxy and JSON-lite network bridge.
 * **Rules:** Strictly "dumb". Contains absolutely no closed-loop tracking, PID controllers, or high-level maneuver commands (like `turn_90`). Operates purely on raw PWM inputs and raw sensor outputs.
 
-### Tier 2: The Control Library / Abstraction Layer (`uct_mouse.py`)
-* **Role:** Provides hardware-agnostic functional abstractions (e.g., `set_pwm()`, `get_tof_l()`).
-* **Rules:** Operates polymorphically. On the physical mouse, it binds natively to C. On the PC (for Desktop Co-Simulation and Autograding), it acts as a proxy, packaging requests into JSON and piping them over Serial/TCP.
+### Tier 2: The Control Library / Abstraction Layer (`simulink_wrapper.c` / `uct_mouse.py`)
+* **Role:** Provides hardware-agnostic functional abstractions (e.g., `simulink_ext_set_motors()`, `simulink_ext_get_tof()`).
+* **Rules:** Operates polymorphically. On the physical mouse, it binds natively to C memory registers (Zero-overhead). On the PC (for Desktop Co-Simulation and Autograding), it acts as a proxy, packaging requests into JSON and piping them over USB Serial.
 
-### Tier 3: The User Application (`main.py` / Simulink Controller)
+### Tier 3: The User Application (`StudentTemplate.slx` / `main.py`)
 * **Role:** The actual maze-solving intelligence.
-* **Rules:** Written entirely using the Tier 2 API. Students test this logic on their laptops against the physical mouse (via Serial tether), then submit the exact same file to the Autograder (which grades it via TCP loopback to Simulink).
+* **Rules:** Written entirely using the Tier 2 API. Students test this logic on their laptops against the physical mouse (via Green Button Serial tether), then deploy it directly to the silicon (`Cmd+B`), or submit the exact same file to the Autograder.
 
 ---
 

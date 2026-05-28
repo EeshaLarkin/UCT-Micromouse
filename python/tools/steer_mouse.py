@@ -1,6 +1,11 @@
 import curses
 import time
 import traceback
+import sys
+import os
+
+# Add the parent 'python' directory to the path so we can import micromouse.py
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from micromouse import Micromouse
 
 def main(stdscr):
