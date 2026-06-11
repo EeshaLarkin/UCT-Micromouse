@@ -31,6 +31,9 @@ set(TEMPLATE_DIR "external/MicroMouseTemplate/MicroMouseProgramming_Code")
 # 3. Dynamically find all source files in Jesse's template
 file(GLOB_RECURSE HAL_SOURCES "${TEMPLATE_DIR}/Drivers/STM32L4xx_HAL_Driver/Src/*.c")
 file(GLOB_RECURSE CORE_SOURCES "${TEMPLATE_DIR}/Core/Src/*.c")
+if(CORE_SOURCES)
+    list(FILTER CORE_SOURCES EXCLUDE REGEX "instrumented/")
+endif()
 file(GLOB_RECURSE USB_SOURCES "${TEMPLATE_DIR}/USB_DEVICE/App/*.c" "${TEMPLATE_DIR}/USB_DEVICE/Target/*.c")
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Src/*.c" "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/*.c")
 file(GLOB_RECURSE PIKA_SOURCES "pikascript/pikascript-api/*.c" "pikascript/pikascript-core/*.c" "pikascript/pikascript-lib/*.c")
@@ -52,7 +55,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/main.c
 
 add_executable(${EXECUTABLE}
     src/main.c
-    src/kernel/src/pika_uct_mouse.c
+    src/kernel/src/uct_mouse_wrapper.c
     ${HAL_SOURCES}
     ${CORE_SOURCES}
     ${USB_SOURCES}
