@@ -351,9 +351,15 @@ if __name__ == "__main__":
                     print("    -> Pushing boot.py (Hybrid Read-Only/Read-Write logic)...")
                     subprocess.run(mpremote_cmd + ["fs", "cp", boot_script, ":boot.py"], check=True)
                 
-                # Mirror the entire target_dir recursively to the root of the flash
-                print(f"    -> Syncing directory contents from {target_dir} ...")
-                subprocess.run(mpremote_cmd + ["fs", "cp", "-r", f"{target_dir}/", ":"], check=True)
+                # Copy all contents of target_dir directly to the flash root
+                print(f"    -> Syncing directory contents from {target_dir} to root ...")
+                for item in os.listdir(target_dir):
+                    item_path = os.path.join(target_dir, item)
+                    # Skip hidden files
+                    if item.startswith('.'):
+                        continue
+                    print(f"    -> Pushing {item}...")
+                    subprocess.run(mpremote_cmd + ["fs", "cp", "-r", item_path, f":{item}"], check=True)
                 deployed_count = "all"
                 
             print(f"Success! {deployed_count} python scripts copied via serial to internal flash.")
