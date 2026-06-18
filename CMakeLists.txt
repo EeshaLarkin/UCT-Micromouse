@@ -23,8 +23,6 @@ project(UCT_Micromouse C CXX ASM)
 add_subdirectory(src/kernel)
 
 # 2. Define the main firmware executable target
-set(EXECUTABLE ${PROJECT_NAME}.elf)
-
 # Path to Jesse's template repository submodule
 set(TEMPLATE_DIR "external/MicroMouseTemplate/MicroMouseProgramming_Code")
 
@@ -36,11 +34,12 @@ if(CORE_SOURCES)
 endif()
 file(GLOB_RECURSE USB_SOURCES "${TEMPLATE_DIR}/USB_DEVICE/App/*.c" "${TEMPLATE_DIR}/USB_DEVICE/Target/*.c")
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Src/*.c" "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/*.c")
-file(GLOB_RECURSE PIKA_SOURCES "pikascript/pikascript-api/*.c" "pikascript/pikascript-core/*.c" "pikascript/pikascript-lib/*.c")
+file(GLOB_RECURSE PIKA_SOURCES "src/pikascript/pikascript-api/*.c" "src/pikascript/pikascript-core/*.c" "src/pikascript/pikascript-lib/*.c")
+list(APPEND PIKA_SOURCES "src/kernel/src/uct_mouse_wrapper.c")
 file(GLOB STARTUP_SCRIPT "${TEMPLATE_DIR}/Core/Startup/*.s")
 
-# 3.1 Locate Simulink Autocoded Sources (Exclude ert_main.c to prevent main() collisions)
-file(GLOB SIMULINK_SOURCES "matlab/models/UCT_KDeploy_ert_rtw/*.c")
+# 3.1 Locate Simulink Autocoded Sources
+file(GLOB SIMULINK_SOURCES "build/UCT_KDeploy_ert_rtw/*.c")
 if(SIMULINK_SOURCES)
     list(FILTER SIMULINK_SOURCES EXCLUDE REGEX "ert_main\\.c")
 endif()
@@ -53,20 +52,17 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/main.c
     "Error_Handler=jesse_legacy_Error_Handler"
 )
 
-add_executable(${EXECUTABLE}
+# Common sources and include paths for both targets
+set(COMMON_SOURCES
     src/main.c
-    src/kernel/src/uct_mouse_wrapper.c
     ${HAL_SOURCES}
     ${CORE_SOURCES}
     ${USB_SOURCES}
     ${MIDDLEWARE_SOURCES}
     ${STARTUP_SCRIPT}
-    ${PIKA_SOURCES}
-    ${SIMULINK_SOURCES}
 )
 
-# 4. Add the required include directories
-target_include_directories(${EXECUTABLE} PRIVATE
+set(COMMON_INCLUDES
     ${TEMPLATE_DIR}/Core/Inc
     ${TEMPLATE_DIR}/USB_DEVICE/App
     ${TEMPLATE_DIR}/USB_DEVICE/Target
@@ -77,42 +73,53 @@ target_include_directories(${EXECUTABLE} PRIVATE
     ${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Inc
     ${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
     src/kernel/inc
-    pikascript/pikascript-api
-    pikascript/pikascript-core
-    pikascript/pikascript-lib
-    matlab/models/UCT_KDeploy_ert_rtw
 )
 
-# 5. STM32 Specific Compiler Definitions
-target_compile_definitions(${EXECUTABLE} PRIVATE 
-    USE_HAL_DRIVER 
-    STM32L476xx
-)
-
-# 6. Linker Configuration (Hardware Memory Map & Syscalls)
 set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/STM32L476VETX_FLASH.ld")
-
-target_link_options(${EXECUTABLE} PRIVATE
+set(COMMON_LINK_OPTIONS
     -T${LINKER_SCRIPT}
     -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
     -specs=nosys.specs
-    -Wl,-Map=${PROJECT_NAME}.map
     -Wl,--gc-sections
 )
 
-# 7. Link our proxy kernel and the standard Math library (required for Python) to the final executable
-target_link_libraries(${EXECUTABLE} PRIVATE uct_kernel m)
+# --- TARGET 1: PikaScript Firmware ---
+add_executable(pikascript_firmware ${COMMON_SOURCES} ${PIKA_SOURCES})
+target_compile_definitions(pikascript_firmware PRIVATE USE_HAL_DRIVER STM32L476xx COMPILING_FOR_PIKASCRIPT)
+target_include_directories(pikascript_firmware PRIVATE ${COMMON_INCLUDES} src/pikascript/pikascript-api src/pikascript/pikascript-core src/pikascript/pikascript-lib)
+target_link_options(pikascript_firmware PRIVATE ${COMMON_LINK_OPTIONS} -Wl,-Map=pikascript_firmware.map)
+target_link_libraries(pikascript_firmware PRIVATE uct_kernel m)
 
-# 8. Post-build generation of the flashable .bin file
-add_custom_command(TARGET ${EXECUTABLE} POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} -O binary ${EXECUTABLE} ${PROJECT_NAME}.bin
-    COMMAND ${CMAKE_SIZE} ${EXECUTABLE}
-    COMMENT "Building ${PROJECT_NAME}.bin and printing firmware footprint..."
+# Post-build bin generation for PikaScript
+add_custom_command(TARGET pikascript_firmware POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary pikascript_firmware pikascript_firmware.bin
+    COMMAND ${CMAKE_SIZE} pikascript_firmware
+    COMMENT "Building pikascript_firmware.bin and printing footprint..."
 )
 
-# 9. Flash and auto-reset target
-add_custom_target(flash
-    COMMAND st-flash --reset write ${PROJECT_NAME}.bin 0x08000000
-    DEPENDS ${EXECUTABLE}
-    COMMENT "Flashing firmware and automatically resetting board..."
+# --- TARGET 2: Simulink Firmware ---
+add_executable(simulink_firmware ${COMMON_SOURCES} ${SIMULINK_SOURCES})
+target_compile_definitions(simulink_firmware PRIVATE USE_HAL_DRIVER STM32L476xx COMPILING_FOR_SIMULINK)
+target_include_directories(simulink_firmware PRIVATE ${COMMON_INCLUDES} build/UCT_KDeploy_ert_rtw)
+target_link_options(simulink_firmware PRIVATE ${COMMON_LINK_OPTIONS} -Wl,-Map=simulink_firmware.map)
+target_link_libraries(simulink_firmware PRIVATE uct_kernel m)
+
+# Post-build bin generation for Simulink
+add_custom_command(TARGET simulink_firmware POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary simulink_firmware simulink_firmware.bin
+    COMMAND ${CMAKE_SIZE} simulink_firmware
+    COMMENT "Building simulink_firmware.bin and printing footprint..."
+)
+
+# --- Custom Flash Targets ---
+add_custom_target(flash_pika
+    COMMAND st-flash --reset write pikascript_firmware.bin 0x08000000
+    DEPENDS pikascript_firmware
+    COMMENT "Flashing PikaScript firmware and automatically resetting board..."
+)
+
+add_custom_target(flash_simulink
+    COMMAND st-flash --reset write simulink_firmware.bin 0x08000000
+    DEPENDS simulink_firmware
+    COMMENT "Flashing Simulink firmware and automatically resetting board..."
 )

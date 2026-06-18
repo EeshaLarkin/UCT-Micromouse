@@ -1,0 +1,8 @@
+{
+  "backend": "python",
+  "auto_start": true,
+  "map": "random",
+  "imbalance": 0.08,
+  "slip": 0.02,
+  "video": "milestone2_run.mp4"
+}

@@ -1,0 +1,8 @@
+-I/Users/nicolls/proj/eee3097s/2026/UCT-Micromouse
+-I/Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/UCT_KDeploy_ert_rtw/instrumented
+-I/Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/kernel/inc
+-I/Applications/MATLAB_R2025b.app/extern/include
+-I/Applications/MATLAB_R2025b.app/simulink/include
+-I/Applications/MATLAB_R2025b.app/rtw/c/src
+-I/Applications/MATLAB_R2025b.app/rtw/c/src/ext_mode/common
+-I/Applications/MATLAB_R2025b.app/rtw/c/ert

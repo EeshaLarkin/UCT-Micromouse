@@ -50,11 +50,18 @@ static char g_oled_line1[20] = "";
 static char g_oled_line2[20] = "";
 static char g_oled_line3[20] = "";
 static char g_oled_line4[20] = "";
+#if defined(COMPILING_FOR_MICROPYTHON)
+static char kernel_title[20] = "   MicroPython    ";
+#elif defined(COMPILING_FOR_PIKASCRIPT)
+static char kernel_title[20] = "   PikaScript     ";
+#else
+static char kernel_title[20] = "   Simulink       ";
+#endif
 
 // Hardware-specific wiring polarities (1 = normal, -1 = reversed)
 // Standard differential drive usually requires one to be -1. Adjust as needed per physical board.
-#define POLARITY_L 1
-#define POLARITY_R 1 
+static volatile int16_t polarity_l = 1;
+static volatile int16_t polarity_r = 1;
 
 // -------------------------------------------------------------
 // Telemetry Configuration Table
@@ -90,8 +97,8 @@ void kernel_init(void) {
 
 void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
     // Apply hardware-specific wiring polarities
-    int16_t actual_l = left_pwm * POLARITY_L;
-    int16_t actual_r = right_pwm * POLARITY_R;
+    int16_t actual_l = left_pwm * polarity_l;
+    int16_t actual_r = right_pwm * polarity_r;
 
     current_state.left_pwm = left_pwm;   // Report the original INTENT back to telemetry
     current_state.right_pwm = right_pwm; 
@@ -174,8 +181,7 @@ uint32_t kernel_get_stream_rate_hz(void) {
     return stream_rate_hz;
 }
 
-int kernel_generate_uplink(char* tx_buffer, int max_len) {
-    // 1. Snapshot the physical hardware state into our current_state struct before transmitting
+void kernel_snapshot_state(void) {
     current_state.tof_l = TOF_left_result.Distance;
     current_state.tof_c = TOF_centre_result.Distance;
     current_state.tof_r = TOF_right_result.Distance;
@@ -189,6 +195,11 @@ int kernel_generate_uplink(char* tx_buffer, int max_len) {
     current_state.v_batt = (float)Vbattery / 1000.0f; 
     current_state.btn1 = 0;  // TODO: Connect to board tactile button 1
     current_state.btn2 = 0;  // TODO: Connect to board tactile button 2
+}
+
+int kernel_generate_uplink(char* tx_buffer, int max_len) {
+    // 1. Snapshot the physical hardware state into our current_state struct before transmitting
+    kernel_snapshot_state();
 
     // 2. Generate the JSON string (Absolute or Delta-Shadow based on configuration)
     int written = snprintf(tx_buffer, max_len, "{");
@@ -274,6 +285,11 @@ void kernel_watchdog_tick(void) {
     }
 }
 
+void kernel_set_title(const char* title) {
+    if (title) strncpy(kernel_title, title, sizeof(kernel_title) - 1);
+    kernel_title[sizeof(kernel_title) - 1] = '\0';
+}
+
 void kernel_set_oled_header(const char* text) {
     if (text) strncpy(g_oled_header, text, sizeof(g_oled_header) - 1);
     g_oled_header[sizeof(g_oled_header) - 1] = '\0';
@@ -321,7 +337,7 @@ void kernel_update_display(void) {
         
         // 1. The Yellow Zone (Top 16 Pixels)
         SSD1306_GotoXY(0, 0);
-        SSD1306_Puts("   UCT MOUSE      ", &Font_7x10, SSD1306_COLOR_WHITE);
+        SSD1306_Puts(kernel_title, &Font_7x10, SSD1306_COLOR_WHITE);
 
         // 2. The Blue Zone (Starts at y=16)
         // We pad with spaces ("%-4d", "   ") to overwrite old characters without needing to Fill(BLACK)
@@ -349,4 +365,9 @@ void kernel_update_display(void) {
     }
 
     SSD1306_UpdateScreen();
+}
+
+void kernel_set_polarity(int16_t left, int16_t right) {
+    polarity_l = left;
+    polarity_r = right;
 }

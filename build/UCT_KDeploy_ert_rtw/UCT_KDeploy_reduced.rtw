@@ -1,0 +1,438 @@
+CompiledModel {
+  Name			  "UCT_KDeploy"
+  OrigName		  "UCT_KDeploy"
+  PrmModelName		  SLDataModelName(UCT_KDeploy)
+  IsPreCodeGenPhase	  1
+  ModelReferenceTargetType "NONE"
+  DataTypes {
+    DataTypeDefaults {
+      RecordType	      "DataType"
+    }
+    ElementsDefaults {
+      RecordType	      "DataTypeElements"
+    }
+    NumDataTypes	    19
+    DataType {
+      Id		      0
+      RecordIdx		      [0]
+    }
+    DataType {
+      Id		      1
+      RecordIdx		      [1]
+    }
+    DataType {
+      Id		      2
+      RecordIdx		      [2]
+    }
+    DataType {
+      Id		      3
+      RecordIdx		      [3]
+    }
+    DataType {
+      Id		      4
+      RecordIdx		      [4]
+    }
+    DataType {
+      Id		      5
+      RecordIdx		      [5]
+    }
+    DataType {
+      Id		      6
+      RecordIdx		      [6]
+    }
+    DataType {
+      Id		      7
+      RecordIdx		      [7]
+    }
+    DataType {
+      Id		      8
+      RecordIdx		      [8]
+    }
+    DataType {
+      Id		      9
+      RecordIdx		      [9]
+    }
+    DataType {
+      Id		      10
+      RecordIdx		      [10]
+    }
+    DataType {
+      Id		      11
+      RecordIdx		      [11]
+    }
+    DataType {
+      Id		      12
+      RecordIdx		      [12]
+    }
+    DataType {
+      Id		      13
+      RecordIdx		      [13]
+    }
+    DataType {
+      Id		      14
+      RecordIdx		      [14]
+    }
+    DataType {
+      Id		      15
+      RecordIdx		      [15]
+    }
+    DataType {
+      Id		      16
+      RecordIdx		      [16]
+    }
+    DataType {
+      Id		      17
+      RecordIdx		      [17]
+    }
+    DataType {
+      Id		      18
+      RecordIdx		      [18]
+    }
+  }
+  Solver		  FixedStepDiscrete
+  SolverType		  FixedStep
+  StartTime		  0.0
+  StopTime		  rtInf
+  Subsystem {
+    Name		    "<Root>/Subsystem Reference"
+  }
+  Subsystem {
+    Name		    "<S1>/Compare To Constant"
+    SLName		    "<S1>/Compare\nTo Constant"
+  }
+  ExprCommentInfoDefaults {
+    SysIdxList		    []
+    BlkIdxList		    []
+    PortIdxList		    []
+  }
+  ExprCommentSrcIdxDefaults {
+    SysIdx		    -1
+    BlkIdx		    -1
+    PortIdx		    -1
+  }
+  BlockDefaults {
+    UserDefinedRWork	    0
+    UserDefinedIWork	    0
+    UserDefinedPWork	    0
+    NumRWorkDefines	    -1
+    NumIWorkDefines	    -1
+    NumPWorkDefines	    -1
+    RecordType		    "Block"
+    InMask		    no
+    ExecuteBlockFcns	    1
+    UseTLC		    0
+    AccessesDataThatPreservesDims 0
+    DeletedInIR		    0
+    AlgebraicLoopId	    0
+    PortBasedSampleTimes    no
+    ContStates		    [0,0,0]
+    ModeVector		    [0,-1]
+    RWork		    [0,-1]
+    IWork		    [0,-1]
+    PWork		    [0,-1]
+    DiscStates		    [0,-1]
+    MassMatrixPr	    [0,-1]
+    NumDWork		    0
+    NumNonsampledZCs	    0
+    ZCEvents		    [0,0]
+    NumBlkZcRecs	    0
+    RollRegions		    []
+    RollRegionTypes	    []
+    NumDataInputPorts	    0
+    NumControlInputPorts    0
+    NumDataOutputPorts	    1
+    Parameters		    [0,0]
+    NumParameterGroups	    0
+    Description		    []
+    PolySpaceStartComment   []
+    PolySpaceEndComment	    []
+    ReducedBlocksConnected  []
+    HaveBlockComment	    0
+    InFixptMode		    0
+    GrSrc		    [-1, -1]
+    NeedOutputsFcnInMdlStart 0
+    AsyncSfcn		    0
+    TriggeredBlockConstantSampleTimePorts []
+    HasSymbolicDims	    0
+    OutputBlockFcnIdx	    -1
+    HasLocalSolver	    no
+    LocalSolverInputCompensationMode 0
+    LocalSolverOutputCompensationMode 0
+  }
+  NumSystems		  3
+  tSS_LONG		  -2147483648
+  tSS_ULONG		  -2147483645
+  tSS_LONG_LONG		  -2147483644
+  tSS_ULONG_LONG	  -2147483643
+  tSS_VOID		  -2147483647
+  tSS_SIZET		  -2147483646
+  tSS_UINTEGER		  -2147483642
+  tSS_CHAR		  -2147483641
+  tSS_UCHAR		  -2147483640
+  tSS_TIME		  -2147483639
+  tSS_DOUBLE		  0
+  tSS_SINGLE		  1
+  tSS_INT8		  2
+  tSS_UINT8		  3
+  tSS_INT16		  4
+  tSS_UINT16		  5
+  tSS_INT32		  6
+  tSS_UINT32		  7
+  tSS_BOOLEAN		  8
+  tSS_FCN_CALL		  9
+  tSS_INTEGER		  10
+  tSS_POINTER		  11
+  tSS_ACTION		  12
+  tSS_TIMER_UINT32_PAIR	  13
+  tSS_INVALID_DATA_TYPE_ID -10
+  BlockHierarchyMap {
+    Subsystem {
+      Name		      "<Root>"
+      Block {
+	Name			"<Root>/Subsystem Reference"
+      }
+      Block {
+	Name			"<Root>/Data Type Conversion"
+      }
+      Block {
+	Name			"<Root>/Data Type Conversion1"
+      }
+      Block {
+	Name			"<Root>/Data Type Conversion3"
+      }
+      Block {
+	Name			"<Root>/C Caller"
+      }
+      Block {
+	Name			"<Root>/C Caller1"
+      }
+      Block {
+	Name			"<Root>/C Caller10"
+      }
+      Block {
+	Name			"<Root>/C Caller11"
+      }
+      Block {
+	Name			"<Root>/C Caller12"
+      }
+      Block {
+	Name			"<Root>/C Caller13"
+      }
+      Block {
+	Name			"<Root>/C Caller14"
+      }
+      Block {
+	Name			"<Root>/C Caller15"
+      }
+      Block {
+	Name			"<Root>/C Caller2"
+      }
+      Block {
+	Name			"<Root>/C Caller3"
+      }
+      Block {
+	Name			"<Root>/C Caller4"
+      }
+      Block {
+	Name			"<Root>/C Caller5"
+      }
+      Block {
+	Name			"<Root>/C Caller6"
+      }
+      Block {
+	Name			"<Root>/C Caller7"
+      }
+      Block {
+	Name			"<Root>/C Caller8"
+      }
+      Block {
+	Name			"<Root>/C Caller9"
+      }
+    }
+    Subsystem {
+      Name		      "<Root>/Subsystem Reference"
+      Block {
+	Name			"<S1>/Compare To Constant"
+      }
+      Block {
+	Name			"<S1>/Constant"
+      }
+      Block {
+	Name			"<S1>/Constant1"
+      }
+      Block {
+	Name			"<S1>/Data Type Conversion"
+      }
+      Block {
+	Name			"<S1>/Switch"
+      }
+      Block {
+	Name			"<S1>/Compose String"
+      }
+    }
+    Subsystem {
+      Name		      "<S1>/Compare\nTo Constant"
+      Block {
+	Name			"<S2>/Constant"
+      }
+      Block {
+	Name			"<S2>/Compare"
+      }
+    }
+  }
+  DWorkDefaults {
+    RecordType		    "BlockDWork"
+  }
+  ParameterDefaults {
+    RecordType		    "BlockParameter"
+    Tunable		    yes
+  }
+  DataInputPortDefaults {
+    RecordType		    "DataInputPort"
+  }
+  DataOutputPortDefaults {
+    RecordType		    "DataOutputPort"
+  }
+  SampleTimeDefaults {
+    NonInlinedModelWideEvent -1
+  }
+  SampleTime {
+    TID			    0
+  }
+  ModelIsLinearlyImplicit no
+  GenUtilsSrcInSharedLocation 0
+  System {
+    SystemIdx		    0
+    Name		    "<S1>/TmpAtomicSubsysAtSwitchInport1"
+    Type		    "atomic"
+    FileNameOwnerIdx	    2
+    SystemNamespaceFlag	    0
+    NumBlocks		    1
+    Block {
+      Type		      Constant
+      Name		      "<S1>/Constant"
+      RecordType	      "CompiledBlock"
+      RecordIdx		      [0, 0]
+      BlockIdx		      [0, 0, 0]
+      TID		      0
+      PID		      -1
+      firstEntryOfTsMapIsGCD  yes
+      ExecuteBlockFcns	      0
+      NumDataInputPorts	      0
+      NumDataOutputPorts      1
+      DataOutputPort {
+	RecordIdx		[0, 0, 0]
+      }
+      NumDWork		      0
+      Parameters	      [1]
+      Parameter {
+	BlockParamIdx		0
+	Name			"Value"
+	RecordIdx		[0, 0, 0]
+	Value			[30.0]
+	String			"30"
+      }
+      Value		      Parameter[0]
+    }
+  }
+  System {
+    SystemIdx		    1
+    Name		    "<S1>/TmpAtomicSubsysAtSwitchInport3"
+    Type		    "atomic"
+    FileNameOwnerIdx	    2
+    SystemNamespaceFlag	    0
+    NumBlocks		    1
+    Block {
+      Type		      Constant
+      Name		      "<S1>/Constant1"
+      RecordType	      "CompiledBlock"
+      RecordIdx		      [1, 0]
+      BlockIdx		      [1, 1, 0]
+      TID		      0
+      PID		      -1
+      firstEntryOfTsMapIsGCD  yes
+      ExecuteBlockFcns	      0
+      NumDataInputPorts	      0
+      NumDataOutputPorts      1
+      DataOutputPort {
+	RecordIdx		[1, 0, 0]
+      }
+      NumDWork		      0
+      Parameters	      [1]
+      Parameter {
+	BlockParamIdx		0
+	Name			"Value"
+	RecordIdx		[1, 0, 0]
+	Value			[0.0]
+	String			"0"
+      }
+      Value		      Parameter[0]
+    }
+  }
+  System {
+    SystemIdx		    2
+    Name		    "<Root>"
+    Type		    "root"
+    FileNameOwnerIdx	    2
+    SystemNamespaceFlag	    0
+    NumBlocks		    3
+    Block {
+      Type		      Constant
+      Name		      "<S2>/Constant"
+      RecordType	      "CompiledBlock"
+      RecordIdx		      [2, 0]
+      BlockIdx		      [2, 2, 0]
+      TID		      0
+      PID		      -1
+      firstEntryOfTsMapIsGCD  yes
+      ExecuteBlockFcns	      0
+      NumDataInputPorts	      0
+      NumDataOutputPorts      1
+      DataOutputPort {
+	RecordIdx		[2, 0, 0]
+      }
+      NumDWork		      0
+      Parameters	      [1]
+      Parameter {
+	BlockParamIdx		0
+	Name			"Value"
+	RecordIdx		[2, 0, 0]
+	Value			[100.0F]
+	String			"const"
+      }
+      Value		      Parameter[0]
+    }
+    Block {
+      Type		      SubSystem
+      Name		      "<S1>/TmpAtomicSubsysAtSwitchInport1"
+      RecordType	      "CompiledBlock"
+      RecordIdx		      [2, 1]
+      BlockIdx		      [2, 0, 1]
+      TID		      Subsystem
+      SubsystemTID	      0
+      PID		      0
+      firstEntryOfTsMapIsGCD  yes
+      ExecuteBlockFcns	      0
+      NumDataInputPorts	      0
+      NumDataOutputPorts      0
+      NumDWork		      0
+      Parameters	      [0]
+    }
+    Block {
+      Type		      SubSystem
+      Name		      "<S1>/TmpAtomicSubsysAtSwitchInport3"
+      RecordType	      "CompiledBlock"
+      RecordIdx		      [2, 2]
+      BlockIdx		      [2, 1, 2]
+      TID		      Subsystem
+      SubsystemTID	      0
+      PID		      0
+      firstEntryOfTsMapIsGCD  yes
+      ExecuteBlockFcns	      0
+      NumDataInputPorts	      0
+      NumDataOutputPorts      0
+      NumDWork		      0
+      Parameters	      [0]
+    }
+  }
+}

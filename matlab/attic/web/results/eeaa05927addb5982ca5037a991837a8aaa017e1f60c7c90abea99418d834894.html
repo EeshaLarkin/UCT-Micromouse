@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Gradescope Autograder Validation Report</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #e2e8f0; margin: 40px; }
+.container { max-width: 700px; margin: auto; background-color: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); border: 1px solid #334155; }
+.header { text-align: center; border-bottom: 2px solid #334155; padding-bottom: 20px; }
+.score { font-size: 48px; font-weight: bold; color: #10b981; margin: 20px 0; }
+.crashed { color: #ef4444; }
+.validation-block { border: 2px solid #0284c7; background-color: #0c4a6e; padding: 20px; border-radius: 8px; margin: 30px 0; }
+.validation-block table { width: 100%; border-collapse: collapse; }
+.validation-block td { padding: 8px; font-size: 14px; }
+.validation-block td.label { font-weight: bold; color: #38bdf8; width: 150px; }
+.plot-container { text-align: center; margin-top: 30px; padding: 15px; background-color: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+.error-msg { background-color: #7f1d1d; border: 1px solid #b91c1c; padding: 15px; border-radius: 6px; font-family: monospace; color: #fecaca; text-align: left; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1 style="margin: 0; color: #38bdf8;">UCT Micromouse Validation Report</h1>
+    <p style="color: #94a3b8; margin: 5px 0 0 0;">Automated Autograder Outcomes</p>
+  </div>
+  <div class="validation-block">
+    <h2 style="color: #38bdf8; margin: 0 0 15px 0; font-size: 18px; text-transform: uppercase; letter-spacing: 0.05em;">Gradescope Verification Block</h2>
+    <table>
+      <tr><td class="label">Student ID:</td><td>STUDENT002</td></tr>
+      <tr><td class="label">Grading Time:</td><td>12-Jun-2026 11:32:10</td></tr>
+      <tr><td class="label">Submission Track:</td><td>Simulink Track</td></tr>
+      <tr><td class="label">Run Status:</td><td style="font-weight: bold;">Port Error</td></tr>
+      <tr><td class="label">Final Score:</td><td style="font-size: 20px; font-weight: bold; color: #34d399;">0.0%</td></tr>
+      <tr><td class="label">File Hash:</td><td style="font-family: monospace; font-size: 11px;">b3c463e9bde1e55191d48b816176563fec686682e65e424f9ab4de079abe54c1</td></tr>
+      <tr><td class="label">Verification Hash:</td><td style="font-family: monospace; font-size: 11px; color: #a5f3fc; font-weight: bold;">eeaa05927addb5982ca5037a991837a8aaa017e1f60c7c90abea99418d834894</td></tr>
+    </table>
+  </div>
+  <h3 style="color: #ef4444;">Simulation Execution Error</h3>
+  <div class="error-msg">Missing expected Input port: "TOF_FRONT"</div>
+</div>
+</body>
+</html>

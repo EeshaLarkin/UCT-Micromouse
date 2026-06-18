@@ -1,0 +1,158 @@
+%implements s2_b0_j31qi_Outputs "C"
+
+%function Outputs(block, system) Output
+%assign cfgTxt = ""
+%openfile cfgTxt
+%assign localVarDecl = ""
+%openfile localVarDecl
+
+real_T rtb_Switch;
+int32_T rtb_CCaller10_o2;
+int32_T rtb_DataTypeConversion3;
+real32_T rtb_CCaller_o1;
+real32_T rtb_CCaller_o2;
+real32_T rtb_CCaller_o3;
+real32_T rtb_CCaller_o4;
+real32_T rtb_CCaller_o5;
+int16_T tmp_0;
+uint16_T rtb_CCaller8_o1;
+uint16_T rtb_CCaller8_o2;
+uint16_T rtb_CCaller8_o3;
+uint16_T rtb_CCaller8_o4;
+char_T rtb_ComposeString[256];
+char_T tmp[256];
+uint8_T rtb_CCaller7_o1;
+uint8_T rtb_CCaller7_o2;
+%closefile localVarDecl
+/* {S!d2}CCaller: '<Root>/C Caller3' */
+/*@[1*/
+/*@>3dd9*/simulink_ext_get_tof(&/*@>41f4*/UCT_KDeploy_B./*@>47b5*/CCaller3_o1, &/*@>41fa*/UCT_KDeploy_B./*@>47b8*/CCaller3_o2, &/*@>4200*/UCT_KDeploy_B./*@>47bb*/CCaller3_o3);
+/*@]*/
+/* {S!d4}DataTypeConversion: '<Root>/Data Type Conversion3' */
+/*@>25e5*/rtb_DataTypeConversion3/*@>35e*/ = /*@>4206*/UCT_KDeploy_B./*@>47be*/CCaller3_o2;
+/* {S!d6}ComposeString: '<S1>/Compose String' incorporates:
+ *  DataTypeConversion: '<S1>/Data Type Conversion'
+ */
+/*@[2*/
+/*@[3*/
+/*@>25f1*/rtb_CCaller10_o2 = /*@>3ddd*/snprintf(&/*@>3d17*/tmp/*@>3d19*/[/*@>3d16*/0], /*@>25ef*/256U, /*@>4698*/"%<TLC_STR_CTX(0)>", /*@>2c30*/(int32_T)/*@>3ddb*/fmodf(/*@>2c2f*/(real32_T)/*@>2a34*/rtb_DataTypeConversion3, /*@>2a35*/4.2949673E+9F));
+/*@]*/
+/*@]*/
+/*@[4*/
+strncpy(&/*@>3d21*/rtb_ComposeString/*@>3d23*/[/*@>3d20*/0], &/*@>261b*/tmp/*@>2125*/[/*@>261d*/0], 255U);
+/*@]*/
+/*@>260c*/rtb_ComposeString[255] = '\x00';
+/* {S!d8}CCaller: '<Root>/C Caller14' */
+/*@[5*/
+/*@>3de1*/simulink_ext_set_oled_line3(&rtb_ComposeString[0U]);
+/*@]*/
+/* {S!d10}Switch: '<S1>/Switch' incorporates:
+ *  Constant: '<S1>/Constant'
+ *  Constant: '<S1>/Constant1'
+ *  Constant: '<S2>/Constant'
+ *  RelationalOperator: '<S2>/Compare'
+ */
+/*@>2af8*/if (/*@>25fc*/rtb_DataTypeConversion3/*@>13f0*/ > /*@>4211*/UCT_KDeploy_P./*@>47c1*/CompareToConstant_const) {
+    /*@>2afc*/rtb_Switch/*@>2afb*/ = /*@>4217*/UCT_KDeploy_P./*@>47c4*/Constant_Value;
+} else {
+    /*@>2634*/rtb_Switch/*@>23e9*/ = /*@>421d*/UCT_KDeploy_P./*@>47c7*/Constant1_Value;
+}
+/* {E!d10}End of Switch: '<S1>/Switch' */
+
+/* {S!d12}DataTypeConversion: '<Root>/Data Type Conversion' */
+/*@[6*/
+/*@[7*/
+/*@>2663*/rtb_Switch/*@>2665*/ = /*@>3de5*/fmod(/*@>3de3*/floor(/*@>2600*/rtb_Switch), /*@>2654*/65536.0);
+/*@]*/
+/*@]*/
+/* {S!d14}CCaller: '<Root>/C Caller2' incorporates:
+ *  DataTypeConversion: '<Root>/Data Type Conversion'
+ */
+/*@>32ad*/tmp_0/*@>32af*/ = /*@>2c45*/(int16_T)(/*@>266b*/rtb_Switch/*@>266f*/ < /*@>266e*/0.0/*@>266f*/ ? (int32_T)/*@>2681*/(int16_T)-/*@<2680*//*@>2675*/(int16_T)/*@>2683*/(uint16_T)-/*@<2673*//*@>2670*/rtb_Switch : (int32_T)/*@>267b*/(int16_T)/*@>2686*/(uint16_T)/*@>2677*/rtb_Switch);
+/*@[8*/
+/*@>3de7*/simulink_ext_set_motors(/*@>32b1*/tmp_0, tmp_0);
+/*@]*/
+/* {S!d16}CCaller: '<Root>/C Caller' */
+/*@>258a*/rtb_CCaller_o1/*@>571*/ = /*@>261e*/0.0F;
+/*@>258e*/rtb_CCaller_o2/*@>57a*/ = /*@>261f*/0.0F;
+/*@>2592*/rtb_CCaller_o3/*@>583*/ = /*@>2620*/0.0F;
+/*@>2596*/rtb_CCaller_o4/*@>58c*/ = /*@>2621*/0.0F;
+/*@>259a*/rtb_CCaller_o5/*@>595*/ = /*@>2622*/0.0F;
+/*@[9*/
+/*@>3de9*/simulink_ext_get_pwr_meter(&/*@>258c*/rtb_CCaller_o1, &/*@>2590*/rtb_CCaller_o2, &/*@>2594*/rtb_CCaller_o3, &/*@>2598*/rtb_CCaller_o4, &/*@>259c*/rtb_CCaller_o5);
+/*@]*/
+/* {S!d18}CCaller: '<Root>/C Caller10' */
+/*@>259f*/rtb_DataTypeConversion3/*@>5aa*/ = /*@>46c0*/0;
+/*@>25a3*/rtb_CCaller10_o2/*@>5b3*/ = /*@>46c3*/0;
+/*@[a*/
+/*@>3deb*/simulink_ext_get_encoders(&/*@>25a1*/rtb_DataTypeConversion3, &/*@>25a5*/rtb_CCaller10_o2);
+/*@]*/
+/* {S!d20}CCaller: '<Root>/C Caller4' */
+/*@>25a8*/rtb_CCaller_o1/*@>5c5*/ = /*@>2625*/0.0F;
+/*@>25ac*/rtb_CCaller_o2/*@>5ce*/ = /*@>2626*/0.0F;
+/*@>25b0*/rtb_CCaller_o3/*@>5d7*/ = /*@>2627*/0.0F;
+/*@[b*/
+/*@>3ded*/simulink_ext_get_gyro_xyz(&/*@>25aa*/rtb_CCaller_o1, &/*@>25ae*/rtb_CCaller_o2, &/*@>25b2*/rtb_CCaller_o3);
+/*@]*/
+/* {S!d22}CCaller: '<Root>/C Caller5' */
+/*@>25b5*/rtb_CCaller_o1/*@>5ea*/ = /*@>2628*/0.0F;
+/*@>25b9*/rtb_CCaller_o2/*@>5f3*/ = /*@>2629*/0.0F;
+/*@>25bd*/rtb_CCaller_o3/*@>5fc*/ = /*@>262a*/0.0F;
+/*@[c*/
+/*@>3def*/simulink_ext_get_accel_xyz(&/*@>25b7*/rtb_CCaller_o1, &/*@>25bb*/rtb_CCaller_o2, &/*@>25bf*/rtb_CCaller_o3);
+/*@]*/
+/* {S!d24}CCaller: '<Root>/C Caller6' */
+/*@[d*/
+/*@>3df1*/simulink_ext_get_imu_temp();
+/*@]*/
+/* {S!d26}CCaller: '<Root>/C Caller7' */
+/*@>25c3*/rtb_CCaller7_o1/*@>615*/ = /*@>46c6*/0U;
+/*@>25c7*/rtb_CCaller7_o2/*@>61e*/ = /*@>46c9*/0U;
+/*@[e*/
+/*@>3df3*/simulink_ext_get_switches(&/*@>25c5*/rtb_CCaller7_o1, &/*@>25c9*/rtb_CCaller7_o2);
+/*@]*/
+/* {S!d28}CCaller: '<Root>/C Caller8' */
+/*@>25cc*/rtb_CCaller8_o1/*@>630*/ = /*@>46cc*/0U;
+/*@>25d0*/rtb_CCaller8_o2/*@>639*/ = /*@>46cf*/0U;
+/*@>25d4*/rtb_CCaller8_o3/*@>642*/ = /*@>46d2*/0U;
+/*@>25d8*/rtb_CCaller8_o4/*@>64b*/ = /*@>46d5*/0U;
+/*@[f*/
+/*@>3df5*/simulink_ext_get_line_sensors(&/*@>25ce*/rtb_CCaller8_o1, &/*@>25d2*/rtb_CCaller8_o2, &/*@>25d6*/rtb_CCaller8_o3, &/*@>25da*/rtb_CCaller8_o4);
+/*@]*/
+/* {S!d30}CCaller: '<Root>/C Caller9' */
+/*@[10*/
+/*@>3df7*/simulink_ext_get_vbatt();
+/*@]*/
+/* {S!d32}CCaller: '<Root>/C Caller1' */
+/*@[11*/
+/*@>3df9*/simulink_ext_set_leds(/*@>46d8*/0U, /*@>46db*/0U, /*@>46de*/0U);
+/*@]*/
+/* {S!d34}CCaller: '<Root>/C Caller11' */
+/*@[12*/
+/*@>3dfb*/simulink_ext_set_oled_header((const char_T *)%<(SLibCG_GrndAddr(0, 18, 256, "", -1, "", 0))>);
+/*@]*/
+/* {S!d36}CCaller: '<Root>/C Caller12' */
+/*@[13*/
+/*@>3dfd*/simulink_ext_set_oled_line1((const char_T *)%<(SLibCG_GrndAddr(0, 18, 256, "", -1, "", 0))>);
+/*@]*/
+/* {S!d38}CCaller: '<Root>/C Caller13' */
+/*@[14*/
+/*@>3dff*/simulink_ext_set_oled_line2((const char_T *)%<(SLibCG_GrndAddr(0, 18, 256, "", -1, "", 0))>);
+/*@]*/
+/* {S!d40}CCaller: '<Root>/C Caller15' */
+/*@[15*/
+/*@>3e01*/simulink_ext_set_oled_line4((const char_T *)%<(SLibCG_GrndAddr(0, 18, 256, "", -1, "", 0))>);
+/*@]*/
+%<SLibInsertSolverResetCode()>\
+%closefile cfgTxt
+%<cfgTxt>
+%<LibSetSystemField(system, "CachedOutputLocalVars", localVarDecl)>
+%endfunction
+%function OutputsFcnProtoType(block, system) Output
+%assign fcnProtoType = ""
+%openfile fcnProtoType
+static void Outputs(\
+%assign comma = ""
+%closefile fcnProtoType
+%<SLibCG_SetFcnProtoType(0, 0, fcnProtoType)>
+%endfunction

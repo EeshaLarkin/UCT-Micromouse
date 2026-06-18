@@ -1,8 +1,10 @@
 # Build Artifacts
-build/
+build/*
 *.elf
 *.map
 *.bin
+!firmware/*.bin
+*.mp4
 *.o
 *.obj
 
@@ -13,3 +15,21 @@ __pycache__/
 # OS Files
 .DS_Store
 ._*
+scratch/
+
+# MATLAB/Simulink cache & code-generation directories
+*.slxc
+slprj/
+*_ert_rtw/
+*_grt_rtw/
+ECSAbox_2025/
+
+# Standalone PC Client Binaries
+matlab/simulink/simulink_client
+matlab/simulink/simulink_client.exe
+
+# Allow committing code gen outputs inside build folder
+!build/*_ert_rtw/
+
+# Reference solutions (instructor only — never commit to student repo)
+solutions/

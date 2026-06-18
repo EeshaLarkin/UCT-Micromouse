@@ -58,26 +58,53 @@ class Micromouse:
                 # Absolute Update
                 self.shadow[key] = value
 
+    def find_serial_port(self):
+        """Finds the ST-Link or MicroPython Virtual COM Port cross-platform."""
+        import serial.tools.list_ports
+        ports = list(serial.tools.list_ports.comports())
+        
+        # 1. Search for obvious hardware keywords (prefer direct Pyboard/MicroPython over ST-Link debug VCP)
+        for keyword in ["pyboard", "micropython", "stlink", "st-link", "stm32", "mbed"]:
+            for p in ports:
+                desc = p.description.lower() if p.description else ""
+                if keyword in desc:
+                    return p.device
+                
+        # 2. Fallback to platform-specific guesses if auto-detection doesn't find the keyword
+        if sys.platform == 'darwin':
+            devs = glob.glob('/dev/cu.usbmodem*') + glob.glob('/dev/tty.usbmodem*')
+            if devs: return devs[0]
+        elif sys.platform == 'win32':
+            if ports: return ports[0].device
+        else:
+            devs = glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*')
+            if devs: return devs[0]
+            
+        return None
+
     def connect(self):
         """Connects via TCP (Simulink loopback) or Serial VCP (Physical Hardware)."""
         if self.method == 'tcp':
             if self.verbose: print(f"Connecting to Simulink Autograder at {self.host}:{self.port}...")
             while not self.connected:
                 try:
+                    # On BSD/macOS systems, once a socket connect fails, the socket object is invalid
+                    # and we must recreate it before calling connect() again.
+                    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.sock.connect((self.host, self.port))
                     self.connected = True
                     self.configure(sync=1) # Force full absolute packet to initialize delta trackers
                     if self.verbose: print("Connected to Autograder Engine successfully!")
-                except ConnectionRefusedError:
+                except (ConnectionRefusedError, OSError):
                     time.sleep(0.5)
         elif self.method == 'serial':
-            ports = glob.glob('/dev/cu.usbmodem*')
-            if not ports:
-                raise ConnectionError("No ST-Link VCP found! Is the board plugged in?")
+            port = self.find_serial_port()
+            if not port:
+                raise ConnectionError("No ST-Link VCP or MicroPython USB serial port found! Is the board plugged in?")
             
             if self.verbose:
-                print(f"Connecting to Serial {ports[0]} at {self.baud} baud...\n")
-            self.ser = serial.Serial(ports[0], self.baud, timeout=0.1, write_timeout=0.1)
+                print(f"Connecting to Serial {port} at {self.baud} baud...\n")
+            self.ser = serial.Serial(port, self.baud, timeout=0.1, write_timeout=0.1)
             self.ser.dtr = True
             self.ser.rts = True
             time.sleep(1.5)  # Wait for STM32 to finish hardware reboot after DTR assertion

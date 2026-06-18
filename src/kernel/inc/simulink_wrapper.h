@@ -30,4 +30,6 @@ void simulink_ext_set_oled_line4(const char *text);
 void simulink_ext_log_str(const char *key, const char *value);
 void simulink_ext_log_num(const char *key, double value);
 
+void simulink_ext_cleanup(void);
+
 #endif // SIMULINK_WRAPPER_H

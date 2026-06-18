@@ -30,16 +30,19 @@ void kernel_init(void);
 
 void kernel_parse_downlink(const char* rx_string);
 int kernel_generate_uplink(char* tx_buffer, int max_len);
+void kernel_snapshot_state(void);
 
 /* Direct C-Callable API for Tier 2 (Control Libs) & Tier 3 (Simulink Standalone) */
 void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm);
 const KernelState_t* kernel_get_state(void);
+void kernel_set_polarity(int16_t left, int16_t right);
 
 void kernel_watchdog_tick(void);
 uint32_t kernel_get_stream_rate_hz(void);
 void kernel_update_display(void);
 
 // --- Simulink Display Overrides ---
+void kernel_set_title(const char* title);
 void kernel_set_oled_header(const char* text);
 void kernel_set_oled_line1(const char* text);
 void kernel_set_oled_line2(const char* text);

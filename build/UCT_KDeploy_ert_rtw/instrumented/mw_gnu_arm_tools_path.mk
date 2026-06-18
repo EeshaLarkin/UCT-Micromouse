@@ -1,0 +1,1 @@
+MW_GNU_ARM_TOOLS_PATH = /Users/nicolls/Documents/MATLAB/SupportPackages/R2025b/3P.instrset/gnuarm-armcortex.instrset/maca64/bin
