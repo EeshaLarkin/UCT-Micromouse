@@ -19,6 +19,7 @@ PikaObj *New_uct_mouse(Args *args);
 
 void uct_mouse_delay_ms(PikaObj *self, int ms);
 PikaObj* uct_mouse_get_encoders(PikaObj *self);
+pika_float uct_mouse_get_gyro(PikaObj *self);
 PikaObj* uct_mouse_get_tof(PikaObj *self);
 pika_float uct_mouse_get_vbatt(PikaObj *self);
 int uct_mouse_init(PikaObj *self);

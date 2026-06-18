@@ -3964,6 +3964,15 @@ method_typedef(
     "get_encoders", ""
 );
 
+void uct_mouse_get_gyroMethod(PikaObj *self, Args *_args_){
+    pika_float res = uct_mouse_get_gyro(self);
+    method_returnFloat(_args_, res);
+}
+method_typedef(
+    uct_mouse_get_gyro,
+    "get_gyro", ""
+);
+
 void uct_mouse_get_tofMethod(PikaObj *self, Args *_args_){
     PikaObj* res = uct_mouse_get_tof(self);
     method_returnObj(_args_, res);
@@ -4020,6 +4029,7 @@ class_def(uct_mouse){
     method_def(uct_mouse_get_encoders, 1872202775),
     method_def(uct_mouse_get_tof, 1886405933),
     method_def(uct_mouse_init, 2090370361),
+    method_def(uct_mouse_get_gyro, 2121397861),
 };
 class_inhert(uct_mouse, TinyObj);
 

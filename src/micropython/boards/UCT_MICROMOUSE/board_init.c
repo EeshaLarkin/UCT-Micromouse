@@ -244,3 +244,53 @@ void kernel_background_tick(void) {
 
     in_tick = false;
 }
+
+// Override factory_reset_make_files to write our custom hybrid boot.py and main.py on first-boot filesystem creation.
+// This guarantees the USB drive is read-only by default even before the user deploys any files!
+#include "extmod/vfs_fat.h"
+
+static const char custom_boot_py[] =
+    "# boot.py - UCT Micromouse Hybrid Bootloader\r\n"
+    "import machine\r\n"
+    "import pyb\r\n"
+    "import time\r\n"
+    "\r\n"
+    "# The User Switch is on PE6, active low\r\n"
+    "sw = machine.Pin('E6', machine.Pin.IN, machine.Pin.PULL_UP)\r\n"
+    "time.sleep_ms(50)\r\n"
+    "\r\n"
+    "if sw.value() == 0:\r\n"
+    "    # Held during boot -> Mount read-write\r\n"
+    "    pyb.usb_mode('VCP+MSC')\r\n"
+    "else:\r\n"
+    "    # Default -> Mount read-only to protect flash\r\n"
+    "    pyb.usb_mode('VCP+MSC', msc=(pyb.Flash(read_only=True),))\r\n";
+
+static const char custom_main_py[] =
+    "# main.py -- put your code here!\r\n";
+
+static const char custom_readme_txt[] =
+    "UCT Micromouse (UCT_MMOUSE) internal flash is locked as Read-Only to prevent standard PC editors from wearing it out.\r\n"
+    "\r\n"
+    "To make it writable for dragging and dropping files directly, turn on the mouse while holding down the PE6 User Button.\r\n"
+    "Alternatively, deploy scripts cleanly over VCP serial using 'python tools/deploy.py -e micropython'.\r\n";
+
+void factory_reset_make_files(FATFS *fatfs) {
+    struct {
+        const char *name;
+        const char *data;
+    } files[] = {
+        {"boot.py", custom_boot_py},
+        {"main.py", custom_main_py},
+        {"README.txt", custom_readme_txt},
+    };
+    for (size_t i = 0; i < sizeof(files)/sizeof(files[0]); ++i) {
+        FIL fp;
+        FRESULT res = f_open(fatfs, &fp, files[i].name, FA_WRITE | FA_CREATE_ALWAYS);
+        if (res == FR_OK) {
+            UINT n;
+            f_write(&fp, files[i].data, strlen(files[i].data), &n);
+            f_close(&fp);
+        }
+    }
+}
