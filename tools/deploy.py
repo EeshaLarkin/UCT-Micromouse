@@ -293,8 +293,9 @@ if __name__ == "__main__":
             print("[1/2] Connecting to MicroPython via Serial (mpremote)...")
             
             # Use mpremote to test connection
+            mpremote_cmd = [sys.executable, "-m", "mpremote"]
             try:
-                subprocess.run(["mpremote", "exec", "print('Connected!')"], check=True, capture_output=True)
+                subprocess.run(mpremote_cmd + ["exec", "print('Connected!')"], check=True, capture_output=True)
             except subprocess.CalledProcessError:
                 print("Error: Could not connect to MicroPython board via serial!")
                 print("Hints:")
@@ -303,7 +304,7 @@ if __name__ == "__main__":
                 print("  3. Make sure the board is powered on.")
                 sys.exit(1)
             except FileNotFoundError:
-                print("Error: 'mpremote' command not found. Please run 'pip install mpremote' or 'pip install -r python/requirements.txt'")
+                print("Error: 'mpremote' command/module not found. Please run 'pip install mpremote' or 'pip install -r python/requirements.txt'")
                 sys.exit(1)
                 
             if target_script:
@@ -313,11 +314,11 @@ if __name__ == "__main__":
                 boot_script = os.path.join(repo_root, "python", "boot.py")
                 if os.path.exists(boot_script):
                     print("    -> Pushing boot.py (Hybrid Read-Only/Read-Write logic)...")
-                    subprocess.run(["mpremote", "fs", "cp", boot_script, ":boot.py"], check=True)
+                    subprocess.run(mpremote_cmd + ["fs", "cp", boot_script, ":boot.py"], check=True)
                 
                 # Copy the target script as main.py
                 print(f"    -> Pushing {os.path.basename(target_script)} as main.py...")
-                subprocess.run(["mpremote", "fs", "cp", target_script, ":main.py"], check=True)
+                subprocess.run(mpremote_cmd + ["fs", "cp", target_script, ":main.py"], check=True)
                 deployed_count = 1
                 if os.path.exists(boot_script):
                     deployed_count += 1
@@ -339,7 +340,7 @@ if __name__ == "__main__":
                         continue
                     
                     print(f"    -> Pushing helper {item}...")
-                    subprocess.run(["mpremote", "fs", "cp", item_path, f":{item}"], check=True)
+                    subprocess.run(mpremote_cmd + ["fs", "cp", item_path, f":{item}"], check=True)
                     deployed_count += 1
             else:
                 print(f"[2/2] Mirroring {os.path.basename(target_dir)}/ development folder to the mouse...")
@@ -348,14 +349,14 @@ if __name__ == "__main__":
                 boot_script = os.path.join(repo_root, "python", "boot.py")
                 if os.path.exists(boot_script):
                     print("    -> Pushing boot.py (Hybrid Read-Only/Read-Write logic)...")
-                    subprocess.run(["mpremote", "fs", "cp", boot_script, ":boot.py"], check=True)
+                    subprocess.run(mpremote_cmd + ["fs", "cp", boot_script, ":boot.py"], check=True)
                 
                 # Mirror the entire target_dir recursively to the root of the flash
                 print(f"    -> Syncing directory contents from {target_dir} ...")
-                subprocess.run(["mpremote", "fs", "cp", "-r", f"{target_dir}/", ":"], check=True)
+                subprocess.run(mpremote_cmd + ["fs", "cp", "-r", f"{target_dir}/", ":"], check=True)
                 deployed_count = "all"
                 
             print(f"Success! {deployed_count} python scripts copied via serial to internal flash.")
             print("Soft-rebooting the board...")
-            subprocess.run(["mpremote", "soft-reset"], check=False)
+            subprocess.run(mpremote_cmd + ["soft-reset"], check=False)
             print("Done! The mouse is now running your code.")
