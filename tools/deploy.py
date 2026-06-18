@@ -80,7 +80,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--script", "-s",
         default=None,
-        help="Path to the student python entry script to deploy (default: python/main.py or search for other files)"
+        help="Path to a specific python script to deploy as main.py. If omitted, mirrors the entire --src-dir."
+    )
+    parser.add_argument(
+        "--src-dir", "-d",
+        default="python/src",
+        help="Path to the dedicated python development folder to mirror to the mouse (default: python/src)"
     )
     args = parser.parse_args()
 
@@ -91,26 +96,35 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.abspath(os.path.join(script_dir, ".."))
 
-    # Resolve target script path
+    # Resolve target paths
+    target_script = None
+    target_dir = None
+    
     if args.script:
         target_script = os.path.abspath(args.script)
     else:
-        # Default to main.py
-        target_script = os.path.join(repo_root, "python", "main.py")
+        target_dir = os.path.abspath(args.src_dir)
         
     if args.engine in ["pikascript", "micropython"]:
-        if not os.path.exists(target_script):
+        if target_script and not os.path.exists(target_script):
             print(f"Error: Target Python script not found at {target_script}")
-            print("Please specify the script using --script <path> (e.g. --script python/milestone1.py)")
             sys.exit(1)
-        print(f"Target script: {target_script}")
+        elif not target_script and not os.path.exists(target_dir):
+            print(f"Error: Target Python directory not found at {target_dir}")
+            sys.exit(1)
 
     if args.engine == "pikascript":
+        # PikaScript requires a single main.py entry point
+        pika_target = target_script if target_script else os.path.join(target_dir, "main.py")
+        if not os.path.exists(pika_target):
+            print(f"Error: PikaScript requires a single entry point script. Could not find {pika_target}")
+            sys.exit(1)
+            
         # === PIKASCRIPT ENGINE FLOW ===
-        print(f"[1/3] Bundling {os.path.basename(target_script)} and compiling firmware...")
+        print(f"[1/3] Bundling {os.path.basename(pika_target)} and compiling firmware...")
         
         # Copy the student's code so the Rust compiler sees it as the entry point
-        shutil.copy(target_script, os.path.join(repo_root, "src", "pikascript", "main.py"))
+        shutil.copy(pika_target, os.path.join(repo_root, "src", "pikascript", "main.py"))
         
         print("    -> Running PikaScript Pre-compiler...")
         pika_dir = os.path.join(repo_root, "src", "pikascript")
@@ -129,9 +143,9 @@ if __name__ == "__main__":
             sys.exit(1)
             
         # Convert the target script into a C-string header to guarantee it gets compiled into the binary
-        print(f"    -> Embedding {os.path.basename(target_script)} into C-Kernel...")
+        print(f"    -> Embedding {os.path.basename(pika_target)} into C-Kernel...")
         header_path = os.path.join(repo_root, "src", "kernel", "inc", "student_code.h")
-        with open(target_script, "r") as f_py, open(header_path, "w") as f_h:
+        with open(pika_target, "r") as f_py, open(header_path, "w") as f_h:
             f_h.write("#ifndef STUDENT_CODE_H\n#define STUDENT_CODE_H\n")
             f_h.write('const char* student_python_code = \n')
             for line in f_py:
@@ -275,53 +289,73 @@ if __name__ == "__main__":
             print("Success! MicroPython interpreter is flashed. The board will reboot and mount as a USB drive shortly.")
             
         else:
-            # --- Deploying Python Scripts to the Virtual USB Drive ---
-            print("[1/2] Finding MicroPython virtual USB drive...")
-            mpy_drive = find_micropython_drive()
-            if not mpy_drive:
-                print("Error: MicroPython virtual USB drive not found!")
+            # --- Deploying Python Scripts via VCP (mpremote) ---
+            print("[1/2] Connecting to MicroPython via Serial (mpremote)...")
+            
+            # Use mpremote to test connection
+            try:
+                subprocess.run(["mpremote", "exec", "print('Connected!')"], check=True, capture_output=True)
+            except subprocess.CalledProcessError:
+                print("Error: Could not connect to MicroPython board via serial!")
                 print("Hints:")
                 print("  1. Make sure the board is flashed with MicroPython (run this script with -f/--flash first).")
-                print("  2. Check if the USB cable is connected to the USB OTG port, not just the ST-Link port.")
-                print("  3. Make sure the board is powered on and mounted on your system.")
+                print("  2. Check if the USB cable is connected to the main USB OTG port.")
+                print("  3. Make sure the board is powered on.")
+                sys.exit(1)
+            except FileNotFoundError:
+                print("Error: 'mpremote' command not found. Please run 'pip install mpremote' or 'pip install -r python/requirements.txt'")
                 sys.exit(1)
                 
-            print(f"Found MicroPython drive at: {mpy_drive}")
-            print(f"[2/2] Deploying {os.path.basename(target_script)} to the mouse...")
-            
-            # Copy the target script as main.py
-            dest_main_path = os.path.join(mpy_drive, "main.py")
-            print(f"    -> Copying {os.path.basename(target_script)} as main.py to board...")
-            if sys.platform == 'darwin':
-                with open(target_script, "rb") as f_src, open(dest_main_path, "wb") as f_dst:
-                    f_dst.write(f_src.read())
+            if target_script:
+                print(f"[2/2] Deploying {os.path.basename(target_script)} and bootloader to the mouse...")
+                
+                # Copy boot.py (Hybrid Bootloader)
+                boot_script = os.path.join(repo_root, "python", "boot.py")
+                if os.path.exists(boot_script):
+                    print("    -> Pushing boot.py (Hybrid Read-Only/Read-Write logic)...")
+                    subprocess.run(["mpremote", "fs", "cp", boot_script, ":boot.py"], check=True)
+                
+                # Copy the target script as main.py
+                print(f"    -> Pushing {os.path.basename(target_script)} as main.py...")
+                subprocess.run(["mpremote", "fs", "cp", target_script, ":main.py"], check=True)
+                deployed_count = 1
+                if os.path.exists(boot_script):
+                    deployed_count += 1
+                
+                # Copy other helper python files from the same directory
+                script_dir_path = os.path.dirname(target_script)
+                for item in os.listdir(script_dir_path):
+                    item_path = os.path.join(script_dir_path, item)
+                    if os.path.isdir(item_path) or not item.endswith(".py"):
+                        continue
+                    # Skip the target script itself (already copied as main.py)
+                    if item == os.path.basename(target_script):
+                        continue
+                    # Skip standard PC-only mock libraries and known milestone scripts
+                    if item in ["uct_mouse.py", "micromouse.py", "boot.py"]:
+                        continue
+                    # Skip other milestone/main files to avoid clutter
+                    if item.startswith("milestone") or item == "main.py":
+                        continue
+                    
+                    print(f"    -> Pushing helper {item}...")
+                    subprocess.run(["mpremote", "fs", "cp", item_path, f":{item}"], check=True)
+                    deployed_count += 1
             else:
-                shutil.copy(target_script, dest_main_path)
-            deployed_count = 1
-            
-            # Copy other helper python files from the same directory
-            script_dir_path = os.path.dirname(target_script)
-            for item in os.listdir(script_dir_path):
-                item_path = os.path.join(script_dir_path, item)
-                if os.path.isdir(item_path) or not item.endswith(".py"):
-                    continue
-                # Skip the target script itself (already copied as main.py)
-                if item == os.path.basename(target_script):
-                    continue
-                # Skip standard PC-only mock libraries and known milestone scripts
-                if item in ["uct_mouse.py", "micromouse.py"]:
-                    continue
-                # Skip other milestone/main files to avoid clutter
-                if item.startswith("milestone") or item == "main.py":
-                    continue
+                print(f"[2/2] Mirroring {os.path.basename(target_dir)}/ development folder to the mouse...")
                 
-                dest_file_path = os.path.join(mpy_drive, item)
-                print(f"    -> Copying helper {item} to board...")
-                if sys.platform == 'darwin':
-                    with open(item_path, "rb") as f_src, open(dest_file_path, "wb") as f_dst:
-                        f_dst.write(f_src.read())
-                else:
-                    shutil.copy(item_path, mpy_drive)
-                deployed_count += 1
+                # Push boot.py to the root first
+                boot_script = os.path.join(repo_root, "python", "boot.py")
+                if os.path.exists(boot_script):
+                    print("    -> Pushing boot.py (Hybrid Read-Only/Read-Write logic)...")
+                    subprocess.run(["mpremote", "fs", "cp", boot_script, ":boot.py"], check=True)
                 
-            print(f"Success! {deployed_count} python scripts copied to MicroPython drive. Eject the drive or reset the board to run.")
+                # Mirror the entire target_dir recursively to the root of the flash
+                print(f"    -> Syncing directory contents from {target_dir} ...")
+                subprocess.run(["mpremote", "fs", "cp", "-r", f"{target_dir}/", ":"], check=True)
+                deployed_count = "all"
+                
+            print(f"Success! {deployed_count} python scripts copied via serial to internal flash.")
+            print("Soft-rebooting the board...")
+            subprocess.run(["mpremote", "soft-reset"], check=False)
+            print("Done! The mouse is now running your code.")

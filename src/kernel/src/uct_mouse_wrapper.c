@@ -42,6 +42,10 @@ PikaObj* uct_mouse_get_encoders(PikaObj *self) {
     return tuple;
 }
 
+pika_float uct_mouse_get_gyro(PikaObj *self) {
+    return kernel_get_state()->gyro;
+}
+
 pika_float uct_mouse_get_vbatt(PikaObj *self) {
     return kernel_get_state()->v_batt;
 }

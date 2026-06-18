@@ -47,6 +47,13 @@ static mp_obj_t mpy_uct_mouse_get_encoders(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_encoders_obj, mpy_uct_mouse_get_encoders);
 
+// 4b. uct_mouse.get_gyro() -> float
+static mp_obj_t mpy_uct_mouse_get_gyro(void) {
+    const KernelState_t* state = kernel_get_state();
+    return mp_obj_new_float(state->gyro);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_gyro_obj, mpy_uct_mouse_get_gyro);
+
 // 5. uct_mouse.get_vbatt() -> float
 static mp_obj_t mpy_uct_mouse_get_vbatt(void) {
     const KernelState_t* state = kernel_get_state();
@@ -78,6 +85,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_set_motors),  MP_ROM_PTR(&mpy_uct_mouse_set_motors_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_tof),     MP_ROM_PTR(&mpy_uct_mouse_get_tof_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_encoders),MP_ROM_PTR(&mpy_uct_mouse_get_encoders_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_gyro),    MP_ROM_PTR(&mpy_uct_mouse_get_gyro_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_vbatt),   MP_ROM_PTR(&mpy_uct_mouse_get_vbatt_obj) },
     { MP_ROM_QSTR(MP_QSTR_delay_ms),    MP_ROM_PTR(&mpy_uct_mouse_delay_ms_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_polarity),MP_ROM_PTR(&mpy_uct_mouse_set_polarity_obj) },

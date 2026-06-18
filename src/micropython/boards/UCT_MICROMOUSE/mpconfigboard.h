@@ -1,6 +1,9 @@
 #define MICROPY_HW_BOARD_NAME       "UCT-MICROMOUSE"
 #define MICROPY_HW_MCU_NAME         "STM32L476VE"
 
+// Set the volume label for the MicroPython USB mass storage drive
+#define MICROPY_HW_FLASH_FS_LABEL   "UCT_MMOUSE"
+
 #define MICROPY_HW_HAS_SWITCH       (1)
 #define MICROPY_HW_HAS_FLASH        (1)
 #define MICROPY_HW_ENABLE_RNG       (1)

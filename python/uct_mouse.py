@@ -195,6 +195,11 @@ def get_tof():
     s = _mouse.get_sensors()
     return s.get('tof_l', 0), s.get('tof_c', 0), s.get('tof_r', 0)
 
+def get_gyro():
+    """Returns virtual gyro reading (yaw rate or angle depending on context, typically deg/s or relative heading)."""
+    s = _mouse.get_sensors()
+    return s.get('gyro', 0.0)
+
 def get_encoders():
     """Returns (left, right) virtual encoder ticks."""
     s = _mouse.get_sensors()
