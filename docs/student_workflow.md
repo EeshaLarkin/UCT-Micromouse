@@ -42,12 +42,21 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 3. Ensure the serial COM port is recognized (e.g., `/dev/cu.usbmodem*` on Mac/Linux, `COM*` on Windows).
 
 ### Flashing Python Code
-1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/pikascript.bin` or `firmware/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer or simple USB Mass Storage drag-and-drop (if applicable).
-2. Use the deployment utility to push your python file:
+1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/pikascript.bin` or `firmware/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer, USB Mass Storage drag-and-drop, or `st-flash`.
+2. For **MicroPython**, deploy using the serial virtual com port utility:
    ```bash
    python tools/deploy.py --engine micropython --script python/milestone1_square.py
    ```
-3. The mouse will reboot and immediately begin executing your code.
+3. For **PikaScript**, you can choose between two methods:
+   * **Full Compile & Flash (Requires a local C compiler toolchain):**
+     ```bash
+     python tools/deploy.py --engine pikascript --script python/milestone1_square.py
+     ```
+   * **High-Speed Script-Only Flash (Requires `st-flash` utility; runs in <100ms and does NOT require a local C compiler toolchain):**
+     ```bash
+     python tools/deploy.py --engine pikascript --script python/milestone1_square.py --script-only
+     ```
+4. The mouse will reboot and immediately begin executing your code.
 
 ### Flashing Simulink / C Code
 1. In your `StudentTemplate.slx` model, click **Build** or hit `Cmd+B` (`Ctrl+B`).
