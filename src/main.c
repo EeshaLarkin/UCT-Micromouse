@@ -123,8 +123,17 @@ int main(void) {
     PikaObj *pikaMain = newRootObj("pikaMain", New_PikaMain);
     
     kernel_set_title("   PikaScript     ");
-    // Execute the embedded student_code.h Python script natively!
-    obj_run(pikaMain, (char*)student_python_code);
+    
+    // Check if a dynamically flashed student script exists at 0x08078000 (Page 240)
+    const char* python_code = (const char*)0x08078000;
+    if ((uint8_t)python_code[0] == 0xFF) {
+        // Fallback to the compiled-in script if the flash sector is empty (erased)
+        python_code = student_python_code;
+    }
+    
+    // Execute the Python script natively!
+    obj_run(pikaMain, (char*)python_code);
+    
     // If PikaScript exits or crashes, revert the title so the user knows!
     kernel_set_title("   UCT MOUSE      ");
 #endif

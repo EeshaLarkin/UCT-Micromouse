@@ -78,6 +78,11 @@ if __name__ == "__main__":
         help="Flash the engine's compiled C firmware binary onto the board using the ST-Link drive (always happens for pikascript and simulink)."
     )
     parser.add_argument(
+        "--script-only", "-o",
+        action="store_true",
+        help="Directly write the Python script to the STM32 flash page at 0x08078000 using st-flash. Bypasses firmware compilation and runs in <100ms. (Only for PikaScript)."
+    )
+    parser.add_argument(
         "--script", "-s",
         default=None,
         help="Path to a specific python script to deploy as main.py. If omitted, mirrors the entire --src-dir."
@@ -119,6 +124,35 @@ if __name__ == "__main__":
         if not os.path.exists(pika_target):
             print(f"Error: PikaScript requires a single entry point script. Could not find {pika_target}")
             sys.exit(1)
+            
+        if args.script_only:
+            # === SCRIPT ONLY MODE ===
+            print(f"=== Script-Only Flash Mode ===")
+            print(f"Target script: {os.path.basename(pika_target)}")
+            
+            with open(pika_target, "rb") as f_in:
+                py_content = f_in.read() + b"\x00"
+                
+            temp_bin = os.path.join(repo_root, "build", "script_only.bin")
+            os.makedirs(os.path.dirname(temp_bin), exist_ok=True)
+            with open(temp_bin, "wb") as f_out:
+                f_out.write(py_content)
+                
+            print("Flashing Python script directly to 0x08078000 (Page 240)...")
+            try:
+                st_flash_cmd = "st-flash"
+                if os.path.exists("/opt/local/bin/st-flash"):
+                    st_flash_cmd = "/opt/local/bin/st-flash"
+                elif os.path.exists("/usr/local/bin/st-flash"):
+                    st_flash_cmd = "/usr/local/bin/st-flash"
+                    
+                subprocess.run([st_flash_cmd, "--reset", "write", temp_bin, "0x08078000"], check=True)
+                print("Success! Script flashed in <100ms. Board reset triggered.")
+            except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                print("Error: Direct flashing failed! Please ensure 'st-flash' is installed on your PATH.")
+                print(f"Details: {e}")
+                sys.exit(1)
+            sys.exit(0)
             
         # === PIKASCRIPT ENGINE FLOW ===
         print(f"[1/3] Bundling {os.path.basename(pika_target)} and compiling firmware...")
