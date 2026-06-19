@@ -13,17 +13,9 @@ import uct_mouse
 # Initialize connection to either the PC Simulator or Physical Hardware
 uct_mouse.init()
 
-# Load custom motor polarities from config file if present
-try:
-    with open("polarity.txt", "r") as f:
-        lines = f.read().strip().split(",")
-        left_pol = int(lines[0])
-        right_pol = int(lines[1])
-        uct_mouse.set_polarity(left_pol, right_pol)
-        print("[Boot] Loaded motor polarity: Left={}, Right={}".format(left_pol, right_pol))
-except Exception:
-    # Default to normal polarity if file not found
-    uct_mouse.set_polarity(1, 1)
+# Default to normal polarity (1, 1). If you need to reverse a motor's polarity,
+# you can change the values here (e.g., uct_mouse.set_polarity(-1, 1))
+uct_mouse.set_polarity(1, 1)
 
 print("--- UCT Mouse is ALIVE! ---")
 

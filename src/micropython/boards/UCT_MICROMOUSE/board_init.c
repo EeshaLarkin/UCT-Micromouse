@@ -263,8 +263,8 @@ static const char custom_boot_py[] =
     "    # Held during boot -> Mount read-write\r\n"
     "    pyb.usb_mode('VCP+MSC')\r\n"
     "else:\r\n"
-    "    # Default -> Mount read-only to protect flash\r\n"
-    "    pyb.usb_mode('VCP+MSC', msc=(pyb.Flash(read_only=True),))\r\n";
+    "    # Fallback to standard VCP+MSC to avoid unsupported argument crash\r\n"
+    "    pyb.usb_mode('VCP+MSC')\r\n";
 
 static const char custom_main_py[] =
     "# main.py -- put your code here!\r\n";

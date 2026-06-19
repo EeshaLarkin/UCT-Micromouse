@@ -9,6 +9,7 @@ def run():
     
     # Run loop
     try:
+        elapsed_time_ms = 0
         while True:
             tof_l, tof_c, tof_r = uct_mouse.get_tof()
             print(f"ToF Left: {tof_l}mm, Center: {tof_c}mm, Right: {tof_r}mm")
@@ -19,9 +20,16 @@ def run():
                 uct_mouse.set_motors(0, 0)
                 break
                 
-            # Drive straight using constant PWM (dead reckoning)
-            uct_mouse.set_motors(40, 40)
+            # Toggle between driving and stopping the motors every second
+            if (elapsed_time_ms // 1000) % 2 == 0:
+                # Drive straight using constant PWM (dead reckoning)
+                uct_mouse.set_motors(40, 40)
+            else:
+                # Stop motors
+                uct_mouse.set_motors(0, 0)
+                
             uct_mouse.delay_ms(50)
+            elapsed_time_ms += 50
             
     except KeyboardInterrupt:
         pass

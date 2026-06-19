@@ -22,3 +22,12 @@ Fixing the Milestone 1 (`python/milestone1_square.py`) and Milestone 2 (`python/
 - Document the "double-stepping" bug in `AGENT.md`. (Done!)
 - Add a student workflow guide (`docs/student_workflow.md`) detailing algorithms, environments, Simulink/Python setups, and firmware flashing. (Done!)
 - Milestone 1 and 2 reference solutions are now robust. The task is complete!
+- **Repository Housekeeping:**
+  - Created `.gemini-context` to automatically load [AGENT.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/AGENT.md) and use [state.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/state.md) for caching state.
+  - Added `.gemini-context` to [.gitignore](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/.gitignore).
+  - Moved autograder zip files from the repository root to [autograder/zips/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/zips) and updated [build_zip.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/build_zip.py) to target this location.
+  - Fixed a `TypeError` crash loop in MicroPython [boot.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/boot.py) and [board_init.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/micropython/boards/UCT_MICROMOUSE/board_init.c) by removing unsupported `pyb.usb_mode()` parameters.
+  - Updated [student_workflow.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md) to correct deployment command flags, document MicroPython REPL debugging, and add interactive REPL tips.
+
+
+

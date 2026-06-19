@@ -45,7 +45,7 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/pikascript.bin` or `firmware/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer or simple USB Mass Storage drag-and-drop (if applicable).
 2. Use the deployment utility to push your python file:
    ```bash
-   python tools/deploy.py --file python/milestone1_square.py
+   python tools/deploy.py --engine micropython --script python/milestone1_square.py
    ```
 3. The mouse will reboot and immediately begin executing your code.
 
@@ -57,6 +57,35 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 
 ## 4. Hardware Quirks & Debugging
 
-- **Silicon Variants:** Some STM32 processors run at `72 MHz` while others are `80 MHz`. If you experience serial terminal hanging or gibberish text, let a TA know so your board's PLL divider can be updated.
+- **Silicon Clock Variants (72 MHz vs 80 MHz):** Due to manufacturing variance, some boards run their system clock at 72 MHz instead of the targeted 80 MHz. 
+  - **Symptoms:** Gibberish text or terminal hanging when communicating at 115200 baud.
+  - **Diagnosis (Baud Sweep):** Try connecting to the serial port `/dev/cu.usbmodem*` (or COM port) at `103680` baud ($115200 \times \frac{72}{80}$). If you see clean telemetry text at this speed, your board is running at 72 MHz.
+  - **Fix:** Notify a convener/TA to label your board, and change the UART baud rate divider in `src/main.c` from `694` to `625` before building.
+- **The Semihosting File I/O Lockup:** PikaScript runs bare-metal without an operating system or file system.
+  - **Warning:** Executing file operations in Python (like `open()`, `with open(...)`, etc.) calls C standard library filesystem hooks. These hooks trigger **Semihosting** by issuing an ARM breakpoint instruction (`BKPT 0xAB`), which halts the MCU immediately if no active debugger is listening. The serial interface will go completely silent (0 bytes transmitted).
+  - **Rule:** Never use `open()` or file operations in Python scripts compiled for PikaScript deployment. All configuration constants (like polarity multipliers) must be hardcoded in Python code.
 - **Timing and Loops:** When using Python, try to group your `set_motors()` calls to occur once per logical control loop. Placing multiple blocking calls or combining `set_motors()` and `delay_ms()` improperly can cause timing mismatches between simulation time steps and physical time.
 - **Motor Polarity:** If the mouse drives in reverse, verify that your software variables aren't flipped before assuming a hardware flaw.
+
+### Debugging & Telemetry over ST-Link VCP
+When running the PikaScript or Simulink firmware on the silicon, the board uses its Virtual COM Port (VCP) over the USB cable for print statements and telemetry data.
+1. **Telemetry Stream:** By default, the board streams sensor telemetry (ToF values, Gyro, Battery voltage) as JSON-lite text frames (e.g. `{"tof_c":706,"gyro":0.004,"v_batt":4.07}`) at 115200 baud.
+2. **Standard Output (stdout):** Any Python `print(...)` statements are multiplexed directly into this stream.
+3. **Serial Terminal Monitor:** You can monitor the raw output using any serial terminal tool (e.g. Serial, PuTTY, or a simple python script) set to 115200 baud. For example, to read output from macOS terminal:
+   ```bash
+   screen /dev/cu.usbmodem* 115200
+   ```
+   *(Press `Ctrl+A` then `Ctrl+\` and confirm `y` to exit the screen command.)*
+
+### MicroPython REPL Debugging
+If you are using the **MicroPython** engine instead of PikaScript, you can debug runtime crashes dynamically using the REPL:
+1. Make sure no other terminal or software is locking the serial port `/dev/cu.usbmodem*` (or `COM*`).
+2. Connect to the board's serial console:
+   ```bash
+   python -m mpremote repl
+   ```
+3. Once connected, press **Ctrl+D** to trigger a soft-reboot. 
+4. The terminal will display the full Python error traceback showing the exact file name and line number causing the crash.
+5. Press **Ctrl+]** (or **Ctrl+x**) to exit the REPL shell.
+* **Tip (Interactive Execution):** You can also use the REPL as an interactive shell. At the `>>>` prompt, you can type Python code directly (e.g., `import uct_mouse` followed by `uct_mouse.get_tof()` or `uct_mouse.set_motors(30, 30)`) to query sensors or actuate motors in real time.
+

@@ -25,7 +25,9 @@ def main():
         sys.exit(1)
         
     zip_filename = f"{assignment}_autograder.zip"
-    zip_path = os.path.join(root_dir, zip_filename)
+    zips_dir = os.path.join(script_dir, "zips")
+    os.makedirs(zips_dir, exist_ok=True)
+    zip_path = os.path.join(zips_dir, zip_filename)
     
     print(f"=== Creating Autograder ZIP: {zip_filename} ===")
     

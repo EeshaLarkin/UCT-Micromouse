@@ -14,5 +14,5 @@ if sw.value() == 0:
     # Mount Read-Write (Standard)
     pyb.usb_mode('VCP+MSC')
 else:
-    # Default: mount as Read-Only to protect flash from background OS caching
-    pyb.usb_mode('VCP+MSC', msc=(pyb.Flash(read_only=True),))
+    # Fallback to standard VCP+MSC to avoid unsupported argument crash
+    pyb.usb_mode('VCP+MSC')
