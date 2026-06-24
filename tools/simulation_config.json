@@ -1,0 +1,41 @@
+{
+  "robot": {
+    "mass": 0.238,
+    "axle_half_length": 0.060,
+    "wheel_radius": 0.031,
+    "collision_radius": 0.058,
+    "ticks_per_rot": 8.0,
+    "total_width": 0.143
+  },
+  "motor": {
+    "max_speed": 0.40,
+    "tau": 0.15,
+    "imbalance": 0.08,
+    "slip": 0.08
+  },
+  "tof_sensors": [
+    {
+      "name": "left",
+      "x": 0.045,
+      "y": 0.02,
+      "theta": 1.5707963267948966
+    },
+    {
+      "name": "center",
+      "x": 0.055,
+      "y": 0.0,
+      "theta": 0.0
+    },
+    {
+      "name": "right",
+      "x": 0.045,
+      "y": -0.02,
+      "theta": -1.5707963267948966
+    }
+  ],
+  "maze": {
+    "grid_size": 10,
+    "block_dim": 0.20,
+    "wall_thickness": 0.006
+  }
+}

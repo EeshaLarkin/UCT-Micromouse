@@ -27,10 +27,40 @@ Before risking physical hardware, verify your algorithm in the virtual maze.
 - Example: `python tools/physics_sim.py` (which launches the virtual testbed on `localhost:8000`).
 - Run your script (e.g., `python python/milestone1_square.py`). The script will automatically connect to the local socket and actuate the virtual mouse.
 
+#### High-Speed Offline Testing (Fast Simulation Mode)
+For tasks requiring massive numbers of runs (e.g. batch testing or training reinforcement learning agents), you can bypass standard wall-clock sleep delays and run the simulation at maximum CPU speed. Fast Simulation Mode automatically intercepts and replaces ordinary `time.sleep` calls with simulator physics steps.
+
+You can configure Fast Simulation Mode using any of the following mechanisms (evaluated in priority order):
+1. **Direct Function Override:**
+   ```python
+   import uct_mouse
+   uct_mouse.set_fast_sim(True)  # Dynamically enables high-speed simulation & intercepts time.sleep
+   ```
+2. **Initialization Argument:**
+   ```python
+   import uct_mouse
+   uct_mouse.init(fast_sim=True)  # Forces fast simulation when establishing simulation connection
+   ```
+3. **JSON Settings (`sim_config.json`):**
+   Add the `"fast_sim": true` parameter to `python/sim_config.json`:
+   ```json
+   {
+     "backend": "python",
+     "auto_start": true,
+     "fast_sim": true
+   }
+   ```
+4. **Environment Variables:**
+   Set one of the environment variables in your terminal shell:
+   * `UCT_MICROMOUSE_FAST_SIM=1`
+   * `UCT_OFFLINE_MODE=1`
+
 ### For Simulink:
 - Open `StudentTemplate.slx` and click **Run**.
-- The model will compile the desktop wrapper and connect to the built-in physics engine.
-- You can visualize the mouse's path directly in MATLAB scopes or the virtual 3D viewer.
+- The model will automatically launch the Pygame virtual physics simulator window in the background and connect to it.
+- Letting the mouse crash or manually closing the Pygame window will automatically stop the Simulink simulation.
+- Clicking **Stop** in the Simulink GUI will automatically stop the simulation and close the Pygame window.
+- You can visualize the mouse's path directly in the Pygame window or standard MATLAB scopes.
 
 ## 3. Deploying to the Physical Mouse
 

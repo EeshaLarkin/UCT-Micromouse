@@ -69,3 +69,13 @@ void uct_mouse_delay_ms(PikaObj *self, int ms) {
 void uct_mouse_set_polarity(PikaObj *self, int left, int right) {
     kernel_set_polarity(left, right);
 }
+
+PikaObj* uct_mouse_get_line_sensors(PikaObj *self) {
+    const KernelState_t* s = kernel_get_state();
+    PikaObj* tuple = New_pikaTuple();
+    pikaList_append(tuple, arg_newInt(s->ir_fl));
+    pikaList_append(tuple, arg_newInt(s->ir_fr));
+    pikaList_append(tuple, arg_newInt(s->ir_sl));
+    pikaList_append(tuple, arg_newInt(s->ir_sr));
+    return tuple;
+}

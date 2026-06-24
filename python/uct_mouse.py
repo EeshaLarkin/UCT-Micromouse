@@ -53,9 +53,64 @@ _pending_pwm_l = 0
 _pending_pwm_r = 0
 _pwm_dirty = False
 
-def init():
-    """Connects to the configured simulation backend, auto-starting if enabled."""
-    global _backend_process
+# Keep track of original sleep for restoring/using inside delay_ms
+_original_sleep = time.sleep
+
+# Fast simulation tracking variable
+_is_fast_sim_active = (
+    os.environ.get("GRADESCOPE_AUTOGRADER") == "1" or
+    os.environ.get("UCT_MICROMOUSE_FAST_SIM") == "1" or
+    os.environ.get("UCT_OFFLINE_MODE") == "1"
+)
+
+def _fast_sleep(seconds):
+    delay_ms(int(seconds * 1000))
+
+def _apply_sleep_interceptor():
+    time.sleep = _fast_sleep
+    try:
+        frame = sys._getframe()
+        while frame:
+            if "sleep" in frame.f_globals and frame.f_globals["sleep"] is not _fast_sleep:
+                frame.f_globals["sleep"] = _fast_sleep
+            frame = frame.f_back
+    except Exception:
+        pass
+
+def _restore_sleep_interceptor():
+    time.sleep = _original_sleep
+    try:
+        frame = sys._getframe()
+        while frame:
+            if "sleep" in frame.f_globals and frame.f_globals["sleep"] is _fast_sleep:
+                frame.f_globals["sleep"] = _original_sleep
+            frame = frame.f_back
+    except Exception:
+        pass
+
+def set_fast_sim(enable):
+    """Programmatically enable or disable fast simulation mode."""
+    global _is_fast_sim_active
+    _is_fast_sim_active = bool(enable)
+    if _is_fast_sim_active:
+        _apply_sleep_interceptor()
+    else:
+        _restore_sleep_interceptor()
+
+# Apply the interceptor at import-time if the environment variables specify it
+if _is_fast_sim_active:
+    _apply_sleep_interceptor()
+
+def init(fast_sim=None):
+    """Connects to the configured simulation backend, auto-starting if enabled.
+    
+    Args:
+        fast_sim (bool, optional): Overrides the fast simulation setting. If True, running in high-speed,
+                                  physics-stepped offline mode bypassing standard time sleep delays.
+                                  If False, fast simulation mode is disabled.
+                                  If None, falls back to config file setting or environment variables.
+    """
+    global _backend_process, _is_fast_sim_active
     
     # Default configuration
     config = {
@@ -64,7 +119,8 @@ def init():
         "map": "empty",
         "imbalance": 0.08,
         "slip": 0.08,
-        "video": ""
+        "video": "",
+        "fast_sim": None
     }
     
     # Load local config overrides if present
@@ -76,9 +132,17 @@ def init():
         except Exception as e:
             print(f"[PC Mock] Warning: Failed to read {os.path.basename(_config_path)}: {e}")
             
-    # Force auto_start = False if running under Gradescope Autograder
-    if os.environ.get("GRADESCOPE_AUTOGRADER") == "1":
+    # Determine fast_sim status: code parameter takes precedence, then json config, then existing _is_fast_sim_active (env vars)
+    if fast_sim is not None:
+        _is_fast_sim_active = bool(fast_sim)
+    elif config.get("fast_sim") is not None:
+        _is_fast_sim_active = bool(config["fast_sim"])
+        
+    if _is_fast_sim_active:
         config["auto_start"] = False
+        _apply_sleep_interceptor()
+    else:
+        _restore_sleep_interceptor()
 
     backend = config.get("backend", "simulink").lower()
     auto_start = config.get("auto_start", False)
@@ -218,7 +282,8 @@ def delay_ms(ms):
     steps = int(ms / step_ms)
     
     if steps <= 0:
-        time.sleep(ms / 1000.0)
+        if not _is_fast_sim_active:
+            _original_sleep(ms / 1000.0)
         return
         
     for _ in range(steps):
@@ -231,13 +296,19 @@ def delay_ms(ms):
                     _mouse.poll()
             except Exception:
                 pass
-        time.sleep(step_ms / 1000.0)
+        if not _is_fast_sim_active:
+            _original_sleep(step_ms / 1000.0)
         
     # Sleep any remaining fractional time
     rem_ms = ms % step_ms
-    if rem_ms > 0:
-        time.sleep(rem_ms / 1000.0)
+    if rem_ms > 0 and not _is_fast_sim_active:
+        _original_sleep(rem_ms / 1000.0)
 
 def set_polarity(left_polarity, right_polarity):
     """Sets motor polarity multipliers on the physical mouse (ignored on PC)."""
     pass
+
+def get_line_sensors():
+    """Returns (front_left, front_right, side_left, side_right) downward facing line sensors."""
+    s = _mouse.get_sensors()
+    return s.get('ir_fl', 0), s.get('ir_fr', 0), s.get('ir_sl', 0), s.get('ir_sr', 0)

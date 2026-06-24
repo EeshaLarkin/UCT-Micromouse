@@ -31,10 +31,13 @@ Depending on where the code is executing, the wrapper behaves polymorphically:
 
 ## 3. Co-Simulation & Interactive Testing
 
-Students can co-simulate their Simulink algorithms against the virtual testbed environment:
+Students can co-simulate their Simulink algorithms against the virtual testbed environment automatically with full GUI integration:
 
-1.  **Launch Simulator:** Run [matlab/simulink/launch_virtual_testbed.m](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab/simulink/launch_virtual_testbed.m) to start the python-based virtual maze engine in loopback mode.
-2.  **Run Simulink Model:** Open `StudentTemplate.slx` and click **Run**. The model will compile locally as a PC client, connect to `localhost:8000`, and steer the virtual mouse.
+1.  **Run Simulink Model:** Open `StudentTemplate.slx` and click **Run**.
+2.  **Automatic Launch:** The model's `StartFcn` callback will automatically launch the Python-based virtual maze engine (`physics_sim.py`) in the background. The Pygame visual simulator window will appear automatically.
+3.  **Automatic Stop & Cleanup:** 
+    - Clicking **Stop** in the Simulink GUI will automatically close the Pygame window and stop the simulation.
+    - If the virtual mouse crashes or you manually close the Pygame window, the background socket disconnection will immediately trigger Simulink to stop running the model.
 
 ---
 

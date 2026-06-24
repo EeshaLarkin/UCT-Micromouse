@@ -36,3 +36,10 @@ solutions/
 
 # Gemini context instructions
 .gemini-context
+
+# External submodules/libraries
+external/Micromouse/
+external/src/
+
+# Local diagnostic log files
+*.log

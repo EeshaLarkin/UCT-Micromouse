@@ -78,6 +78,19 @@ static mp_obj_t mpy_uct_mouse_set_polarity(mp_obj_t left, mp_obj_t right) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mpy_uct_mouse_set_polarity_obj, mpy_uct_mouse_set_polarity);
 
+// 7b. uct_mouse.get_line_sensors() -> tuple (fl, fr, sl, sr)
+static mp_obj_t mpy_uct_mouse_get_line_sensors(void) {
+    const KernelState_t* state = kernel_get_state();
+    mp_obj_t tuple[4] = {
+        mp_obj_new_int(state->ir_fl),
+        mp_obj_new_int(state->ir_fr),
+        mp_obj_new_int(state->ir_sl),
+        mp_obj_new_int(state->ir_sr)
+    };
+    return mp_obj_new_tuple(4, tuple);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_line_sensors_obj, mpy_uct_mouse_get_line_sensors);
+
 // Define module globals table
 static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_uct_mouse) },
@@ -89,6 +102,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_vbatt),   MP_ROM_PTR(&mpy_uct_mouse_get_vbatt_obj) },
     { MP_ROM_QSTR(MP_QSTR_delay_ms),    MP_ROM_PTR(&mpy_uct_mouse_delay_ms_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_polarity),MP_ROM_PTR(&mpy_uct_mouse_set_polarity_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_line_sensors), MP_ROM_PTR(&mpy_uct_mouse_get_line_sensors_obj) },
 };
 static MP_DEFINE_CONST_DICT(uct_mouse_module_globals, uct_mouse_module_globals_table);
 

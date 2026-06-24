@@ -40,6 +40,17 @@ def run_square():
     dt_s = 0.05
     target_heading = 0.0
 
+    def delay_and_track(ms):
+        nonlocal heading_deg
+        accumulated = 0
+        while accumulated < ms:
+            step = min(50, ms - accumulated)
+            uct_mouse.delay_ms(step)
+            accumulated += step
+            sensors = uct_mouse._mouse.get_sensors()
+            gyro = sensors.get('gyro', 0.0)
+            heading_deg += gyro * (step / 1000.0)
+
     for side in range(4):
         print(f"Driving side {side + 1}...")
         lenc_start, renc_start = uct_mouse.get_encoders()
@@ -64,9 +75,10 @@ def run_square():
             l_pwm = 50 - corr
             r_pwm = 50 + corr
             uct_mouse.set_motors(max(20, min(80, l_pwm)), max(20, min(80, r_pwm)))
+            uct_mouse.delay_ms(50)
             
         uct_mouse.set_motors(0, 0)
-        uct_mouse.delay_ms(200)
+        delay_and_track(200)
         
         # Step 2: Turn 90 degrees (Left turn to avoid border walls)
         print(f"Turning corner {side + 1}...")
@@ -92,9 +104,10 @@ def run_square():
                 uct_mouse.set_motors(-pwm, pwm)
             else:
                 uct_mouse.set_motors(pwm, -pwm)
+            uct_mouse.delay_ms(50)
                 
         uct_mouse.set_motors(0, 0)
-        uct_mouse.delay_ms(200)
+        delay_and_track(200)
 
     print("Milestone 1 Completed!")
 

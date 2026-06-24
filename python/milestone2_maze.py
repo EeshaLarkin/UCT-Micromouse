@@ -20,9 +20,9 @@ class MazeSolver:
         # 0 = unknown, 1 = wall, 2 = open
         self.walls = [[ [0]*4 for _ in range(MAZE_DIM)] for _ in range(MAZE_DIM)]
         self.visited = [[False]*MAZE_DIM for _ in range(MAZE_DIM)]
-        self.x = 2
-        self.y = 2
-        self.dir = 0
+        self.x = 0
+        self.y = 0
+        self.dir = 1
         self.heading_deg = 0.0
         
         # Border walls

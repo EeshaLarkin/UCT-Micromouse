@@ -64,7 +64,7 @@ def get_intersection(ray_start, ray_dir, line_start, line_end):
     return None
 
 def generate_random_maze(grid_size=10, block_dim=0.20, seed=None):
-    """Generates a randomized DFS-based perfect maze with loops (braid maze layout)."""
+    """Generates a randomized DFS-based perfect maze compliant with Micromouse rules."""
     import random
     if seed is not None:
         random.seed(seed)
@@ -75,6 +75,11 @@ def generate_random_maze(grid_size=10, block_dim=0.20, seed=None):
     # Internal walls tracking
     v_walls = set((c, r) for c in range(1, grid_size) for r in range(grid_size))
     h_walls = set((c, r) for c in range(grid_size) for r in range(1, grid_size))
+    
+    # Center target cells
+    cx = grid_size // 2
+    cy = grid_size // 2
+    tcs = {(cx - 1, cy - 1), (cx - 1, cy), (cx, cy - 1), (cx, cy)}
     
     def get_neighbors(cell):
         c, r = cell
@@ -88,11 +93,21 @@ def generate_random_maze(grid_size=10, block_dim=0.20, seed=None):
     curr = (0, 0)
     visited.add(curr)
     
+    # Rule 1.3: Start cell (0, 0) has walls on three sides.
+    # Exit is strictly to (1, 0) (East)
+    # So we remove the wall between (0, 0) and (1, 0) at the start
+    v_walls.remove((1, 0))
+    visited.add((1, 0))
+    curr = (1, 0)
+    
     while len(visited) < grid_size * grid_size:
+        # Get unvisited neighbors
         neighbors = [nb for nb in get_neighbors(curr) if nb[1] not in visited]
         if neighbors:
             dir_to, next_cell = random.choice(neighbors)
             c, r = curr
+            
+            # Remove the wall between curr and next_cell
             if dir_to == 'N':
                 h_walls.remove((c, r + 1))
             elif dir_to == 'S':
@@ -102,21 +117,41 @@ def generate_random_maze(grid_size=10, block_dim=0.20, seed=None):
             elif dir_to == 'W':
                 v_walls.remove((c, r))
                 
-            visited.add(next_cell)
-            stack.append(curr)
-            curr = next_cell
+            if next_cell in tcs:
+                # Mark all target cells as visited
+                visited.update(tcs)
+                # Remove all internal walls between the 4 center cells to make it a 2x2 open area
+                v_walls.discard((cx, cy - 1))
+                v_walls.discard((cx, cy))
+                h_walls.discard((cx - 1, cy))
+                h_walls.discard((cx, cy))
+                
+                # Do not advance current into target cells; back-track instead
+            else:
+                visited.add(next_cell)
+                stack.append(curr)
+                curr = next_cell
         elif stack:
             curr = stack.pop()
         else:
-            break
-            
-    # Braid maze: randomly remove 7% of remaining walls to create alternative paths/loops
-    v_list = list(v_walls)
+            # Fallback if stack is empty but some cells are not visited
+            remaining = set((c, r) for c in range(grid_size) for r in range(grid_size)) - visited
+            if remaining:
+                curr = random.choice(list(remaining))
+                visited.add(curr)
+            else:
+                break
+                
+    # Braid maze: randomly remove 7% of remaining walls (excluding boundary and center walls)
+    center_boundary_v_walls = {(cx, cy - 1), (cx, cy), (cx - 1, cy - 1), (cx - 1, cy), (cx + 1, cy - 1), (cx + 1, cy)}
+    center_boundary_h_walls = {(cx - 1, cy), (cx, cy), (cx - 1, cy - 1), (cx, cy - 1), (cx - 1, cy + 1), (cx, cy + 1)}
+    
+    v_list = [w for w in v_walls if w not in center_boundary_v_walls]
     random.shuffle(v_list)
     for w in v_list[:int(len(v_list) * 0.07)]:
         v_walls.remove(w)
         
-    h_list = list(h_walls)
+    h_list = [w for w in h_walls if w not in center_boundary_h_walls]
     random.shuffle(h_list)
     for w in h_list[:int(len(h_list) * 0.07)]:
         h_walls.remove(w)
@@ -130,27 +165,60 @@ def generate_random_maze(grid_size=10, block_dim=0.20, seed=None):
     return segments
 
 class PhysicsSimulator:
-    def __init__(self, maze_type="empty", imbalance=0.0, slip=0.0, headless=False, seed=None):
+    def __init__(self, maze_type="empty", imbalance=0.0, slip=0.0, headless=False, seed=None, config=None):
         self.maze_type = maze_type
-        self.imbalance = imbalance
-        self.slip_coeff = slip
         self.headless = headless
         self.seed = seed
         
-        # Robot physical parameters (matching simstruct)
+        # Defaults (matching simstruct)
         self.L = 0.060  # axle half-length (m)
         self.R = 0.031  # wheel radius (m)
+        self.collision_radius = 0.058
         self.ticks_per_rot = 8.0
-        self.max_speed = 0.40  # max wheel speed at 100% PWM (m/s)
-        self.tau = 0.15  # motor mechanical time constant (s)
+        self.total_width = 0.143
         
-        # Sensor pose offsets from robot center (x, y, theta_offset)
+        self.max_speed = 0.40
+        self.tau = 0.15
+        self.imbalance = imbalance
+        self.slip_coeff = slip
+        
         self.sensor_offsets = [
             (0.045, 0.02, math.pi/2),   # Left ToF
             (0.055, 0.0, 0.0),          # Center ToF
             (0.045, -0.02, -math.pi/2)  # Right ToF
         ]
         
+        self.grid_size = 10
+        self.block_dim = 0.20
+        self.wall_thickness = 0.006
+        
+        if config:
+            if "robot" in config:
+                rc = config["robot"]
+                self.L = rc.get("axle_half_length", self.L)
+                self.R = rc.get("wheel_radius", self.R)
+                self.collision_radius = rc.get("collision_radius", self.collision_radius)
+                self.ticks_per_rot = rc.get("ticks_per_rot", self.ticks_per_rot)
+                self.total_width = rc.get("total_width", self.total_width)
+            if "motor" in config:
+                mc = config["motor"]
+                self.max_speed = mc.get("max_speed", self.max_speed)
+                self.tau = mc.get("tau", self.tau)
+                # If command line arguments were default, use config values
+                if imbalance == 0.08:
+                    self.imbalance = mc.get("imbalance", imbalance)
+                if slip == 0.08:
+                    self.slip_coeff = mc.get("slip", slip)
+            if "tof_sensors" in config:
+                self.sensor_offsets = []
+                for s in config["tof_sensors"]:
+                    self.sensor_offsets.append((s["x"], s["y"], s["theta"]))
+            if "maze" in config:
+                mz = config["maze"]
+                self.grid_size = mz.get("grid_size", self.grid_size)
+                self.block_dim = mz.get("block_dim", self.block_dim)
+                self.wall_thickness = mz.get("wall_thickness", self.wall_thickness)
+
         # State: x, y, theta, actual wheel speeds, encoders
         self.reset_state()
         
@@ -159,13 +227,14 @@ class PhysicsSimulator:
         self.build_maze()
         
     def reset_state(self):
-        # Starting position: centre of the inner corridor area.
-        # (0.5, 0.5) gives 0.5 m clearance to all four border walls, which is
-        # enough for a 1 m × 1 m square run with margin to spare.
-        # A corner start (0.1, 0.1) only left 0.042 m — less than the 0.058 m
-        # collision radius — on the return legs.
-        self.x = 0.5
-        self.y = 0.5
+        # Starting position: center of cell (2,2) for empty map to avoid boundaries,
+        # and center of start cell (0,0) for maze maps.
+        if self.maze_type == "empty":
+            self.x = 0.5
+            self.y = 0.5
+        else:
+            self.x = 0.1
+            self.y = 0.1
         self.theta = 0.0  # Facing East
         self.v_l = 0.0
         self.v_r = 0.0
@@ -179,9 +248,6 @@ class PhysicsSimulator:
         self.last_actuation = [0, 0]
         
     def build_maze(self):
-        # 10x10 Grid (block dimension = 0.20m, total = 2.0m x 2.0m)
-        self.grid_size = 10
-        self.block_dim = 0.20
         self.maze_width = self.grid_size * self.block_dim
         self.maze_height = self.grid_size * self.block_dim
         
@@ -192,11 +258,19 @@ class PhysicsSimulator:
         self.walls.append(((self.maze_width, 0), (self.maze_width, self.maze_height))) # Right
         
         if self.maze_type == "spiral":
-            # Add some custom internal walls for a simple spiral
-            # Each block has size 0.2m. Let's add segments
-            # Center spiral partitions
-            for i in range(1, 8):
-                self.walls.append(((i*0.2, 0.2), (i*0.2, 1.8)))
+            # Generate a proper concentric spiral maze for grid_size x grid_size
+            for k in range(1, self.grid_size // 2):
+                w = k * self.block_dim
+                limit = self.maze_width - w
+                
+                # Bottom wall: Y = w, X from w - block_dim to limit
+                self.walls.append(((w - self.block_dim, w), (limit, w)))
+                # Right wall: X = limit, Y from w to limit
+                self.walls.append(((limit, w), (limit, limit)))
+                # Top wall: Y = limit, X from w to limit
+                self.walls.append(((w, limit), (limit, limit)))
+                # Left wall: X = w, Y from w + block_dim to limit (leaving a gap of size block_dim at the bottom-left)
+                self.walls.append(((w, w + self.block_dim), (w, limit)))
         elif self.maze_type == "random":
             # Generate and add randomized DFS maze walls
             random_walls = generate_random_maze(self.grid_size, self.block_dim, self.seed)
@@ -275,12 +349,14 @@ class PhysicsSimulator:
 
     def check_collision(self):
         # Collision check based on approximate mouse radius
-        mouse_radius = 0.058 # 5.8cm
+        mouse_radius = self.collision_radius
         for line_start, line_end in self.walls:
             # Distance from point (x,y) to line segment
             px = line_end[0] - line_start[0]
             py = line_end[1] - line_start[1]
             something = px*px + py*py
+            if something < 1e-9:
+                continue
             u = ((self.x - line_start[0]) * px + (self.y - line_start[1]) * py) / float(something)
             u = max(0.0, min(1.0, u))
             ix = line_start[0] + u * px
@@ -300,9 +376,22 @@ def main():
     parser.add_argument("--headless", action="store_true", help="Run in headless cloud mode (no window display)")
     parser.add_argument("--json-log", type=str, default="", help="Path to save simulation telemetry log as JSON")
     parser.add_argument("--max-time", type=float, default=None, help="Maximum simulation time limit in seconds")
+    parser.add_argument("--config", type=str, default="", help="Path to simulation JSON config file")
     args = parser.parse_args()
     
-    sim = PhysicsSimulator(maze_type=args.map, imbalance=args.imbalance, slip=args.slip, headless=args.headless, seed=args.seed)
+    # Load config file if specified, or try default location
+    config_data = None
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = args.config if args.config else os.path.join(script_dir, "simulation_config.json")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                config_data = json.load(f)
+            print(f"[Simulator] Loaded configuration from: {config_path}")
+        except Exception as e:
+            print(f"[Simulator] Error loading config {config_path}: {e}")
+            
+    sim = PhysicsSimulator(maze_type=args.map, imbalance=args.imbalance, slip=args.slip, headless=args.headless, seed=args.seed, config=config_data)
     
     # Initialize Pygame in dummy mode if headless
     if args.headless:
@@ -318,6 +407,18 @@ def main():
         pygame.display.set_caption("UCT Micromouse Co-Simulation Testbed")
         
     clock = pygame.time.Clock()
+    
+    # Load mouse image if graphics enabled
+    mouse_img = None
+    if not args.headless:
+        proj_root = os.path.dirname(script_dir)
+        img_path = os.path.join(proj_root, "matlab", "simulator", "uctmm_image.png")
+        if os.path.exists(img_path):
+            try:
+                mouse_img = pygame.image.load(img_path).convert_alpha()
+                print(f"[Simulator] Loaded mouse image: {img_path}")
+            except Exception as e:
+                print(f"[Simulator] Failed to load mouse image {img_path}: {e}")
     
     # Initialize Video Writer if requested
     video_writer = None
@@ -435,15 +536,27 @@ def main():
                                  (line_start[0]*scale, (sim.maze_height - line_start[1])*scale), 
                                  (line_end[0]*scale, (sim.maze_height - line_end[1])*scale), 4)
                 
-            # Draw mouse circle
+            # Draw mouse (rotated image or fallback circle)
             mouse_px = int(sim.x * scale)
             mouse_py = int((sim.maze_height - sim.y) * scale)
-            pygame.draw.circle(screen, (0, 200, 100), (mouse_px, mouse_py), int(0.058*scale)) # 5.8cm radius
             
-            # Draw heading arrow
-            head_x = int(mouse_px + 0.058 * scale * math.cos(sim.theta))
-            head_y = int(mouse_py - 0.058 * scale * math.sin(sim.theta))
-            pygame.draw.line(screen, (255, 255, 255), (mouse_px, mouse_py), (head_x, head_y), 3)
+            if mouse_img:
+                img_size_m = sim.total_width * (201.0 / 147.0)
+                img_pixel_size = int(img_size_m * scale)
+                
+                # Resize and rotate
+                scaled_img = pygame.transform.smoothscale(mouse_img, (img_pixel_size, img_pixel_size))
+                rotated_img = pygame.transform.rotate(scaled_img, math.degrees(sim.theta))
+                
+                # Center and draw
+                new_rect = rotated_img.get_rect(center=(mouse_px, mouse_py))
+                screen.blit(rotated_img, new_rect.topleft)
+            else:
+                # Fallback to circle & arrow
+                pygame.draw.circle(screen, (0, 200, 100), (mouse_px, mouse_py), int(sim.collision_radius * scale))
+                head_x = int(mouse_px + sim.collision_radius * scale * math.cos(sim.theta))
+                head_y = int(mouse_py - sim.collision_radius * scale * math.sin(sim.theta))
+                pygame.draw.line(screen, (255, 255, 255), (mouse_px, mouse_py), (head_x, head_y), 3)
             
             # HUD metrics overlay
             font = pygame.font.Font(None, 24) if pygame.font.get_init() else None
@@ -502,6 +615,30 @@ def main():
             print("[Simulator] Closing video writer...")
             video_writer.release()
             
+        # If crashed and running interactively, show crash banner and wait
+        if crashed and not args.headless:
+            try:
+                # Draw CRASHED text overlay
+                if font:
+                    crash_surface = font.render("CRASH! MOUSE HIT A WALL", True, (255, 0, 0))
+                    # Draw a black rectangle with red border behind it for contrast
+                    rect = pygame.Rect(width // 2 - 160, height // 2 - 25, 320, 50)
+                    pygame.draw.rect(screen, (0, 0, 0), rect)
+                    pygame.draw.rect(screen, (255, 0, 0), rect, 2)
+                    screen.blit(crash_surface, (width // 2 - 140, height // 2 - 10))
+                    pygame.display.flip()
+                
+                # Wait for 3 seconds or until window is closed
+                waiting = True
+                start_wait = time.time()
+                while waiting and (time.time() - start_wait < 3.0):
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            waiting = False
+                    pygame.time.wait(100)
+            except Exception:
+                pass
+                
         pygame.quit()
         
         # Save JSON log if requested

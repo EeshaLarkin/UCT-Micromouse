@@ -104,10 +104,17 @@ void simulink_ext_cleanup(void) {
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <time.h>
+
+#ifdef MATLAB_MEX_FILE
+#include "mex.h"
+#endif
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #define close closesocket
 #define socket_errno WSAGetLastError()
 #else
@@ -116,35 +123,113 @@ void simulink_ext_cleanup(void) {
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/time.h>
+#ifndef MODEL_NAME
+#include <dlfcn.h>
+#endif
 #define socket_errno errno
 #endif
 
+static void diag_log(const char *fmt, ...) {
+    FILE *f = fopen("/Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/c_client_diag.log", "a");
+    if (!f) return;
+    
+    // Get timestamp
+#ifdef _WIN32
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    fprintf(f, "[%02d:%02d:%02d.%03d] ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    struct tm *tm_info = localtime(&tv.tv_sec);
+    char time_buf[30];
+    strftime(time_buf, sizeof(time_buf), "%H:%M:%S", tm_info);
+    fprintf(f, "[%s.%03d] ", time_buf, (int)(tv.tv_usec / 1000));
+#endif
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+    
+    fclose(f);
+}
+
+static void stop_simulink_simulation(void) {
+#ifndef MODEL_NAME
+    diag_log("[stop_simulink_simulation] Attempting to stop Simulink simulation...\n");
+#ifdef _WIN32
+    // On Windows, resolve from the loaded MEX or MATLAB module
+    HMODULE hMex = GetModuleHandle("libmex.dll");
+    if (!hMex) hMex = GetModuleHandle(NULL);
+    if (hMex) {
+        typedef int (__cdecl *mexEvalString_t)(const char *);
+        mexEvalString_t pMexEvalString = (mexEvalString_t)GetProcAddress(hMex, "mexEvalString");
+        if (pMexEvalString) {
+            diag_log("[stop_simulink_simulation] Calling mexEvalString (Windows)\n");
+            pMexEvalString("set_param(bdroot, 'SimulationCommand', 'stop');");
+            return;
+        }
+    }
+#else
+    // On macOS and Linux, resolve via dlsym
+    void *handle = RTLD_DEFAULT;
+    typedef int (*mexEvalString_t)(const char *);
+    mexEvalString_t pMexEvalString = (mexEvalString_t)dlsym(handle, "mexEvalString");
+    if (pMexEvalString) {
+        diag_log("[stop_simulink_simulation] Calling mexEvalString (POSIX)\n");
+        pMexEvalString("set_param(bdroot, 'SimulationCommand', 'stop');");
+        return;
+    } else {
+        diag_log("[stop_simulink_simulation] Failed to find mexEvalString symbol.\n");
+    }
+#endif
+#else
+    (void)0; // Standalone client mode, no-op
+#endif
+}
+
 // We expose sim_fd globally so the main loop can monitor connection status
 int sim_fd = -1;
+static int packets_received = 0;
+static int connection_failed = 0;
 
 static uint16_t sim_tof_l = 0, sim_tof_c = 0, sim_tof_r = 0;
+static uint16_t sim_ir_fl = 0, sim_ir_fr = 0, sim_ir_sl = 0, sim_ir_sr = 0;
 static int32_t sim_lenc = 0, sim_renc = 0;
 static float sim_gyro = 0.0f;
 static float sim_vbatt = 6.0f;
 
 static void sim_init_socket(void) {
     if (sim_fd != -1) return;
+    if (connection_failed) return;
+
+    diag_log("[sim_init_socket] Start connection attempt. packets_received=%d\n", packets_received);
+#ifdef MATLAB_MEX_FILE
+    diag_log("[sim_init_socket] Compiled WITH MATLAB_MEX_FILE defined.\n");
+#else
+    diag_log("[sim_init_socket] Compiled WITHOUT MATLAB_MEX_FILE defined.\n");
+#endif
+#ifdef SL_INTERNAL
+    diag_log("[sim_init_socket] Compiled WITH SL_INTERNAL defined.\n");
+#endif
+
+    // If we already received packets but lost connection, do NOT try to reconnect.
+    if (packets_received > 0) {
+        diag_log("[sim_init_socket] Connection was previously active but lost. Skipping reconnect.\n");
+        return;
+    }
 
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) {
-        printf("[PC Client] Winsock initialization failed.\n");
+        diag_log("[sim_init_socket] Winsock initialization failed.\n");
         return;
     }
 #endif
 
     struct sockaddr_in serv_addr;
-    sim_fd = (int)socket(AF_INET, SOCK_STREAM, 0);
-    if (sim_fd < 0) {
-        printf("[PC Client] Socket creation error.\n");
-        return;
-    }
-
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(8000);
@@ -152,25 +237,51 @@ static void sim_init_socket(void) {
 #ifdef _WIN32
     serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-        printf("[PC Client] Invalid loopback address.\n");
-        close(sim_fd);
-        sim_fd = -1;
+        diag_log("[sim_init_socket] Invalid loopback address.\n");
         return;
     }
 #else
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-        printf("[PC Client] Invalid loopback address.\n");
-        close(sim_fd);
-        sim_fd = -1;
+        diag_log("[sim_init_socket] Invalid loopback address.\n");
         return;
     }
 #endif
 
-    if (connect(sim_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("[PC Client] Connection failed. Ensure the Python simulator is running on port 8000.\n");
+    // Retry up to 30 times (3.0 seconds max) for initial connection
+    int retries = 30;
+    while (1) {
+        sim_fd = (int)socket(AF_INET, SOCK_STREAM, 0);
+        if (sim_fd < 0) {
+            diag_log("[sim_init_socket] Socket creation error, errno=%d\n", socket_errno);
+            return;
+        }
+#ifdef __APPLE__
+        int nosigpipe = 1;
+        setsockopt(sim_fd, SOL_SOCKET, SO_NOSIGPIPE, (void *)&nosigpipe, sizeof(nosigpipe));
+#endif
+
+        diag_log("[sim_init_socket] Connecting, retry=%d...\n", 30 - retries + 1);
+        if (connect(sim_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) >= 0) {
+            // Connected successfully!
+            diag_log("[sim_init_socket] Connected successfully! sim_fd=%d\n", sim_fd);
+            break;
+        }
+
         close(sim_fd);
         sim_fd = -1;
-        return;
+
+        retries--;
+        if (retries <= 0) {
+            diag_log("[sim_init_socket] Connection failed after 30 retries.\n");
+            connection_failed = 1;
+            return;
+        }
+
+#ifdef _WIN32
+        Sleep(100);
+#else
+        usleep(100000); // 100ms
+#endif
     }
 
     // Set non-blocking mode
@@ -182,15 +293,19 @@ static void sim_init_socket(void) {
     fcntl(sim_fd, F_SETFL, flags | O_NONBLOCK);
 #endif
 
-    printf("[PC Client] Connected to simulator server on localhost:8000 successfully!\n");
+    diag_log("[sim_init_socket] Set socket to non-blocking mode.\n");
 }
 
 static void sim_poll_socket(void) {
-    if (sim_fd == -1) sim_init_socket();
+    if (sim_fd == -1) {
+        if (packets_received > 0) return;
+        sim_init_socket();
+    }
     if (sim_fd == -1) return;
 
     char temp[512];
     int total_bytes = 0;
+    int eagain_count = 0;
     
     // Lock-step read loop: poll socket character by character until we hit newline
     while (total_bytes < sizeof(temp) - 1) {
@@ -203,10 +318,20 @@ static void sim_poll_socket(void) {
                     if ((p = strstr(temp, "\"tof_l\":")))  { sscanf(p, "\"tof_l\":%d", &val); sim_tof_l = (uint16_t)val; }
                     if ((p = strstr(temp, "\"tof_c\":")))  { sscanf(p, "\"tof_c\":%d", &val); sim_tof_c = (uint16_t)val; }
                     if ((p = strstr(temp, "\"tof_r\":")))  { sscanf(p, "\"tof_r\":%d", &val); sim_tof_r = (uint16_t)val; }
+                    if ((p = strstr(temp, "\"ir_fl\":")))  { sscanf(p, "\"ir_fl\":%d", &val); sim_ir_fl = (uint16_t)val; }
+                    if ((p = strstr(temp, "\"ir_fr\":")))  { sscanf(p, "\"ir_fr\":%d", &val); sim_ir_fr = (uint16_t)val; }
+                    if ((p = strstr(temp, "\"ir_sl\":")))  { sscanf(p, "\"ir_sl\":%d", &val); sim_ir_sl = (uint16_t)val; }
+                    if ((p = strstr(temp, "\"ir_sr\":")))  { sscanf(p, "\"ir_sr\":%d", &val); sim_ir_sr = (uint16_t)val; }
                     if ((p = strstr(temp, "\"+lenc\":"))) { sscanf(p, "\"+lenc\":%d", &val); sim_lenc = (int32_t)val; }
                     if ((p = strstr(temp, "\"+renc\":"))) { sscanf(p, "\"+renc\":%d", &val); sim_renc = (int32_t)val; }
                     if ((p = strstr(temp, "\"gyro\":")))   { sscanf(p, "\"gyro\":%lf", &dval); sim_gyro = (float)dval; }
                     if ((p = strstr(temp, "\"v_batt\":"))) { sscanf(p, "\"v_batt\":%lf", &dval); sim_vbatt = (float)dval; }
+                    
+                    packets_received++;
+                    if (packets_received % 100 == 1) {
+                        diag_log("[sim_poll_socket] Telemetry parsed: pkts=%d, tof_c=%d, gyro=%.2f\n", 
+                                 packets_received, sim_tof_c, sim_gyro);
+                    }
                 }
                 break;
             }
@@ -215,35 +340,64 @@ static void sim_poll_socket(void) {
 #ifdef _WIN32
             int err = WSAGetLastError();
             if (err == WSAEWOULDBLOCK) {
+                eagain_count++;
+                if (eagain_count > 500) { // Timeout after 500ms
+                    diag_log("[sim_poll_socket] WSAEWOULDBLOCK timeout (>500ms). Closing socket.\n");
+                    close(sim_fd);
+                    sim_fd = -1;
+                    break;
+                }
                 Sleep(1);
                 continue;
             }
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                eagain_count++;
+                if (eagain_count > 500) { // Timeout after 500ms
+                    diag_log("[sim_poll_socket] EAGAIN timeout (>500ms). Closing socket.\n");
+                    close(sim_fd);
+                    sim_fd = -1;
+                    break;
+                }
                 usleep(1000);
                 continue;
             }
 #endif
-            printf("[PC Client] Connection lost or read error.\n");
+            diag_log("[sim_poll_socket] Connection lost or read error, errno=%d. Closing socket.\n", socket_errno);
             close(sim_fd);
             sim_fd = -1;
+            stop_simulink_simulation();
             break;
         } else {
             // Server closed connection
-            printf("[PC Client] Simulator server closed connection.\n");
+            diag_log("[sim_poll_socket] Simulator server closed connection (EOF). Closing socket.\n");
             close(sim_fd);
             sim_fd = -1;
+            stop_simulink_simulation();
             break;
         }
     }
 }
 
 void simulink_ext_set_motors(int16_t left, int16_t right) {
-    if (sim_fd == -1) sim_init_socket();
+    if (sim_fd == -1) {
+        if (packets_received > 0 || connection_failed) return;
+        sim_init_socket();
+    }
     if (sim_fd != -1) {
         char tx[64];
         int len = snprintf(tx, sizeof(tx), "{\"a\":[%d,%d]}\r\n", left, right);
-        send(sim_fd, tx, len, 0);
+#ifdef __linux__
+        if (send(sim_fd, tx, len, MSG_NOSIGNAL) < 0) {
+#else
+        if (send(sim_fd, tx, len, 0) < 0) {
+#endif
+            diag_log("[set_motors] Send failed, errno=%d. Closing socket.\n", socket_errno);
+            close(sim_fd);
+            sim_fd = -1;
+            stop_simulink_simulation();
+            return;
+        }
         sim_poll_socket(); // Block and wait for telemetry update (lock-step)
     }
 }
@@ -271,7 +425,9 @@ void simulink_ext_get_accel_xyz(float *x, float *y, float *z) {
 float simulink_ext_get_imu_temp(void) { return 25.0f; }
 void simulink_ext_get_switches(uint8_t *sw1, uint8_t *sw2) { *sw1 = 0; *sw2 = 0; }
 float simulink_ext_get_vbatt(void) { return sim_vbatt; }
-void simulink_ext_get_line_sensors(uint16_t *fl, uint16_t *fr, uint16_t *sl, uint16_t *sr) { *fl = 0; *fr = 0; *sl = 0; *sr = 0; }
+void simulink_ext_get_line_sensors(uint16_t *fl, uint16_t *fr, uint16_t *sl, uint16_t *sr) { 
+    *fl = sim_ir_fl; *fr = sim_ir_fr; *sl = sim_ir_sl; *sr = sim_ir_sr; 
+}
 void simulink_ext_get_pwr_meter(float *voltage, float *current, float *power, float *v_shunt, float *capacity) { 
     *voltage = sim_vbatt; *current = 0.0f; *power = 0.0f; *v_shunt = 0.0f; *capacity = 0.0f; 
 }
@@ -286,6 +442,7 @@ void simulink_ext_log_str(const char *key, const char *value) { (void)key; (void
 void simulink_ext_log_num(const char *key, double value) { (void)key; (void)value; }
 
 void simulink_ext_cleanup(void) {
+    diag_log("[simulink_ext_cleanup] Cleaning up socket. sim_fd=%d\n", sim_fd);
     if (sim_fd != -1) {
         close(sim_fd);
         sim_fd = -1;
