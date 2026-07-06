@@ -42,8 +42,15 @@ All major reference solutions, autograding pipeline integration, deployment opti
 * Moved autograder zip assets from the repository root to [autograder/zips/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/zips) and updated [build_zip.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/build_zip.py) accordingly.
 * Committed all modifications to the repository.
 
-## Next Steps
-* Guide user to test-run the Simulink desktop simulation now that paths and functions are restored.
-* Distribute the updated toolbox repository and student guide to Course Convenor / TAs for final review.
-* Perform physical test runs with students to gather feedback on the new high-speed `--script-only` flashing method.
+### 6. Submodule Integration & OLED Debugging (In Progress)
+* **Submodule PR #3 Merged & Pushed:** Merged Jesse's pull request "Major updates to MicroMouse C Code#3" into [MicroMouseTemplate](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/MicroMouseTemplate), resolving all conflicts with MicroPython compilation and UART configurations. Standalone cross-compiler builds of the template compile cleanly.
+* **MicroPython Build Integration:** Adjusted the board makefile [mpconfigboard.mk](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/micropython/boards/UCT_MICROMOUSE/mpconfigboard.mk) to target the new [MicroMouse_main.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/MicroMouse_main.c) entry point, included low-level UART and circular DMA source dependencies (`DMA.c`, `VCP.c`, and LL drivers), and disabled strict redefinition / unused variable warnings on template sources.
+* **OLED Initialization Order Optimization:** Swapped the peripheral initialization sequence inside `initMicroMouse()` in [MicroMouse_main.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/MicroMouse_main.c) so that `initScreen()` is executed **first** (before the long-running `initTOFs` sequence). This instantly clears the OLED's power-on RAM static/noise.
+* **Active Status:** The MicroPython firmware compiled and flashed successfully, and we deployed the [test_wall_follow.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/tests/test_wall_follow.py) script as `main.py` onto the board's internal flash.
+
+## Next Steps / Goals for New Agent
+1. **Debug Blank OLED Display:** Investigate why the OLED screen is currently blank after boot (instead of showing text/telemetry) under battery or USB power, even though the MicroPython USB mass storage drive mounts successfully and the raw REPL is responsive.
+2. **Validate I2C2 and Display Connectivity:** Verify if `hi2c2` is running correctly, if `SSD1306_Init()` is completing successfully, or if there is a hardware pinout discrepancy or clock initialization issue preventing communication with the physical display.
+3. **Run `test_wall_follow.py` Telemetry:** Verify that the Python script runs and outputs valid distance data over the USB CDC VCP serial port (`/dev/cu.usbmodem*`).
+
 
