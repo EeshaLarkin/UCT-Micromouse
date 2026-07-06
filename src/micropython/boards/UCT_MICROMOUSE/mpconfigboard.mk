@@ -12,7 +12,7 @@ INC += -I$(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Cod
 INC += -I$(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/USB_DEVICE/App
 INC += -I$(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/USB_DEVICE/Target
 
-CFLAGS_EXTRA += -Dmain=jesse_legacy_main -DCOMPILING_FOR_MICROPYTHON -Wno-float-conversion -Wno-builtin-declaration-mismatch -Wno-discarded-qualifiers
+CFLAGS_EXTRA += -Dmain=jesse_legacy_main -DCOMPILING_FOR_MICROPYTHON -Wno-float-conversion -Wno-builtin-declaration-mismatch -Wno-discarded-qualifiers -Wno-unused-variable -Wno-implicit-function-declaration -Wno-parentheses
 
 SRC_C += $(BOARD_DIR)/src_link/kernel/src/micromouse_kernel.c
 SRC_C += $(BOARD_DIR)/src_link/kernel/src/serial_interface.c
@@ -25,9 +25,14 @@ SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Cod
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/Buttons.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/INA219.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/preformatted_flash.c
-SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/stm32l4xx_it.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/stm32l4xx_hal_msp.c
-SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/main.c
+SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/MicroMouse_main.c
+SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/DMA.c
+SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/VCP.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_i2c_ex.c
+SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_gpio.c
+SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_usart.c
+SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_dma.c
+SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_rcc.c
 
 
