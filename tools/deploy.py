@@ -326,8 +326,21 @@ if __name__ == "__main__":
             # --- Deploying Python Scripts via VCP (mpremote) ---
             print("[1/2] Connecting to MicroPython via Serial (mpremote)...")
             
-            # Use mpremote to test connection
+            # Dynamically detect MicroPython port to avoid ST-Link VCP conflicts
+            mpy_port = None
+            try:
+                import serial.tools.list_ports
+                for p in serial.tools.list_ports.comports():
+                    if p.vid == 0xf055 and p.pid == 0x9800:
+                        mpy_port = p.device
+                        break
+            except Exception:
+                pass
+                
             mpremote_cmd = [sys.executable, "-m", "mpremote"]
+            if mpy_port:
+                print(f"    -> Detected MicroPython on {mpy_port}")
+                mpremote_cmd += ["connect", mpy_port]
             try:
                 subprocess.run(mpremote_cmd + ["exec", "print('Connected!')"], check=True, capture_output=True)
             except subprocess.CalledProcessError:
