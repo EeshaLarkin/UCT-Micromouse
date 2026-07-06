@@ -28,9 +28,13 @@ set(TEMPLATE_DIR "external/MicroMouseTemplate/MicroMouseProgramming_Code")
 
 # 3. Dynamically find all source files in Jesse's template
 file(GLOB_RECURSE HAL_SOURCES "${TEMPLATE_DIR}/Drivers/STM32L4xx_HAL_Driver/Src/*.c")
+if(HAL_SOURCES)
+    list(FILTER HAL_SOURCES EXCLUDE REGEX "_template\\.c$")
+endif()
 file(GLOB_RECURSE CORE_SOURCES "${TEMPLATE_DIR}/Core/Src/*.c")
 if(CORE_SOURCES)
     list(FILTER CORE_SOURCES EXCLUDE REGEX "instrumented/")
+    list(FILTER CORE_SOURCES EXCLUDE REGEX "Core/Src/main\\.c$")
 endif()
 file(GLOB_RECURSE USB_SOURCES "${TEMPLATE_DIR}/USB_DEVICE/App/*.c" "${TEMPLATE_DIR}/USB_DEVICE/Target/*.c")
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Src/*.c" "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/*.c")
@@ -45,11 +49,15 @@ if(SIMULINK_SOURCES)
 endif()
 
 # Mute Jesse's application loops so we can supply our own cleanly
-set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/main.c" APPEND PROPERTY COMPILE_DEFINITIONS 
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/MicroMouse_main.c" APPEND PROPERTY COMPILE_DEFINITIONS 
     "main=jesse_legacy_main" 
     "HAL_UART_RxCpltCallback=jesse_legacy_uart_callback"
     "HAL_TIM_PeriodElapsedCallback=jesse_legacy_period_elapsed_callback"
     "Error_Handler=jesse_legacy_Error_Handler"
+)
+
+set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/VCP.c" APPEND PROPERTY COMPILE_DEFINITIONS 
+    "HAL_UART_RxCpltCallback=jesse_legacy_uart_callback_vcp"
 )
 
 # Common sources and include paths for both targets
@@ -85,7 +93,7 @@ set(COMMON_LINK_OPTIONS
 
 # --- TARGET 1: PikaScript Firmware ---
 add_executable(pikascript_firmware ${COMMON_SOURCES} ${PIKA_SOURCES})
-target_compile_definitions(pikascript_firmware PRIVATE USE_HAL_DRIVER STM32L476xx COMPILING_FOR_PIKASCRIPT)
+target_compile_definitions(pikascript_firmware PRIVATE USE_HAL_DRIVER USE_FULL_LL_DRIVER STM32L476xx COMPILING_FOR_PIKASCRIPT)
 target_include_directories(pikascript_firmware PRIVATE ${COMMON_INCLUDES} src/pikascript/pikascript-api src/pikascript/pikascript-core src/pikascript/pikascript-lib)
 target_link_options(pikascript_firmware PRIVATE ${COMMON_LINK_OPTIONS} -Wl,-Map=pikascript_firmware.map)
 target_link_libraries(pikascript_firmware PRIVATE uct_kernel m)
@@ -99,7 +107,7 @@ add_custom_command(TARGET pikascript_firmware POST_BUILD
 
 # --- TARGET 2: Simulink Firmware ---
 add_executable(simulink_firmware ${COMMON_SOURCES} ${SIMULINK_SOURCES})
-target_compile_definitions(simulink_firmware PRIVATE USE_HAL_DRIVER STM32L476xx COMPILING_FOR_SIMULINK)
+target_compile_definitions(simulink_firmware PRIVATE USE_HAL_DRIVER USE_FULL_LL_DRIVER STM32L476xx COMPILING_FOR_SIMULINK)
 target_include_directories(simulink_firmware PRIVATE ${COMMON_INCLUDES} build/UCT_KDeploy_ert_rtw)
 target_link_options(simulink_firmware PRIVATE ${COMMON_LINK_OPTIONS} -Wl,-Map=simulink_firmware.map)
 target_link_libraries(simulink_firmware PRIVATE uct_kernel m)

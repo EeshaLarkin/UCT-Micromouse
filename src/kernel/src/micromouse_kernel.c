@@ -22,12 +22,7 @@
 #include "main.h"
 
 // Expose Jesse's underlying global hardware variables
-extern int8_t MOTOR_LS;
-extern int8_t MOTOR_RS;
 extern float IMU_Gyro[3];
-extern VL53L0_t TOF_left_result;
-extern VL53L0_t TOF_centre_result;
-extern VL53L0_t TOF_right_result;
 extern int16_t Vbattery;
 
 // 2026 Generation Hardware Hooks:
@@ -103,8 +98,8 @@ void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
     current_state.left_pwm = left_pwm;   // Report the original INTENT back to telemetry
     current_state.right_pwm = right_pwm; 
     
-    MOTOR_LS = (int8_t)actual_l;
-    MOTOR_RS = (int8_t)actual_r;
+    MOTOR_L.magnitude = actual_l;
+    MOTOR_R.magnitude = actual_r;
     watchdog_timer_ms = 0; // Feed watchdog on standalone internal actuation
 
     // Bypass Jesse's int8_t abs() logic which causes signed integer casting faults 
@@ -182,9 +177,9 @@ uint32_t kernel_get_stream_rate_hz(void) {
 }
 
 void kernel_snapshot_state(void) {
-    current_state.tof_l = TOF_left_result.Distance;
-    current_state.tof_c = TOF_centre_result.Distance;
-    current_state.tof_r = TOF_right_result.Distance;
+    current_state.tof_l = TOF_sb_left_result.Distance;
+    current_state.tof_c = TOF_sb_front_result.Distance;
+    current_state.tof_r = TOF_sb_right_result.Distance;
     current_state.ir_fl = 0; // TODO: Connect to Jesse's IR drivers
     current_state.ir_fr = 0; 
     current_state.ir_sl = 0;
@@ -275,8 +270,8 @@ void kernel_watchdog_tick(void) {
         current_state.left_pwm = 0;
         current_state.right_pwm = 0;
         
-        MOTOR_LS = 0;
-        MOTOR_RS = 0;
+        MOTOR_L.magnitude = 0;
+        MOTOR_R.magnitude = 0;
         
         TIM3->CCR3 = 0;
         TIM3->CCR4 = 0;
