@@ -5,9 +5,20 @@
 extern volatile bool mouse_initialized;
 extern void initMicroMouse(void);
 
-// 1. uct_mouse.init() -> int
 static mp_obj_t mpy_uct_mouse_init(void) {
     if (!mouse_initialized) {
+        // Re-initialize I2C1 and I2C2 to ensure GPIO alternate functions are correct
+        // after MicroPython boot pin configurations have finished.
+        extern I2C_HandleTypeDef hi2c1;
+        extern I2C_HandleTypeDef hi2c2;
+        HAL_I2C_DeInit(&hi2c1);
+        HAL_I2C_DeInit(&hi2c2);
+        
+        extern void MX_I2C1_Init(void);
+        extern void MX_I2C2_Init(void);
+        MX_I2C1_Init();
+        MX_I2C2_Init();
+
         initMicroMouse();
         mouse_initialized = true;
     }

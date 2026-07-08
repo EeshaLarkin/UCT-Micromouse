@@ -1,5 +1,11 @@
 # =========================================================================
-# UCT Micromouse - Milestone 2: Map and Navigate a Maze
+# UCT Micromouse - Milestone 2: Map and Navigate a Maze (Framework)
+# =========================================================================
+# ASSIGNMENT DESCRIPTION:
+# Implement a maze explorer that maps a 10x10 grid using Time-of-Flight (ToF)
+# sensors, updates its internal map, uses BFS (or another algorithm) to
+# explore 100% of reachable cells, and then navigates from the finish to the
+# center (cells [4,4], [4,5], [5,4], [5,5]).
 # =========================================================================
 
 import uct_mouse
@@ -22,10 +28,10 @@ class MazeSolver:
         self.visited = [[False]*MAZE_DIM for _ in range(MAZE_DIM)]
         self.x = 0
         self.y = 0
-        self.dir = 1
+        self.dir = 1  # Start direction (e.g. 1 = East)
         self.heading_deg = 0.0
         
-        # Border walls
+        # Initialize border walls
         for i in range(MAZE_DIM):
             self.walls[i][0][3] = 1 # West border
             self.walls[i][MAZE_DIM-1][1] = 1 # East border
@@ -33,6 +39,7 @@ class MazeSolver:
             self.walls[MAZE_DIM-1][i][0] = 1 # North border
             
     def _read_sensors(self):
+        """Helper to read all sensors."""
         tof_l, tof_c, tof_r = uct_mouse.get_tof()
         lenc, renc = uct_mouse.get_encoders()
         sensors = uct_mouse._mouse.get_sensors()
@@ -40,198 +47,59 @@ class MazeSolver:
         return tof_l, tof_c, tof_r, lenc, renc, gyro
 
     def _update_walls(self, tof_l, tof_c, tof_r):
+        """
+        TODO: Update self.walls for the current cell (self.x, self.y)
+        based on ToF sensor readings. Remember to also update the wall map
+        for the adjacent cells (e.g., if there's a wall north of (x,y), then
+        there's a wall south of (x, y+1)).
+        """
         self.visited[self.y][self.x] = True
-        
-        front_dir = self.dir
-        if tof_c < 150:
-            self._set_wall(self.x, self.y, front_dir, 1)
-        else:
-            self._set_wall(self.x, self.y, front_dir, 2)
-            
-        left_dir = (self.dir - 1) % 4
-        if tof_l < 150:
-            self._set_wall(self.x, self.y, left_dir, 1)
-        else:
-            self._set_wall(self.x, self.y, left_dir, 2)
-            
-        right_dir = (self.dir + 1) % 4
-        if tof_r < 150:
-            self._set_wall(self.x, self.y, right_dir, 1)
-        else:
-            self._set_wall(self.x, self.y, right_dir, 2)
-
-    def _set_wall(self, x, y, direction, status):
-        self.walls[y][x][direction] = status
-        nx = x + DX[direction]
-        ny = y + DY[direction]
-        if 0 <= nx < MAZE_DIM and 0 <= ny < MAZE_DIM:
-            self.walls[ny][nx][(direction + 2) % 4] = status
+        # Student code here
+        pass
 
     def turn_to(self, target_dir):
+        """
+        TODO: Turn the mouse from self.dir to target_dir in-place using closed-loop
+        gyro feedback. Update self.dir once complete.
+        """
         if self.dir == target_dir: return
-        
-        diff_dir = (target_dir - self.dir) % 4
-        if diff_dir == 3: diff_dir = -1
-        
-        target_heading = self.heading_deg - diff_dir * 90.0
-        
-        while True:
-            _, _, _, _, _, gyro = self._read_sensors()
-            self.heading_deg += gyro * 0.01
-            
-            diff = target_heading - self.heading_deg
-            while diff > 180: diff -= 360
-            while diff < -180: diff += 360
-            
-            if abs(diff) < 5.0:
-                break
-                
-            pwm = 50
-            if abs(diff) < 25: pwm = 25
-            
-            if diff > 0:
-                uct_mouse.set_motors(-pwm, pwm)
-            else:
-                uct_mouse.set_motors(pwm, -pwm)
-                
-            uct_mouse.delay_ms(10)
-            
-        uct_mouse.set_motors(0, 0)
-        uct_mouse.delay_ms(50)
-        self.dir = target_dir
+        # Student code here
+        pass
 
     def align_to_walls(self):
-        # Fine-tune position if there's a wall in front
-        for _ in range(8): # Max 8 steps of alignment
-            tof_l, tof_c, tof_r, _, _, gyro = self._read_sensors()
-            self.heading_deg += gyro * 0.01
-            
-            if tof_c < 120: # There is a wall in front we can align to
-                error = tof_c - 60.0 # 60mm is perfectly centered
-                if abs(error) < 10.0:
-                    break
-                pwm = max(15, min(40, abs(error) * 2.0))
-                if error > 0:
-                    uct_mouse.set_motors(pwm, pwm)
-                else:
-                    uct_mouse.set_motors(-pwm, -pwm)
-                uct_mouse.delay_ms(10)
-            else:
-                break
-        uct_mouse.set_motors(0, 0)
-        uct_mouse.delay_ms(30)
+        """
+        TODO: Optional but recommended. Fine-tune alignment in the cell using front
+        and/or side walls to prevent drift accumulation.
+        """
+        # Student code here
+        pass
 
     def move_forward(self):
-        target_heading = self.heading_deg
-        lenc_start, renc_start = uct_mouse.get_encoders()
-        # Compensate for 2% slip
-        target_dist = 0.20 / (1.0 - 0.02)
-        
-        while True:
-            _, _, _, lenc, renc, gyro = self._read_sensors()
-            self.heading_deg += gyro * 0.01
-            
-            dist = ((lenc - lenc_start) + (renc - renc_start)) / 2.0 * TICK_DIST_M
-            error = target_dist - dist
-            
-            if error < 0.008: # within 8mm
-                break
-                
-            speed = max(20, min(80, error * 350))
-            
-            diff = target_heading - self.heading_deg
-            while diff > 180: diff -= 360
-            while diff < -180: diff += 360
-            
-            corr = diff * 2.5
-            
-            # Wall centering
-            tof_l, _, tof_r, _, _, _ = self._read_sensors()
-            wall_corr = 0.0
-            if tof_l < 120 and tof_r < 120:
-                wall_corr = (tof_l - tof_r) * 0.05
-            elif tof_l < 120:
-                wall_corr = (tof_l - 80.0) * 0.1
-            elif tof_r < 120:
-                wall_corr = (80.0 - tof_r) * 0.1
-                
-            corr += wall_corr
-            
-            l_pwm = speed - corr
-            r_pwm = speed + corr
-            uct_mouse.set_motors(max(-40, min(90, l_pwm)), max(-40, min(90, r_pwm)))
-            uct_mouse.delay_ms(10)
-
-        # Active brake
-        uct_mouse.set_motors(-40, -40)
-        uct_mouse.delay_ms(30)
-        uct_mouse.set_motors(0, 0)
-        uct_mouse.delay_ms(50)
-        
-        self.align_to_walls()
-        
-        self.x += DX[self.dir]
-        self.y += DY[self.dir]
+        """
+        TODO: Drive forward exactly one cell (CELL_LENGTH_M) using closed-loop control
+        fusing encoders, gyro, and optionally side wall ToF sensors for centering.
+        Update self.x and self.y once successfully transitioned.
+        """
+        # Student code here
+        pass
 
     def find_nearest_unvisited(self):
-        queue = [(self.x, self.y)]
-        visited_bfs = [[False]*MAZE_DIM for _ in range(MAZE_DIM)]
-        visited_bfs[self.y][self.x] = True
-        parent = {}
-        
-        while queue:
-            cx, cy = queue.pop(0)
-            if not self.visited[cy][cx]:
-                path = []
-                curr = (cx, cy)
-                while curr != (self.x, self.y):
-                    path.append(curr)
-                    curr = parent[curr]
-                path.reverse()
-                return path
-                
-            for d in range(4):
-                if self.walls[cy][cx][d] != 1:
-                    nx = cx + DX[d]
-                    ny = cy + DY[d]
-                    if 0 <= nx < MAZE_DIM and 0 <= ny < MAZE_DIM and not visited_bfs[ny][nx]:
-                        visited_bfs[ny][nx] = True
-                        parent[(nx, ny)] = (cx, cy)
-                        queue.append((nx, ny))
+        """
+        TODO: Use Breadth-First Search (BFS) to find the shortest path from the
+        current cell (self.x, self.y) to the nearest unvisited cell.
+        Returns a list of coordinate tuples [(x1, y1), (x2, y2), ...] representing the path.
+        """
+        # Student code here
         return None
 
     def find_path_to_center(self):
-        queue = [(self.x, self.y)]
-        visited_bfs = [[False]*MAZE_DIM for _ in range(MAZE_DIM)]
-        visited_bfs[self.y][self.x] = True
-        parent = {}
-        target_found = None
-        
-        while queue:
-            cx, cy = queue.pop(0)
-            if cx in [4, 5] and cy in [4, 5]:
-                target_found = (cx, cy)
-                break
-                
-            for d in range(4):
-                if self.walls[cy][cx][d] != 1:
-                    nx = cx + DX[d]
-                    ny = cy + DY[d]
-                    if 0 <= nx < MAZE_DIM and 0 <= ny < MAZE_DIM and not visited_bfs[ny][nx]:
-                        visited_bfs[ny][nx] = True
-                        parent[(nx, ny)] = (cx, cy)
-                        queue.append((nx, ny))
-                        
-        if not target_found:
-            return None
-            
-        path = []
-        curr = target_found
-        while curr != (self.x, self.y):
-            path.append(curr)
-            curr = parent[curr]
-        path.reverse()
-        return path
+        """
+        TODO: Use BFS to find the shortest path from the current cell (self.x, self.y)
+        to the center cells ([4,4], [4,5], [5,4], [5,5]).
+        Returns a list of coordinate tuples [(x1, y1), (x2, y2), ...] representing the path.
+        """
+        # Student code here
+        return None
 
     def solve(self):
         if not uct_mouse.init():
@@ -246,9 +114,7 @@ class MazeSolver:
 
         print("--- Milestone 2: 100% Maze Exploration ---")
         
-        for _ in range(5):
-            uct_mouse.delay_ms(50)
-
+        # 1. Phase 1: Explore the maze until all reachable cells are visited
         while True:
             tof_l, tof_c, tof_r, _, _, _ = self._read_sensors()
             self._update_walls(tof_l, tof_c, tof_r)
@@ -258,8 +124,10 @@ class MazeSolver:
                 print("All reachable cells visited!")
                 break
                 
+            # Take the next step along the path
             next_x, next_y = path[0]
             
+            # Determine direction to face next cell
             target_dir = 0
             for d in range(4):
                 if self.x + DX[d] == next_x and self.y + DY[d] == next_y:
@@ -269,7 +137,8 @@ class MazeSolver:
             self.turn_to(target_dir)
             self.move_forward()
 
-        print("Now navigating to the center.")
+        # 2. Phase 2: Navigate to the center from current position
+        print("Now navigating to the center...")
         while True:
             if self.x in [4, 5] and self.y in [4, 5]:
                 print("Reached the center!")

@@ -307,10 +307,10 @@ void kernel_set_oled_line4(const char* text) {
 }
 
 void kernel_update_display(void) {
-    // Limit I2C display updates to 2Hz to completely eliminate visible OLED scanline tearing
+    // Limit I2C display updates to 10Hz to eliminate scanline tearing while maintaining responsiveness
     static uint32_t last_display_time = 0;
     uint32_t now = HAL_GetTick();
-    if (now - last_display_time < 500) return; 
+    if (now - last_display_time < 100) return; 
     last_display_time = now;
 
     // Check if Simulink is providing display data. If so, use it.
@@ -357,6 +357,13 @@ void kernel_update_display(void) {
             snprintf(buf, sizeof(buf), "WDG: %-4lu ms      ", watchdog_timer_ms);
             SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
         }
+    }
+    
+    // Auto-recover I2C2 bus if it gets stuck in BUSY or ERROR state (due to motor noise)
+    extern I2C_HandleTypeDef hi2c2;
+    if (hi2c2.State == HAL_I2C_STATE_BUSY || hi2c2.ErrorCode != HAL_I2C_ERROR_NONE) {
+        extern void restartI2C(I2C_HandleTypeDef *hi2c);
+        restartI2C(&hi2c2);
     }
 
     SSD1306_UpdateScreen();

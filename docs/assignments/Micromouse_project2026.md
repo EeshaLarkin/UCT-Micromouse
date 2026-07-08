@@ -6,7 +6,11 @@
 
 ## 1. Project Overview & Motivation
 
+The EEE3088F course introduced you to structured design principles and gave you experience in designing and validating a hardware subsystem (the acoustic DoA sensor PCB). This course continues with engineering design but expands the scope to system-level synthesis, integration, and control. 
+
 The objective of this course is to systematically design, build, and test a software control strategy to enable a physical differential-drive micro-mouse to autonomously map a maze and subsequently navigate from a starting point to a designated target cell as fast as possible.
+
+Development follows an iterative engineering design loop: modeling your control logic in simulation, verifying it against perturbations, deploying the compiled firmware to the physical microcontroller, and using physical run performance and serial log diagnostics to refine and tune the simulation parameters.
 
 * **For Motivation, watch the world-record runs:** [Micromouse World Record Motivation](https://www.youtube.com/watch?v=ZMQbHMgK2rw)
 
@@ -233,4 +237,6 @@ To help you understand exactly what evidence is required in your report, each ex
 
 ## 8. Final Maze-Solving Competition
 
-At the end of the course, students are invited to enter a live maze-solving competition with their physical micro-mouse. If a student's mouse successfully explores, maps, and executes a high-speed run from the starting cell to the target cell, they will be awarded **100% for the practical component of the course**. This reflects the system synthesis and validation necessary to achieve full, real-world autonomy.
+At the end of the course, students are invited to enter a live maze-solving competition with their physical micro-mouse. If a student's mouse successfully explores, maps, and executes a high-speed run from the starting cell to the target cell, they will be awarded **100% for the practical component of the course** (the simulation and hardware demonstration components). 
+
+This grade award is justified on the grounds that successfully solving the full maze-traversal problem in a physical competition is impossible without robust, systematic design of multiple interacting subsystems (motor control, kinematic estimation, mapping, and routing logic) and effective, iterative utilization of simulation-based validation.

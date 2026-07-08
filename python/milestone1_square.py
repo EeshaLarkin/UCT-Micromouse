@@ -1,5 +1,5 @@
 # =========================================================================
-# UCT Micromouse - Milestone 1: Run a Square (1m x 1m)
+# UCT Micromouse - Milestone 1: Run a Square (1m x 1m) (Framework)
 # =========================================================================
 # ASSIGNMENT DESCRIPTION:
 # Implement a control loop to drive the mouse in a 1 meter by 1 meter square,
@@ -22,11 +22,40 @@ import math
 
 TICK_DIST_M = (2.0 * math.pi * 0.031) / 8.0
 
+def drive_straight(distance_m):
+    """
+    TODO: Implement closed-loop straight line control.
+    Use encoder counts to measure distance, and gyroscope Z-axis angular rate
+    (gyro) to correct heading drift.
+    """
+    print(f"Driving straight for {distance_m}m...")
+    # Student code here
+    # Example (open-loop, prone to errors):
+    # uct_mouse.set_motors(50, 50)
+    # uct_mouse.delay_ms(1500)
+    # uct_mouse.set_motors(0, 0)
+    pass
+
+def turn_left_90():
+    """
+    TODO: Implement closed-loop turning control.
+    Use the gyroscope Z-axis angular rate (gyro) to integrate heading angle
+    and turn exactly 90 degrees counter-clockwise.
+    """
+    print("Turning 90 degrees left...")
+    # Student code here
+    # Example (open-loop, prone to errors):
+    # uct_mouse.set_motors(-35, 35)
+    # uct_mouse.delay_ms(600)
+    # uct_mouse.set_motors(0, 0)
+    pass
+
 def run_square():
     if not uct_mouse.init():
         print("Initialization failed.")
         return
 
+    # Load polarity calibration if it exists
     try:
         with open("polarity.txt", "r") as f:
             lines = f.read().strip().split(",")
@@ -36,78 +65,20 @@ def run_square():
 
     print("--- Milestone 1: Run a Square ---")
 
-    heading_deg = 0.0
-    dt_s = 0.05
-    target_heading = 0.0
-
-    def delay_and_track(ms):
-        nonlocal heading_deg
-        accumulated = 0
-        while accumulated < ms:
-            step = min(50, ms - accumulated)
-            uct_mouse.delay_ms(step)
-            accumulated += step
-            sensors = uct_mouse._mouse.get_sensors()
-            gyro = sensors.get('gyro', 0.0)
-            heading_deg += gyro * (step / 1000.0)
-
     for side in range(4):
-        print(f"Driving side {side + 1}...")
-        lenc_start, renc_start = uct_mouse.get_encoders()
+        # 1. Drive forward 1 meter
+        drive_straight(1.0)
         
-        # Step 1: Drive forward 1m
-        while True:
-            sensors = uct_mouse._mouse.get_sensors()
-            gyro = sensors.get('gyro', 0.0)
-            heading_deg += gyro * dt_s
-            
-            lenc, renc = uct_mouse.get_encoders()
-            dist = ((lenc - lenc_start) + (renc - renc_start)) / 2.0 * TICK_DIST_M
-            
-            if dist >= 1.04: # average 4% slip
-                break
-                
-            diff = target_heading - heading_deg
-            while diff > 180: diff -= 360
-            while diff < -180: diff += 360
-            
-            corr = diff * 1.5
-            l_pwm = 50 - corr
-            r_pwm = 50 + corr
-            uct_mouse.set_motors(max(20, min(80, l_pwm)), max(20, min(80, r_pwm)))
-            uct_mouse.delay_ms(50)
-            
+        # 2. Settle briefly
         uct_mouse.set_motors(0, 0)
-        delay_and_track(200)
+        uct_mouse.delay_ms(200)
         
-        # Step 2: Turn 90 degrees (Left turn to avoid border walls)
-        print(f"Turning corner {side + 1}...")
-        target_heading += 90.0
+        # 3. Turn 90 degrees left
+        turn_left_90()
         
-        while True:
-            sensors = uct_mouse._mouse.get_sensors()
-            gyro = sensors.get('gyro', 0.0)
-            heading_deg += gyro * dt_s
-            
-            diff = target_heading - heading_deg
-            while diff > 180: diff -= 360
-            while diff < -180: diff += 360
-            
-            if abs(diff) < 2.0:
-                break
-                
-            pwm = 35
-            if abs(diff) < 20: pwm = 20
-            
-            # Since target_heading increased, diff is positive, so we want to turn left
-            if diff > 0:
-                uct_mouse.set_motors(-pwm, pwm)
-            else:
-                uct_mouse.set_motors(pwm, -pwm)
-            uct_mouse.delay_ms(50)
-                
+        # 4. Settle briefly
         uct_mouse.set_motors(0, 0)
-        delay_and_track(200)
+        uct_mouse.delay_ms(200)
 
     print("Milestone 1 Completed!")
 

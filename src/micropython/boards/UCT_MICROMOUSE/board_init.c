@@ -46,7 +46,7 @@ volatile bool mouse_initialized = false;
 void board_startup(void) {
 }
 
-static void uart_print(const char *str) {
+void uart_print(const char *str) {
     if (USART1 != NULL && (RCC->APB2ENR & RCC_APB2ENR_USART1EN)) {
         for (const char *p = str; *p; p++) {
             while (!(USART1->ISR & USART_ISR_TXE));
@@ -192,6 +192,7 @@ void board_early_init(void) {
     // will continue updating values in the buffer, but it won't interrupt the CPU
     // (avoiding IRQ loop conflicts with MicroPython's dma.c)
     HAL_NVIC_DisableIRQ(DMA1_Channel1_IRQn);
+    HAL_NVIC_DisableIRQ(DMA2_Channel3_IRQn);
     
     uart_print("Initializing I2C1...\n");
     MX_I2C1_Init();
