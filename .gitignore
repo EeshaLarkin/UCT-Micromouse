@@ -1,9 +1,9 @@
 # Build Artifacts
-build/*
+firmware/build/*
 *.elf
 *.map
 *.bin
-!firmware/*.bin
+!firmware/binaries/*.bin
 *.mp4
 *.o
 *.obj
@@ -29,7 +29,7 @@ matlab/simulink/simulink_client
 matlab/simulink/simulink_client.exe
 
 # Allow committing code gen outputs inside build folder
-!build/*_ert_rtw/
+!firmware/build/*_ert_rtw/
 
 # Reference solutions (instructor only — never commit to student repo)
 solutions/

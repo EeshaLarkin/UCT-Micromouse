@@ -18,12 +18,12 @@ if os.path.exists("/autograder"):
     TRAJECTORY_JSON = "/tmp/trajectory.json"
 else:
     # Local mock mode
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     SUBMISSION_DIR = os.path.join(base_dir, "python")  # mock submission is the local python dir
-    RESULTS_FILE = os.path.join(base_dir, "autograder", "results.json")
-    SOURCE_DIR = os.path.join(base_dir, "autograder")
-    VIDEO_PATH = os.path.join(base_dir, "autograder", "run.mp4")
-    TRAJECTORY_JSON = os.path.join(base_dir, "autograder", "trajectory.json")
+    RESULTS_FILE = os.path.join(base_dir, "tools", "autograder", "results.json")
+    SOURCE_DIR = os.path.join(base_dir, "tools", "autograder")
+    VIDEO_PATH = os.path.join(base_dir, "tools", "autograder", "run.mp4")
+    TRAJECTORY_JSON = os.path.join(base_dir, "tools", "autograder", "trajectory.json")
 
 def write_results(score, feedback, test_name="Autograder Evaluation"):
     os.makedirs(os.path.dirname(RESULTS_FILE), exist_ok=True)
@@ -62,7 +62,7 @@ def load_test_suite(assignment_name):
 
 def main():
     print("=== UCT Micromouse Gradescope Autograder Runner ===")
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     
     global SUBMISSION_DIR, RESULTS_FILE
     import argparse
@@ -187,13 +187,13 @@ def main():
         sim_header = os.path.join(SOURCE_DIR, "simulink_wrapper.h")
         
         # Verify wrapper files exist (if not in SOURCE_DIR, fallback to repo paths)
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         if not os.path.exists(pc_main):
             pc_main = os.path.join(repo_root, "matlab", "simulink", "PC_client_main.c")
         if not os.path.exists(sim_wrapper):
-            sim_wrapper = os.path.join(repo_root, "src", "kernel", "src", "simulink_wrapper.c")
+            sim_wrapper = os.path.join(repo_root, "firmware", "src", "kernel", "src", "simulink_wrapper.c")
         if not os.path.exists(sim_header):
-            sim_header = os.path.join(repo_root, "src", "kernel", "inc", "simulink_wrapper.h")
+            sim_header = os.path.join(repo_root, "firmware", "src", "kernel", "inc", "simulink_wrapper.h")
             
         if not os.path.exists(pc_main) or not os.path.exists(sim_wrapper):
             write_results(0.0, "System Error: Missing standalone main client or simulink wrappers in autograder package.")

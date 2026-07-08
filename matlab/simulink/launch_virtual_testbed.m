@@ -10,13 +10,18 @@
 script_dir = fileparts(mfilename('fullpath'));
 proj_root = fileparts(fileparts(script_dir));
 
-fid = fopen(fullfile(proj_root, 'build', 'matlab_callbacks.log'), 'a');
+fid = fopen(fullfile(proj_root, 'firmware', 'build', 'matlab_callbacks.log'), 'a');
 if fid ~= -1
     fprintf(fid, '%s: StartFcn (launch_virtual_testbed) triggered\n', datestr(now));
     fclose(fid);
 end
 
 addpath(fullfile(proj_root, 'matlab', 'simulator'));
+
+% 1.1 Redirect Simulink code generation and cache folders to firmware/build
+Simulink.fileGenControl('set', ...
+    'CodeGenFolder', fullfile(proj_root, 'firmware', 'build'), ...
+    'CacheFolder', fullfile(proj_root, 'firmware', 'build'));
 
 
 % 2. Generate a fresh maze in the base workspace

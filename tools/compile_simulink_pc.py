@@ -12,11 +12,11 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
     simulink_dir = os.path.join(root_dir, "matlab", "simulink")
-    src_kernel_dir = os.path.join(root_dir, "src", "kernel")
+    src_kernel_dir = os.path.join(root_dir, "firmware", "src", "kernel")
     
     # 2. Find code generation directory
     ert_dirs = []
-    build_dir = os.path.join(root_dir, "build")
+    build_dir = os.path.join(root_dir, "firmware", "build")
     
     # Check build_dir
     if os.path.exists(build_dir):

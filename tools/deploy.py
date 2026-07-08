@@ -189,14 +189,14 @@ if __name__ == "__main__":
             
         try:
             print("    -> Configuring CMake...")
-            subprocess.run(["cmake", "-S", "firmware", "-B", "build"], cwd=repo_root, check=True)
+            subprocess.run(["cmake", "-S", "firmware", "-B", "firmware/build"], cwd=repo_root, check=True)
             print("    -> Building PikaScript firmware target...")
-            subprocess.run(["cmake", "--build", "build", "--target", "pikascript_firmware"], cwd=repo_root, check=True)
+            subprocess.run(["cmake", "--build", "firmware/build", "--target", "pikascript_firmware"], cwd=repo_root, check=True)
         except subprocess.CalledProcessError:
             print("Build failed! Check your C-Kernel and PikaScript bindings.")
             sys.exit(1)
         
-        bin_path = os.path.join(repo_root, "build", "pikascript_firmware.bin")
+        bin_path = os.path.join(repo_root, "firmware", "build", "pikascript_firmware.bin")
         central_bin_path = os.path.join(repo_root, "firmware", "binaries", "pikascript.bin")
         if not os.path.exists(bin_path):
             print(f"Error: Compiled firmware not found at {bin_path}")
@@ -225,22 +225,22 @@ if __name__ == "__main__":
         print("[1/2] Compiling Simulink firmware...")
         
         # Check if code generation outputs are present
-        simulink_dir = os.path.join(repo_root, "build", "UCT_KDeploy_ert_rtw")
+        simulink_dir = os.path.join(repo_root, "firmware", "build", "UCT_KDeploy_ert_rtw")
         if not os.path.exists(simulink_dir):
             print(f"Warning: Simulink code-gen directory not found at {simulink_dir}.")
             print("Please run Code Generation (Ctrl+B) in your Simulink model before compiling!")
             
         try:
             print("    -> Configuring CMake...")
-            subprocess.run(["cmake", "-S", "firmware", "-B", "build"], cwd=repo_root, check=True)
+            subprocess.run(["cmake", "-S", "firmware", "-B", "firmware/build"], cwd=repo_root, check=True)
             print("    -> Building Simulink firmware target...")
-            subprocess.run(["cmake", "--build", "build", "--target", "simulink_firmware"], cwd=repo_root, check=True)
+            subprocess.run(["cmake", "--build", "firmware/build", "--target", "simulink_firmware"], cwd=repo_root, check=True)
         except subprocess.CalledProcessError:
             print("Build failed! Check your Simulink autocoded source files.")
             sys.exit(1)
             
         # Copy to central firmware/ directory
-        bin_path = os.path.join(repo_root, "build", "simulink_firmware.bin")
+        bin_path = os.path.join(repo_root, "firmware", "build", "simulink_firmware.bin")
         central_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
         if not os.path.exists(bin_path):
             print(f"Error: Compiled firmware not found at {bin_path}")

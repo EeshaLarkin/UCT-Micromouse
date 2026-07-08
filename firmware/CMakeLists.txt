@@ -43,7 +43,7 @@ list(APPEND PIKA_SOURCES "src/kernel/src/uct_mouse_wrapper.c")
 file(GLOB STARTUP_SCRIPT "${TEMPLATE_DIR}/Core/Startup/*.s")
 
 # 3.1 Locate Simulink Autocoded Sources
-file(GLOB SIMULINK_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../build/UCT_KDeploy_ert_rtw/*.c")
+file(GLOB SIMULINK_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/build/UCT_KDeploy_ert_rtw/*.c")
 if(SIMULINK_SOURCES)
     list(FILTER SIMULINK_SOURCES EXCLUDE REGEX "ert_main\\.c")
 endif()
@@ -108,7 +108,7 @@ add_custom_command(TARGET pikascript_firmware POST_BUILD
 # --- TARGET 2: Simulink Firmware ---
 add_executable(simulink_firmware ${COMMON_SOURCES} ${SIMULINK_SOURCES})
 target_compile_definitions(simulink_firmware PRIVATE USE_HAL_DRIVER USE_FULL_LL_DRIVER STM32L476xx COMPILING_FOR_SIMULINK)
-target_include_directories(simulink_firmware PRIVATE ${COMMON_INCLUDES} "${CMAKE_CURRENT_SOURCE_DIR}/../build/UCT_KDeploy_ert_rtw")
+target_include_directories(simulink_firmware PRIVATE ${COMMON_INCLUDES} "${CMAKE_CURRENT_SOURCE_DIR}/build/UCT_KDeploy_ert_rtw")
 target_link_options(simulink_firmware PRIVATE ${COMMON_LINK_OPTIONS} -Wl,-Map=simulink_firmware.map)
 target_link_libraries(simulink_firmware PRIVATE uct_kernel m)
 

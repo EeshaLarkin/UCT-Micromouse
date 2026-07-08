@@ -13,7 +13,7 @@ function flash_micromouse(buildInfo)
     
     try
         disp('Compiling firmware target with CMake...');
-        [status, cmdout] = system('cmake --build build --target simulink_firmware');
+        [status, cmdout] = system('cmake --build firmware/build --target simulink_firmware');
         disp(cmdout);
         if status ~= 0
             error('Firmware compilation failed.');

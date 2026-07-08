@@ -8,7 +8,7 @@ This document describes how to use MATLAB/Simulink for development on the UCT Mi
 
 To prevent compiled artifacts and cache folders from polluting the repository root, all simulation and code generation paths are dynamically redirected:
 
-*   **`startup.m` (Root-Level):** Must be run when opening MATLAB in the project root. It automatically sets the MATLAB search path and configures the Simulink file generation folders to output strictly to `build/slprj/` and `build/UCT_KDeploy_ert_rtw/`.
+*   **`startup.m` (Root-Level):** Must be run when opening MATLAB in the project root. It automatically sets the MATLAB search path and configures the Simulink file generation folders to output strictly to `firmware/build/slprj/` and `firmware/build/UCT_KDeploy_ert_rtw/`.
 *   **Models Path:** All templates and models reside under [matlab/simulink/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab/simulink).
 
 ---
@@ -46,15 +46,15 @@ Students can co-simulate their Simulink algorithms against the virtual testbed e
 When ready to deploy to the physical mouse:
 1.  Open `UCT_KDeploy.slx`.
 2.  Press **Cmd+B** (or Ctrl+B on Windows/Linux) to trigger the Embedded Coder build pipeline.
-3.  Simulink will generate optimized ANSI C code and output it to the `build/UCT_KDeploy_ert_rtw/` directory.
-4.  The top-level `CMakeLists.txt` automatically compiles this generated source code into the final STM32 flashable firmware target.
+3.  Simulink will generate optimized ANSI C code and output it to the `firmware/build/UCT_KDeploy_ert_rtw/` directory.
+4.  The `CMakeLists.txt` inside the `firmware/` folder automatically compiles this generated source code into the final STM32 flashable firmware target.
 
 ---
 
 ## 5. Autograding Submission & PC Build Compilation
 
 When a student submits their Simulink project for grading, the hosted Gradescope autograder:
-1.  Detects the presence of the code-generation directory under `build/UCT_KDeploy_ert_rtw/`.
+1.  Detects the presence of the code-generation directory under `firmware/build/UCT_KDeploy_ert_rtw/`.
 2.  Invokes `tools/compile_simulink_pc.py` to compile the generated C code into a native desktop executable, linking the testbed mock client harness `PC_client_main.c` and `simulink_wrapper.c`.
 3.  Launches this compiled executable in a lock-step loopback connection to evaluate the milestone parameters (e.g., executing a square or navigating a maze).
 4.  Scores and exports grading logs to Gradescope.
