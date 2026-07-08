@@ -14,14 +14,14 @@ def main():
     
     # 1. Setup paths relative to script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(script_dir)
+    root_dir = os.path.dirname(os.path.dirname(script_dir))
     
     assignments_dir = os.path.join(script_dir, "assignments")
     target_assignment_dir = os.path.join(assignments_dir, assignment)
     
     if not os.path.exists(target_assignment_dir):
         print(f"[Error] Assignment folder not found: {target_assignment_dir}")
-        print("Please ensure you created the folder and test_suite.py under autograder/assignments/")
+        print("Please ensure you created the folder and test_suite.py under tools/autograder/assignments/")
         sys.exit(1)
         
     zip_filename = f"{assignment}_autograder.zip"
@@ -45,8 +45,8 @@ def main():
         
         # C/Simulink standalone compilation components
         (os.path.join(root_dir, "matlab", "simulink", "PC_client_main.c"), "PC_client_main.c"),
-        (os.path.join(root_dir, "src", "kernel", "src", "simulink_wrapper.c"), "simulink_wrapper.c"),
-        (os.path.join(root_dir, "src", "kernel", "inc", "simulink_wrapper.h"), "simulink_wrapper.h"),
+        (os.path.join(root_dir, "firmware", "src", "kernel", "src", "simulink_wrapper.c"), "simulink_wrapper.c"),
+        (os.path.join(root_dir, "firmware", "src", "kernel", "inc", "simulink_wrapper.h"), "simulink_wrapper.h"),
     ]
     
     try:

@@ -157,11 +157,11 @@ if __name__ == "__main__":
         # === PIKASCRIPT ENGINE FLOW ===
         print(f"[1/3] Bundling {os.path.basename(pika_target)} and compiling firmware...")
         
-        # Copy the student's code so the Rust compiler sees it as the entry point
-        shutil.copy(pika_target, os.path.join(repo_root, "src", "pikascript", "main.py"))
+        # Copy user script to PikaScript directory and precompile
+        shutil.copy(pika_target, os.path.join(repo_root, "firmware", "src", "pikascript", "main.py"))
         
         print("    -> Running PikaScript Pre-compiler...")
-        pika_dir = os.path.join(repo_root, "src", "pikascript")
+        pika_dir = os.path.join(repo_root, "firmware", "src", "pikascript")
         tools_dir = os.path.join(repo_root, "tools")
         if sys.platform == 'darwin':
             precompiler = os.path.join(tools_dir, "rust-msc-mac")
@@ -178,7 +178,7 @@ if __name__ == "__main__":
             
         # Convert the target script into a C-string header to guarantee it gets compiled into the binary
         print(f"    -> Embedding {os.path.basename(pika_target)} into C-Kernel...")
-        header_path = os.path.join(repo_root, "src", "kernel", "inc", "student_code.h")
+        header_path = os.path.join(repo_root, "firmware", "src", "kernel", "inc", "student_code.h")
         with open(pika_target, "r") as f_py, open(header_path, "w") as f_h:
             f_h.write("#ifndef STUDENT_CODE_H\n#define STUDENT_CODE_H\n")
             f_h.write('const char* student_python_code = \n')
@@ -189,7 +189,7 @@ if __name__ == "__main__":
             
         try:
             print("    -> Configuring CMake...")
-            subprocess.run(["cmake", "-B", "build"], cwd=repo_root, check=True)
+            subprocess.run(["cmake", "-S", "firmware", "-B", "build"], cwd=repo_root, check=True)
             print("    -> Building PikaScript firmware target...")
             subprocess.run(["cmake", "--build", "build", "--target", "pikascript_firmware"], cwd=repo_root, check=True)
         except subprocess.CalledProcessError:
@@ -197,7 +197,7 @@ if __name__ == "__main__":
             sys.exit(1)
         
         bin_path = os.path.join(repo_root, "build", "pikascript_firmware.bin")
-        central_bin_path = os.path.join(repo_root, "firmware", "pikascript.bin")
+        central_bin_path = os.path.join(repo_root, "firmware", "binaries", "pikascript.bin")
         if not os.path.exists(bin_path):
             print(f"Error: Compiled firmware not found at {bin_path}")
             sys.exit(1)
@@ -232,7 +232,7 @@ if __name__ == "__main__":
             
         try:
             print("    -> Configuring CMake...")
-            subprocess.run(["cmake", "-B", "build"], cwd=repo_root, check=True)
+            subprocess.run(["cmake", "-S", "firmware", "-B", "build"], cwd=repo_root, check=True)
             print("    -> Building Simulink firmware target...")
             subprocess.run(["cmake", "--build", "build", "--target", "simulink_firmware"], cwd=repo_root, check=True)
         except subprocess.CalledProcessError:
@@ -241,7 +241,7 @@ if __name__ == "__main__":
             
         # Copy to central firmware/ directory
         bin_path = os.path.join(repo_root, "build", "simulink_firmware.bin")
-        central_bin_path = os.path.join(repo_root, "firmware", "simulink.bin")
+        central_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
         if not os.path.exists(bin_path):
             print(f"Error: Compiled firmware not found at {bin_path}")
             sys.exit(1)
@@ -282,8 +282,8 @@ if __name__ == "__main__":
             created_symlink = False
             try:
                 if not os.path.exists(symlink_path):
-                    # Create symlink: boards/UCT_MICROMOUSE -> ../../../../../src/micropython/boards/UCT_MICROMOUSE
-                    os.symlink("../../../../../src/micropython/boards/UCT_MICROMOUSE", symlink_path)
+                    # Create symlink: boards/UCT_MICROMOUSE -> ../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE
+                    os.symlink("../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE", symlink_path)
                     created_symlink = True
                 
                 subprocess.run(["make", "BOARD=UCT_MICROMOUSE"], cwd=mpy_ports_dir, check=True)
@@ -302,7 +302,7 @@ if __name__ == "__main__":
                 sys.exit(1)
                 
             # Copy to central firmware/ directory
-            central_bin_path = os.path.join(repo_root, "firmware", "micropython.bin")
+            central_bin_path = os.path.join(repo_root, "firmware", "binaries", "micropython.bin")
             shutil.copy(mpy_bin_path, central_bin_path)
             print(f"    -> Copied compiled firmware to {central_bin_path}")
             

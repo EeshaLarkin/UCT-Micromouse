@@ -3973,6 +3973,15 @@ method_typedef(
     "get_gyro", ""
 );
 
+void uct_mouse_get_line_sensorsMethod(PikaObj *self, Args *_args_){
+    PikaObj* res = uct_mouse_get_line_sensors(self);
+    method_returnObj(_args_, res);
+}
+method_typedef(
+    uct_mouse_get_line_sensors,
+    "get_line_sensors", ""
+);
+
 void uct_mouse_get_tofMethod(PikaObj *self, Args *_args_){
     PikaObj* res = uct_mouse_get_tof(self);
     method_returnObj(_args_, res);
@@ -4022,6 +4031,7 @@ method_typedef(
 
 class_def(uct_mouse){
     __BEFORE_MOETHOD_DEF
+    method_def(uct_mouse_get_line_sensors, 528952248),
     method_def(uct_mouse_set_motors, 546510804),
     method_def(uct_mouse_delay_ms, 657511251),
     method_def(uct_mouse_set_polarity, 1121395780),

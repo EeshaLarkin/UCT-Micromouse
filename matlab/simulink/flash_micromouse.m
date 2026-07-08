@@ -28,7 +28,7 @@ function flash_micromouse(buildInfo)
             st_flash = '/usr/local/bin/st-flash';
         end
         
-        [status, cmdout] = system([st_flash ' --reset write firmware/simulink.bin 0x08000000']);
+        [status, cmdout] = system([st_flash ' --reset write firmware/binaries/simulink.bin 0x08000000']);
         disp(cmdout);
         if status ~= 0
             error('Flashing failed. Ensure the STM32 board is connected.');

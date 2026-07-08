@@ -38,7 +38,7 @@ To navigate the codebase, understand the primary directories of this repository 
 *   **[`docs/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs)**: Reference guides, hardware specifications, calibration procedures, and project briefs.
 *   **[`python/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python)**: Target directory for the Python development track. Contains milestone templates and the student-facing `uct_mouse` wrapper module.
 *   **[`matlab/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab)**: Target directory for the Simulink development track. Contains visual models, workspace setups, and helper scripts.
-*   **[`src/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src)**: The core microcontroller codebase. Includes the low-level C Kernel (`src/kernel/`), MicroPython board wrappers (`src/micropython/`), and PikaScript engines (`src/pikascript/`).
+*   **[`firmware/src/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/src)**: The core microcontroller codebase. Includes the low-level C Kernel (`firmware/src/kernel/`), MicroPython board wrappers (`firmware/src/micropython/`), and PikaScript engines (`firmware/src/pikascript/`).
 *   **[`tools/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/tools)**: Diagnostic and testing utilities, including the local virtual physics simulator testbed.
 *   **[`external/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external)**: Git submodules for embedded engines (e.g., MicroPython) and hardware templates.
 

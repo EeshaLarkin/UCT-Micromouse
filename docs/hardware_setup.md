@@ -47,7 +47,7 @@ Depending on student assembly and motor lead soldering, one or both motors may r
 
 ### Calibration Multipliers
 To keep userland solver code unified, calibration must happen at the Kernel level rather than the control algorithm level:
-*   Modify `polarity_l` and `polarity_r` variables (set to `1` or `-1`) in [micromouse_kernel.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/kernel/src/micromouse_kernel.c).
+*   Modify `polarity_l` and `polarity_r` variables (set to `1` or `-1`) in [micromouse_kernel.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/src/kernel/src/micromouse_kernel.c).
 *   This normalizes commands so that positive values (e.g. `set_motors(50, 50)`) always translate to forward motion on both wheels.
 
 ---

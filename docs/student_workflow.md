@@ -72,7 +72,7 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 3. Ensure the serial COM port is recognized (e.g., `/dev/cu.usbmodem*` on Mac/Linux, `COM*` on Windows).
 
 ### Flashing Python Code
-1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/pikascript.bin` or `firmware/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer, USB Mass Storage drag-and-drop, or `st-flash`.
+1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/binaries/pikascript.bin` or `firmware/binaries/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer, USB Mass Storage drag-and-drop, or `st-flash`.
 2. For **MicroPython**, deploy using the serial virtual com port utility:
    ```bash
    python tools/deploy.py --engine micropython --script python/milestone1_square.py
@@ -99,7 +99,7 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 - **Silicon Clock Variants (72 MHz vs 80 MHz):** Due to manufacturing variance, some boards run their system clock at 72 MHz instead of the targeted 80 MHz. 
   - **Symptoms:** Gibberish text or terminal hanging when communicating at 115200 baud.
   - **Diagnosis (Baud Sweep):** Try connecting to the serial port `/dev/cu.usbmodem*` (or COM port) at `103680` baud ($115200 \times \frac{72}{80}$). If you see clean telemetry text at this speed, your board is running at 72 MHz.
-  - **Fix:** Notify a convener/TA to label your board, and change the UART baud rate divider in `src/main.c` from `694` to `625` before building.
+  - **Fix:** Notify a convener/TA to label your board, and change the UART baud rate divider in `firmware/src/main.c` from `694` to `625` before building.
 - **The Semihosting File I/O Lockup:** PikaScript runs bare-metal without an operating system or file system.
   - **Warning:** Executing file operations in Python (like `open()`, `with open(...)`, etc.) calls C standard library filesystem hooks. These hooks trigger **Semihosting** by issuing an ARM breakpoint instruction (`BKPT 0xAB`), which halts the MCU immediately if no active debugger is listening. The serial interface will go completely silent (0 bytes transmitted).
   - **Rule:** Never use `open()` or file operations in Python scripts compiled for PikaScript deployment. All configuration constants (like polarity multipliers) must be hardcoded in Python code.
