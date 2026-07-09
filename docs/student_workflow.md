@@ -73,9 +73,9 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 
 ### Flashing Python Code
 1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/binaries/pikascript.bin` or `firmware/binaries/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer, USB Mass Storage drag-and-drop, or `st-flash`.
-2. For **MicroPython**, deploy using the serial virtual com port utility:
+2. For **MicroPython**, deploy using the serial virtual com port utility (optionally specifying the serial port with `--port` or `-p` if the USB OTG port is not connected):
    ```bash
-   python tools/deploy.py --engine micropython --script python/milestone1_square.py
+   python tools/deploy.py --engine micropython --script python/milestone1_square.py --port /dev/cu.usbmodem11303
    ```
 3. For **PikaScript**, you can choose between two methods:
    * **Full Compile & Flash (Requires a local C compiler toolchain):**
@@ -127,4 +127,21 @@ If you are using the **MicroPython** engine instead of PikaScript, you can debug
 4. The terminal will display the full Python error traceback showing the exact file name and line number causing the crash.
 5. Press **Ctrl+]** (or **Ctrl+x**) to exit the REPL shell.
 * **Tip (Interactive Execution):** You can also use the REPL as an interactive shell. At the `>>>` prompt, you can type Python code directly (e.g., `import uct_mouse` followed by `uct_mouse.get_tof()` or `uct_mouse.set_motors(30, 30)`) to query sensors or actuate motors in real time.
+
+- **USB Drive Filesystem Corruption & The Hybrid Bootloader (MicroPython):**
+  - **Symptom:** When the mouse suffers a power glitch (e.g. from a gentle bump) while connected to the PC as a USB Mass Storage device, the FAT filesystem can easily get corrupted. When this happens, the MicroPython kernel crashes during boot, and the USB OTG port (`VID:PID=F055:9800`) will fail to enumerate entirely.
+  - **The Fix (VCP-Only Mode):** To prevent this, the firmware uses a *Hybrid Bootloader*. By default, the board boots in VCP-only mode (`pyb.usb_mode('VCP')`). The USB drive is **not** mounted on your PC, ensuring it cannot be corrupted by power loss or bumps.
+  - **Accessing the USB Drive (VCP+MSC Mode):** If you need to mount the internal flash drive (`UCT_MMOUSE`) to drag and drop files directly, **hold down the User Button (SW1 / Pin PE6) while powering on or resetting the board**. It will boot in dual VCP+MSC mode.
+  - **Manual Serial Port:** You can deploy code over the ST-Link Virtual COM Port (instead of OTG) using the manual `--port` parameter in the deployer script (e.g., `python tools/deploy.py -e micropython -s python/main.py --port /dev/cu.usbmodem11303`).
+  - **Recovery from Corruption:** If your filesystem is already corrupted and the board fails to boot:
+    1. Erase the entire flash chip to clear the corrupted FAT sectors:
+       ```bash
+       st-flash erase
+       ```
+    2. Write the compiled MicroPython binary back onto the board:
+       ```bash
+       st-flash write firmware/binaries/micropython.bin 0x08000000
+       ```
+    3. The board will reboot, auto-format the filesystem partition with a clean FAT table, and mount successfully.
+
 
