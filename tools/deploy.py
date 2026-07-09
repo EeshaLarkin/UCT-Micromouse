@@ -311,21 +311,42 @@ if __name__ == "__main__":
             shutil.copy(mpy_bin_path, central_bin_path)
             print(f"    -> Copied compiled firmware to {central_bin_path}")
             
-            # Find the ST-Link Mass Storage Drive
-            drive = find_stlink_drive()
-            if not drive:
-                print("Error: Could not find ST-Link USB drive. Is the board plugged in?")
-                sys.exit(1)
-                
-            # Flash by copying to the Mass Storage Drive
-            print(f"[2/2] ST-Link found at {drive}. Flashing MicroPython firmware...")
-            if sys.platform == 'darwin':
-                dest_path = os.path.join(drive, "firmware.bin")
-                with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
-                    f_dst.write(f_src.read())
-            else:
-                shutil.copy(central_bin_path, drive)
-            print("Success! MicroPython interpreter is flashed. The board will reboot and mount as a USB drive shortly.")
+            # Try to use st-flash for high stability (resolves macOS USB ghosting/lockup issues)
+            st_flash_cmd = None
+            for p in ["/opt/local/bin/st-flash", "/usr/local/bin/st-flash", "st-flash"]:
+                if os.path.exists(p) or shutil.which(p):
+                    st_flash_cmd = p
+                    break
+            
+            flashed_via_st_flash = False
+            if st_flash_cmd:
+                print(f"[2/2] ST-Link tool found at {st_flash_cmd}. Flashing MicroPython firmware...")
+                try:
+                    subprocess.run([st_flash_cmd, "--reset", "write", central_bin_path, "0x08000000"], check=True)
+                    print("Success! MicroPython interpreter is flashed and board is rebooted.")
+                    flashed_via_st_flash = True
+                    # Brief delay for USB port enumeration
+                    import time
+                    time.sleep(2.0)
+                except Exception as e:
+                    print(f"    -> st-flash failed ({e}), falling back to USB drive copy...")
+            
+            if not flashed_via_st_flash:
+                # Find the ST-Link Mass Storage Drive
+                drive = find_stlink_drive()
+                if not drive:
+                    print("Error: Could not find ST-Link USB drive. Is the board plugged in?")
+                    sys.exit(1)
+                    
+                # Flash by copying to the Mass Storage Drive
+                print(f"[2/2] ST-Link drive found at {drive}. Flashing MicroPython firmware...")
+                if sys.platform == 'darwin':
+                    dest_path = os.path.join(drive, "firmware.bin")
+                    with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
+                        f_dst.write(f_src.read())
+                else:
+                    shutil.copy(central_bin_path, drive)
+                print("Success! MicroPython interpreter is flashed. The board will reboot and mount as a USB drive shortly.")
             
         else:
             # --- Deploying Python Scripts via VCP (mpremote) ---
@@ -346,6 +367,19 @@ if __name__ == "__main__":
             mpremote_cmd = [sys.executable, "-m", "mpremote"]
             if mpy_port:
                 print(f"    -> Using MicroPython port: {mpy_port}")
+                # Cleanse port (send CTRL-C and flush) to stop any running script and clear boot logs
+                try:
+                    import serial
+                    import time
+                    s = serial.Serial(mpy_port, 115200, timeout=0.5)
+                    s.write(b'\x03')
+                    time.sleep(0.1)
+                    s.write(b'\x03')
+                    time.sleep(0.1)
+                    s.reset_input_buffer()
+                    s.close()
+                except Exception:
+                    pass
                 mpremote_cmd += ["connect", mpy_port]
             try:
                 subprocess.run(mpremote_cmd + ["exec", "print('Connected!')"], check=True, capture_output=True)
