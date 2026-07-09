@@ -260,13 +260,11 @@ static const char custom_boot_py[] =
     "sw = machine.Pin('E6', machine.Pin.IN, machine.Pin.PULL_UP)\r\n"
     "time.sleep_ms(50)\r\n"
     "\r\n"
+    "pyb.usb_mode('VCP+MSC')\r\n"
+    "\r\n"
     "if sw.value() == 0:\r\n"
-    "    # Held during boot -> Mount read-write and skip main.py\r\n"
-    "    pyb.usb_mode('VCP+MSC')\r\n"
-    "    pyb.main('')\r\n"
-    "else:\r\n"
-    "    # Disable MSC (Mass Storage) to prevent PC filesystem corruption on bump/power loss\r\n"
-    "    pyb.usb_mode('VCP')\r\n";
+    "    # Skip main.py execution to prevent hangs\r\n"
+    "    pyb.main('')\r\n";
 
 static const char custom_main_py[] =
     "# main.py -- put your code here!\r\n";
