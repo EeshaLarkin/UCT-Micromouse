@@ -92,6 +92,11 @@ if __name__ == "__main__":
         default="python/src",
         help="Path to the dedicated python development folder to mirror to the mouse (default: python/src)"
     )
+    parser.add_argument(
+        "--port", "-p",
+        default=None,
+        help="Specify the serial port to use for deployment (overrides auto-detection)."
+    )
     args = parser.parse_args()
 
     print("=== UCT Micromouse Firmware Deployer ===")
@@ -281,7 +286,7 @@ if __name__ == "__main__":
             
             created_symlink = False
             try:
-                if not os.path.exists(symlink_path):
+                if not os.path.lexists(symlink_path):
                     # Create symlink: boards/UCT_MICROMOUSE -> ../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE
                     os.symlink("../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE", symlink_path)
                     created_symlink = True
@@ -327,19 +332,20 @@ if __name__ == "__main__":
             print("[1/2] Connecting to MicroPython via Serial (mpremote)...")
             
             # Dynamically detect MicroPython port to avoid ST-Link VCP conflicts
-            mpy_port = None
-            try:
-                import serial.tools.list_ports
-                for p in serial.tools.list_ports.comports():
-                    if p.vid == 0xf055 and p.pid == 0x9800:
-                        mpy_port = p.device
-                        break
-            except Exception:
-                pass
+            mpy_port = args.port
+            if not mpy_port:
+                try:
+                    import serial.tools.list_ports
+                    for p in serial.tools.list_ports.comports():
+                        if p.vid == 0xf055 and p.pid == 0x9800:
+                            mpy_port = p.device
+                            break
+                except Exception:
+                    pass
                 
             mpremote_cmd = [sys.executable, "-m", "mpremote"]
             if mpy_port:
-                print(f"    -> Detected MicroPython on {mpy_port}")
+                print(f"    -> Using MicroPython port: {mpy_port}")
                 mpremote_cmd += ["connect", mpy_port]
             try:
                 subprocess.run(mpremote_cmd + ["exec", "print('Connected!')"], check=True, capture_output=True)
