@@ -97,7 +97,7 @@ The system is strictly divided into three distinct layers to preserve the kernel
 * **Simulation Double-Stepping Bug (Resolved):** In earlier iterations, calling both `uct_mouse.set_motors()` and `uct_mouse.delay_ms()` within the same loop advanced the physics simulator time step twice per loop.
   * **Impact:** The mouse travelled or turned roughly twice the expected distance (e.g., turning 180 degrees instead of 90) because the simulation accumulated two ticks (0.1s total) per logic cycle instead of one (0.05s).
   * **Fix:** `set_motors` has been restructured in standard templates. Student control loops should call `set_motors` appropriately so time advancement is tightly coupled and predictable.
-* **Fast Simulation Mode Configuration Interface:** To support reinforcement learning (RL) or rapid offline batch testing, the simulator can run in high-speed offline mode where standard wall-clock delays are bypassed. The state `_is_fast_sim_active` in [uct_mouse.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/uct_mouse.py) is resolved dynamically in this order:
+* **Fast Simulation Mode Configuration Interface:** To support reinforcement learning (RL) or rapid offline batch testing, the simulator can run in high-speed offline mode where standard wall-clock delays are bypassed. The state `_is_fast_sim_active` in `uct_mouse.py` is resolved dynamically in this order:
   * **Programmatic Code Override:** Call `uct_mouse.set_fast_sim(True/False)` or initialize via `uct_mouse.init(fast_sim=True/False)`.
   * **Configuration File:** Add `"fast_sim": true` or `"fast_sim": false` in `sim_config.json`.
   * **Environment Variables:** Set `GRADESCOPE_AUTOGRADER=1`, `UCT_MICROMOUSE_FAST_SIM=1`, or `UCT_OFFLINE_MODE=1`.
