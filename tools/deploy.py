@@ -337,7 +337,7 @@ if __name__ == "__main__":
                 try:
                     import serial.tools.list_ports
                     for p in serial.tools.list_ports.comports():
-                        if p.vid == 0xf055 and p.pid == 0x9800:
+                        if p.vid == 0xf055 and p.pid in (0x9800, 0x9802):
                             mpy_port = p.device
                             break
                 except Exception:
