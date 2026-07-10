@@ -1,58 +1,30 @@
-# UCT Micromouse - State
+# Session State Log - UCT Micromouse
 
-## Current Tasks & Milestones
-All major reference solutions, autograding pipeline integration, deployment optimizations, and documentation targets are completed and verified on both desktop simulation and physical hardware.
+## 1. Summary of Completed Fixes
 
-## Progress & Milestones
+### Hardware Ruggedization
+* **NVIC Timer Interrupt Storms:** Disabled unused timer interrupts (`TIM4_IRQn`, `TIM5_IRQn`, and `TIM7_IRQn`) at priority 0 in `MX_NVIC_Init()` inside both `main.c` and `MicroMouse_main.c`. This prevents touch-induced electrostatic noise on exposed header pins from freezing the CPU.
+* **Global EXTI Handlers:** Added explicit default vectors for all unused EXTI GPIO lines in `stm32l4xx_it.c` to prevent locking in the default handler.
+* **Flash Read-During-Write filesystem corruption:** Staged default factory files (`boot.py`, `main.py`) in stack RAM in `board_init.c` to bypass bank collisions during format.
 
-### 1. Algorithm Solutions & Autograding (Completed)
-* **Milestone 1 (Square dead-reckoning):** 
-  - Overcame wheel slip ($8\%$) by upgrading the open-loop template to a closed-loop gyro-based solution (yielding **~83%** autograder pass score).
-  - Resolved the simulation double-stepping bug that advanced physics faster than assumed in the Python loop.
-* **Milestone 2 (Maze Wall-Follower):**
-  - Implemented left-hand rule wall follower state machine with soft gyro snapping to align parallel to walls and stop-states (`STATE_STOP_BEFORE_TURN` / `STATE_STOP_AFTER_TURN`) to prevent inertia-induced corner clipping.
-  - Achieved a **100.0%** autograder pass score.
+### Peripheral & Display Features
+* **OLED Blank Screen:** Added explicit re-initialization calls (`MX_I2C1_Init`, `MX_I2C2_Init`) inside `initMicroMouse()` to restore I2C clocks after the MicroPython VM boot sequence.
+* **OLED TOF Dynamic Layout & Alignment:** 
+  * Reformatted TOF readings to a fixed-width `%4u` representation to prevent horizontal layout shifting on digits changes.
+  * Implemented dynamic layout configuration: if only (N, NW, NE) is connected, shows `NW / N / NE`; if (N, W, E) or all 5 are connected, shows `W / N / E`.
 
-### 2. Hardware Deployment & Diagnostics (Completed)
-* **MicroPython Bootloader Fix:** Resolved a `TypeError` crash loop in MicroPython `boot.py` / `board_init.c` by removing unsupported serial configurations.
-* **Semihosting File I/O Lockup (Resolved):** Identified that bare-metal PikaScript calls to `open()` trigger semihosting breakpoint interrupts (`BKPT`), causing the MCU to freeze completely (0 bytes transmitted over VCP). Cleaned up [main.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/src/main.py) to hardcode motor polarity settings (reverting to C-Kernel calibration settings), completely avoiding the hang.
-* **Clock Lottery Diagnostics:** Validated the board operates at the standard **80 MHz** system clock with standard baud divider `USART1->BRR = 694`, outputting clean VCP data at **115200 baud**. Added 72 MHz outlier diagnostic baud sweep procedures (`103680` baud) for TAs and students.
+### Motor Activation (MicroPython Engine)
+* **Pin Alternate Function Restorations:** Added de-init/re-init calls for `TIM3` (PWM), `TIM4` (Encoders), and `PD7` (`MOTOR_EN_Pin` output mode) at the start of `uct_mouse.init()`. This ensures that when Python boots, the PWM registers and motor driver control lines are re-routed to the physical hardware pins rather than remaining in MicroPython's default high-impedance input state.
 
-### 3. Feature: High-Speed "Script-Only" Flashing (Completed)
-* Added a high-speed script-only flashing mode allowing students to deploy Python scripts directly to Page 240 (`0x08078000`) of the STM32's flash in **<100ms** via `tools/deploy.py --script-only`.
-* The C-Kernel automatically detects if this sector has been written to, running the flashed script natively or falling back to the compiled-in script if empty. This removes the requirement for a local C compiler toolchain on student machines after the baseline compile.
+---
 
-### 4. Desktop Simulation & Path Reorganization (Completed)
-* Restored the missing `mm_amaze.m` and `mm_spiralmaze.m` to `matlab/simulator/` after they were deleted in a previous cleanup.
-* Resolved a bug in the Python simulator map generation for `--map spiral` in [physics_sim.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/tools/physics_sim.py), which previously generated parallel vertical lines instead of a proper concentric spiral on the 10x10 grid.
-* Upgraded the randomized DFS maze generator in [physics_sim.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/tools/physics_sim.py) to generate Micromouse-compliant perfect mazes, ensuring that the center $2 \times 2$ cells are open and that the start cell `(0,0)` has enclosing walls on three sides with a single East exit.
-* Standardized pose initialization to be map-dependent: empty maps start the mouse at `(0.5, 0.5)` to provide boundary clearance during square runs, while maze maps start the mouse at `(0.1, 0.1)` (the center of cell `(0,0)`) facing East.
-* Updated [milestone2_maze.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/milestone2_maze.py) solver coordinates to start at cell `(0,0)` facing East to align with the new standardized starting pose.
-* Patched [milestone1_square.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/milestone1_square.py) by adding `uct_mouse.delay_ms(50)` calls in the loops to allow simulator physics to advance, and implemented a `delay_and_track` helper to continuously integrate the gyro heading during braking phases, restoring the autograder score to 100.0%.
-* Corrected path generation in [launch_virtual_testbed.m](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab/simulink/launch_virtual_testbed.m) to reference the true repository root, resolving path warnings (`matlab/matlab/autograder`) and allowing desktop co-simulations to start successfully.
-* Optimized [uct_mouse.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/uct_mouse.py) to run simulations as fast as CPU bandwidth allows when running offline (under any of the environment variables `GRADESCOPE_AUTOGRADER`, `UCT_MICROMOUSE_FAST_SIM`, or `UCT_OFFLINE_MODE`, or via programmatic overrides like calling `set_fast_sim(True)` or passing `fast_sim=True` to `init()`, or setting `"fast_sim": true` in `sim_config.json`). This includes bypassing the physical `time.sleep` calls in `delay_ms` (yielding a **>10x** speedup) and dynamically intercepting any caller-level calls to `time.sleep` (via stack frame crawling) to map them to virtual physics ticks instead of blocking the execution thread.
-* Added auto-stop and bidirectional auto-close capability to the Simulink GUI simulation:
-  - Inside [simulink_wrapper.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/kernel/src/simulink_wrapper.c), registered `simulink_ext_cleanup` with MATLAB's `mexAtExit` callback to safely close the open client socket whenever the MEX library is unloaded.
-  - Configured the models' `StopFcn` callback in [configure_models_for_flashing.m](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab/simulink/configure_models_for_flashing.m) to execute `clear mex; clear functions;`. When the user stops the simulation in the GUI, MATLAB unloads the MEX libraries, immediately closing the client socket and telling the Python simulator to shut down its Pygame window.
-  - Used `mexEvalString` to stop the Simulink simulation execution automatically when the Python socket closes on a mouse crash/collision.
+## 2. Codebase Checkpoint
+All changes have been successfully compiled, flashed to the physical target board, and committed to git:
+* **Last commit:** `34883a7` ("firmware: Re-initialize TIM3, TIM4, and MOTOR_EN pins inside uct_mouse.init()")
 
-### 5. Documentation & Repository (Completed)
-* Updated [AGENT.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/AGENT.md) to document hardware quirks (silicon variance, semihosting file traps) and deployment options.
-* Rewrote [student_workflow.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md) to provide comprehensive student guide tutorials, diagnostic sweeps, composite serial screen monitoring commands, and script-only flash commands.
-* Moved autograder zip assets from the repository root to [autograder/zips/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/zips) and updated [build_zip.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/build_zip.py) accordingly.
-* Committed all modifications to the repository.
+---
 
-### 6. Submodule Integration & OLED Debugging (Completed)
-* **Jesse's Submodule Cleaned & Restored:** Reverted all local modifications made by the previous agent to Jesse's template repository ([MicroMouseTemplate](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/MicroMouseTemplate)), leaving the repository in its pristine PR #3 state.
-* **OLED Initialization Order Optimization:** Swapped the peripheral initialization sequence inside `initMicroMouse()` in [MicroMouse_main.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/MicroMouse_main.c) so that `initScreen()` is executed **first** (before the long-running `initTOFs` sequence). This instantly clears the OLED's power-on RAM static/noise.
-* **NVIC DMA Conflict Resolved (Fixed VCP Disconnects):** Discovered that the new 2026 template changed the ADC1 DMA channel from `DMA1_Channel1` to `DMA2_Channel3`. Because `DMA2_Channel3_IRQn` was enabled in NVIC but handled by MicroPython's built-in ISR (which had a `NULL` handle), the DMA interrupt flag was never cleared, trapping the CPU in an infinite interrupt loop as soon as `uct_mouse.init()` was called. Fixed by disabling `DMA2_Channel3_IRQn` via `HAL_NVIC_DisableIRQ(DMA2_Channel3_IRQn)` in [board_init.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/micropython/boards/UCT_MICROMOUSE/board_init.c), allowing circular hardware DMA transfers to continue silently without CPU interrupts.
-* **Path Limit Override (Fixed name too long Boot Crash):** Discovered that macOS Spotlight indexing writes deeply nested folders (e.g. `.Spotlight-V100` and `.fseventsd`) containing file paths exceeding MicroPython's default `MICROPY_ALLOC_PATH_MAX` limit of 128 characters, causing a boot-time `RuntimeError: name too long` crash. Increased this path limit to 256 in [mpconfigboard.h](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/src/micropython/boards/UCT_MICROMOUSE/mpconfigboard.h) and patched [mpconfigport.h](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/micropython/ports/stm32/mpconfigport.h) with an `#ifndef` override guard to permit board-level configurations.
-* **Bootloader Fix:** Reverted the other agent's unsupported `write=False` argument in `boot.py` to prevent interpreter crashes.
-* **Display Active Loop:** Because the MicroPython background screen-refresh ticker (`kernel_update_display()`) runs only during active Python execution, a script that exits immediately leaves the display blank after clearing the static. Confirmed that a running Python script (like [test_oled.py](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/tests/test_oled.py)) keeps the background updates running, rendering the title and telemetry text on the OLED screen.
-
-## Next Steps / Goals
-1. **Physical Sensor Test:** Validate Time-of-Flight distances and IMU/battery data on the OLED display when physical sensors are connected.
-2. **Path / Maze Solver Runs:** Execute closed-loop wall following and maze solving runs on the physical grid.
-
-
-
+## 3. Pending Verification & Next Steps
+1. **Physical Motor Verification:** Run the start-stop loop script `python/src/main.py` on the physical battery-powered chassis to confirm wheels spin and toggle as commanded.
+2. **Telemetry Flow Verification:** Query `uct_mouse.get_tof()` in Python to confirm it returns a full 5-tuple matching the layout.
+3. **IMU Verification:** The background IMU task (`refreshIMUValues()`) is currently commented out in `board_init.c` to validate mechanical stability. Once motor and TOF operations are verified, uncomment line 232 of `board_init.c` to restore yaw tracking.
