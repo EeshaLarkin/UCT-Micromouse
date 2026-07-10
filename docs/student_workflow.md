@@ -9,7 +9,7 @@ The project is designed with a polymorphic software layer, meaning the exact sam
 ### Option A: Python (MicroPython / PikaScript)
 You can write your algorithms entirely in Python.
 1. Start with the `python/main.py` script or the specific milestone templates (e.g., `python/milestone1_square.py`).
-2. Use the `uct_mouse` library functions to command the robot (e.g., `mouse.set_motors(left, right)`, `mouse.get_tof_l()`).
+2. Use the `uct_mouse` library functions to command the robot (e.g., `uct_mouse.set_motors(left, right)`, `uct_mouse.get_tof()`). The `get_tof()` function returns a 5-tuple: `(left, front_left, center, front_right, right)`.
 3. For Python development, your code is executed through a proxy when testing on the desktop autograder.
 
 ### Option B: MATLAB / Simulink
