@@ -19,8 +19,6 @@
 #include "INA219.h"
 #include "ADCs.h"
 #include "SSD1306.h"
-#include "main.h"
-
 // Expose Jesse's underlying global hardware variables
 extern float IMU_Gyro[3];
 extern int16_t Vbattery;
@@ -102,22 +100,28 @@ void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
     MOTOR_R.magnitude = actual_r;
     watchdog_timer_ms = 0; // Feed watchdog on standalone internal actuation
 
+    // Convert from percentage (0-100) to timer duty cycle (0-999)
+    uint32_t duty_l = (abs(actual_l) * 1000) / 100;
+    uint32_t duty_r = (abs(actual_r) * 1000) / 100;
+    if (duty_l > 999) duty_l = 999;
+    if (duty_r > 999) duty_r = 999;
+
     // Bypass Jesse's int8_t abs() logic which causes signed integer casting faults 
     // on the Left Motor. Apply the hardware timer mapping natively here:
     if (actual_l >= 0) {
-        TIM3->CCR3 = actual_l;
+        TIM3->CCR3 = duty_l;
         TIM3->CCR4 = 0;
     } else {
         TIM3->CCR3 = 0;
-        TIM3->CCR4 = -actual_l; 
+        TIM3->CCR4 = duty_l; 
     }
 
     if (actual_r >= 0) {
-        TIM4->CCR1 = actual_r;
-        TIM4->CCR2 = 0;
+        TIM3->CCR1 = duty_r;
+        TIM3->CCR2 = 0;
     } else {
-        TIM4->CCR1 = 0;
-        TIM4->CCR2 = -actual_r;
+        TIM3->CCR1 = 0;
+        TIM3->CCR2 = duty_r;
     }
 
     // Only enable the motor driver if there's actual movement requested.

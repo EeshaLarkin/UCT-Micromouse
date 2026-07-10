@@ -64,6 +64,49 @@ def find_micropython_drive():
         )
     return drives[0] if drives else None
 
+def find_st_flash_cmd():
+    """Finds the st-flash command path."""
+    for cmd in ["st-flash", "/opt/homebrew/bin/st-flash", "/usr/local/bin/st-flash", "/opt/local/bin/st-flash"]:
+        if shutil.which(cmd) or os.path.exists(cmd):
+            return cmd
+    return None
+
+def flash_firmware(central_bin_path):
+    """Flashes the firmware binary onto the board.
+    Tries st-flash first (which is fast and avoids ST-Link USB mass storage hangs).
+    Falls back to ST-Link USB mass storage copy if st-flash is not available.
+    """
+    st_flash_cmd = find_st_flash_cmd()
+    if st_flash_cmd:
+        print(f"Using direct SWD flash via '{st_flash_cmd}' (fast & reliable)...")
+        try:
+            subprocess.run([st_flash_cmd, "--reset", "write", central_bin_path, "0x08000000"], check=True)
+            print("Success! Firmware flashed via SWD. Board reset triggered.")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Warning: Direct flashing via st-flash failed: {e}")
+            print("Falling back to USB mass storage copy method...")
+            
+    # Fallback: Find the ST-Link Mass Storage Drive
+    drive = find_stlink_drive()
+    if not drive:
+        print("Error: Could not find ST-Link USB drive or st-flash. Is the board plugged in?")
+        sys.exit(1)
+        
+    print(f"ST-Link found at {drive}. Flashing via USB mass storage copy (slower, may hang)...")
+    try:
+        if sys.platform == 'darwin':
+            dest_path = os.path.join(drive, "firmware.bin")
+            with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
+                f_dst.write(f_src.read())
+        else:
+            shutil.copy(central_bin_path, drive)
+        print("Success! Firmware copied to drive. Mouse will automatically reboot.")
+        return True
+    except Exception as e:
+        print(f"Error copying to mass storage drive: {e}")
+        sys.exit(1)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="UCT Micromouse Firmware and Script Deployer")
     parser.add_argument(
@@ -139,18 +182,15 @@ if __name__ == "__main__":
                 f_out.write(py_content)
                 
             print("Flashing Python script directly to 0x08078000 (Page 240)...")
+            st_flash_cmd = find_st_flash_cmd()
+            if not st_flash_cmd:
+                print("Error: 'st-flash' utility not found. Please install stlink (e.g. 'brew install stlink' on Mac).")
+                sys.exit(1)
             try:
-                st_flash_cmd = "st-flash"
-                if os.path.exists("/opt/local/bin/st-flash"):
-                    st_flash_cmd = "/opt/local/bin/st-flash"
-                elif os.path.exists("/usr/local/bin/st-flash"):
-                    st_flash_cmd = "/usr/local/bin/st-flash"
-                    
                 subprocess.run([st_flash_cmd, "--reset", "write", temp_bin, "0x08078000"], check=True)
                 print("Success! Script flashed in <100ms. Board reset triggered.")
-            except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                print("Error: Direct flashing failed! Please ensure 'st-flash' is installed on your PATH.")
-                print(f"Details: {e}")
+            except subprocess.CalledProcessError as e:
+                print(f"Error: Direct flashing failed! Details: {e}")
                 sys.exit(1)
             sys.exit(0)
             
@@ -204,20 +244,9 @@ if __name__ == "__main__":
         shutil.copy(bin_path, central_bin_path)
         print(f"    -> Copied compiled firmware to {central_bin_path}")
             
-        # Find the ST-Link Mass Storage Drive
-        drive = find_stlink_drive()
-        if not drive:
-            print("Error: Could not find ST-Link USB drive. Is the board plugged in?")
-            sys.exit(1)
-            
-        # Flash by copying to the Mass Storage Drive
-        print(f"[2/3] ST-Link found at {drive}. Flashing PikaScript firmware...")
-        if sys.platform == 'darwin':
-            dest_path = os.path.join(drive, "firmware.bin")
-            with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
-                f_dst.write(f_src.read())
-        else:
-            shutil.copy(central_bin_path, drive)
+        # Flash the compiled firmware onto the board
+        print(f"[2/3] Flashing PikaScript firmware...")
+        flash_firmware(central_bin_path)
         print("[3/3] Success! Mouse will automatically reboot and run main.py.")
 
     elif args.engine == "simulink":
@@ -248,20 +277,9 @@ if __name__ == "__main__":
         shutil.copy(bin_path, central_bin_path)
         print(f"    -> Copied compiled firmware to {central_bin_path}")
         
-        # Find the ST-Link Mass Storage Drive
-        drive = find_stlink_drive()
-        if not drive:
-            print("Error: Could not find ST-Link USB drive. Is the board plugged in?")
-            sys.exit(1)
-            
-        # Flash by copying to the Mass Storage Drive
-        print(f"[2/2] ST-Link found at {drive}. Flashing Simulink firmware...")
-        if sys.platform == 'darwin':
-            dest_path = os.path.join(drive, "firmware.bin")
-            with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
-                f_dst.write(f_src.read())
-        else:
-            shutil.copy(central_bin_path, drive)
+        # Flash the compiled firmware onto the board
+        print(f"[2/2] Flashing Simulink firmware...")
+        flash_firmware(central_bin_path)
         print("Success! Simulink firmware is flashed. The board will automatically reboot and execute.")
 
     else:
@@ -306,20 +324,9 @@ if __name__ == "__main__":
             shutil.copy(mpy_bin_path, central_bin_path)
             print(f"    -> Copied compiled firmware to {central_bin_path}")
             
-            # Find the ST-Link Mass Storage Drive
-            drive = find_stlink_drive()
-            if not drive:
-                print("Error: Could not find ST-Link USB drive. Is the board plugged in?")
-                sys.exit(1)
-                
-            # Flash by copying to the Mass Storage Drive
-            print(f"[2/2] ST-Link found at {drive}. Flashing MicroPython firmware...")
-            if sys.platform == 'darwin':
-                dest_path = os.path.join(drive, "firmware.bin")
-                with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
-                    f_dst.write(f_src.read())
-            else:
-                shutil.copy(central_bin_path, drive)
+            # Flash the compiled firmware onto the board
+            print(f"[2/2] Flashing MicroPython firmware...")
+            flash_firmware(central_bin_path)
             print("Success! MicroPython interpreter is flashed. The board will reboot and mount as a USB drive shortly.")
             
         else:

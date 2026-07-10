@@ -43,3 +43,4 @@ external/src/
 
 # Local diagnostic log files
 *.log
+.aider*

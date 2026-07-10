@@ -1,5 +1,8 @@
 # AGENT.md
 
+## Executive Summary
+This document outlines the architecture of the UCT Micromouse project, a platform for teaching embedded systems and robotics. The project is built on a three-tier architecture: a low-level C kernel for hardware control, a mid-level abstraction layer, and a high-level user application for maze-solving logic. A key feature is its polymorphic design, allowing the same student code (Python or Simulink) to run on both the physical robot and in a Simulink-based simulator for autograding. Communication between layers is handled by a lightweight JSON-based protocol. This structure provides a clear separation of concerns, enabling students to focus on algorithm development while using a robust and flexible hardware and simulation environment.
+
 ## 1. Project Overview & Context
 * **Course/Project:** University of Cape Town (UCT) Micromouse Design Project (EEE3097S / EEE3098S / EEE3099S).
 * **Role:** Course Convenor (2026 Academic Year Rollout).

@@ -73,12 +73,28 @@ __attribute__((weak)) void UCT_KDeploy_initialize(void) {}
 __attribute__((weak)) void UCT_KDeploy_step(void) {}
 #endif
 
+static void raw_uart_print(const char *str) {
+    if (USART1 != NULL && (RCC->APB2ENR & RCC_APB2ENR_USART1EN)) {
+        for (const char *p = str; *p; p++) {
+            while (!(USART1->ISR & USART_ISR_TXE));
+            USART1->TDR = (uint8_t)*p;
+        }
+    }
+}
+
 // -------------------------------------------------------------
 // Hardware Fault Handler
 // -------------------------------------------------------------
 void Error_Handler(void) {
+    raw_uart_print("\r\n!!! Error_Handler Called !!!\r\n");
     __disable_irq();
-    while (1) {}
+    while (1) {
+        // Toggle PC13 LED (LED0) to indicate crash
+        if (GPIOC != NULL && (RCC->AHB2ENR & RCC_AHB2ENR_GPIOCEN)) {
+            GPIOC->ODR ^= GPIO_PIN_13;
+        }
+        for (volatile int i = 0; i < 500000; i++);
+    }
 }
 
 int main(void) {
@@ -102,13 +118,23 @@ int main(void) {
     MX_USART1_UART_Init();
     MX_NVIC_Init();
 
+    // Initialize the HAL handle instance first to avoid null pointer dereferences
+    huart1.Instance = USART1;
+    huart1.gState = HAL_UART_STATE_READY;
+    huart1.RxState = HAL_UART_STATE_READY;
+
     // Configure UART for standard 80 MHz APB clock (80,000,000 / 115200 = 694)
     __HAL_UART_DISABLE(&huart1);
     USART1->BRR = 694; 
     __HAL_UART_ENABLE(&huart1);
 
+    raw_uart_print("\r\n--- STM32 Core Boot Completed ---\r\n");
+    raw_uart_print("Initializing Micromouse Hardware...\r\n");
+
     // 4. Initialize Hardware Sensors & Actuators
     initMicroMouse();
+
+    raw_uart_print("Micromouse Hardware Initialized.\r\n");
 
     // 5. Start Delta-Shadow Network Proxy
     serial_interface_init(&huart1);
