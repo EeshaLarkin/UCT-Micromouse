@@ -12,7 +12,9 @@ typedef struct {
     int16_t left_pwm;
     int16_t right_pwm;
     uint16_t tof_l;
+    uint16_t tof_al;
     uint16_t tof_c;
+    uint16_t tof_ar;
     uint16_t tof_r;
     uint16_t ir_fl;
     uint16_t ir_fr;

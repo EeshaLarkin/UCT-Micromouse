@@ -35,15 +35,17 @@ static mp_obj_t mpy_uct_mouse_set_motors(mp_obj_t left, mp_obj_t right) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mpy_uct_mouse_set_motors_obj, mpy_uct_mouse_set_motors);
 
-// 3. uct_mouse.get_tof() -> tuple (left, center, right)
+// 3. uct_mouse.get_tof() -> tuple (left, front_left, center, front_right, right)
 static mp_obj_t mpy_uct_mouse_get_tof(void) {
     const KernelState_t* state = kernel_get_state();
-    mp_obj_t tuple[3] = {
+    mp_obj_t tuple[5] = {
         mp_obj_new_int(state->tof_l),
+        mp_obj_new_int(state->tof_al),
         mp_obj_new_int(state->tof_c),
+        mp_obj_new_int(state->tof_ar),
         mp_obj_new_int(state->tof_r)
     };
-    return mp_obj_new_tuple(3, tuple);
+    return mp_obj_new_tuple(5, tuple);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_tof_obj, mpy_uct_mouse_get_tof);
 

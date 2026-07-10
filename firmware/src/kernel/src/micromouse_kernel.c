@@ -71,7 +71,9 @@ typedef struct {
 #define FIELD(n, t, d) {#n, offsetof(KernelState_t, n), t, d}
 
 static const TelemetryField_t telemetry_table[] = {
-    FIELD(tof_l,  VAR_UINT16,    false), FIELD(tof_c,  VAR_UINT16,    false), FIELD(tof_r,  VAR_UINT16,    false),
+    FIELD(tof_l,  VAR_UINT16,    false), FIELD(tof_al, VAR_UINT16,    false),
+    FIELD(tof_c,  VAR_UINT16,    false), FIELD(tof_ar, VAR_UINT16,    false),
+    FIELD(tof_r,  VAR_UINT16,    false),
     FIELD(ir_fl,  VAR_UINT16,    false), FIELD(ir_fr,  VAR_UINT16,    false),
     FIELD(ir_sl,  VAR_UINT16,    false), FIELD(ir_sr,  VAR_UINT16,    false),
     FIELD(lenc,   VAR_INT32,     true),  FIELD(renc,   VAR_INT32,     true),
@@ -181,9 +183,11 @@ uint32_t kernel_get_stream_rate_hz(void) {
 }
 
 void kernel_snapshot_state(void) {
-    current_state.tof_l = TOF_sb_left_result.Distance;
-    current_state.tof_c = TOF_sb_front_result.Distance;
-    current_state.tof_r = TOF_sb_right_result.Distance;
+    current_state.tof_l  = TOF_sb_left_result.Distance;
+    current_state.tof_al = TOF_sb_front_left_result.Distance;
+    current_state.tof_c  = TOF_sb_front_result.Distance;
+    current_state.tof_ar = TOF_sb_front_right_result.Distance;
+    current_state.tof_r  = TOF_sb_right_result.Distance;
     current_state.ir_fl = 0; // TODO: Connect to Jesse's IR drivers
     current_state.ir_fr = 0; 
     current_state.ir_sl = 0;
@@ -345,7 +349,19 @@ void kernel_update_display(void) {
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 28);
-        snprintf(buf, sizeof(buf), "TOF:%4u %4u %4u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
+        bool has_l = current_state.tof_l < 8190;
+        bool has_r = current_state.tof_r < 8190;
+        bool has_al = current_state.tof_al < 8190;
+        bool has_ar = current_state.tof_ar < 8190;
+        bool has_c = current_state.tof_c < 8190;
+
+        if (has_c && has_al && has_ar && !has_l && !has_r) {
+            // (N, NW, NE) layout
+            snprintf(buf, sizeof(buf), "NW%4u N%4u NE%4u", current_state.tof_al, current_state.tof_c, current_state.tof_ar);
+        } else {
+            // (N, W, E) layout (default/fallback and when all 5 are connected)
+            snprintf(buf, sizeof(buf), "W%4u N%4u E%4u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
+        }
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 40);

@@ -255,9 +255,9 @@ def set_motors(left_pwm, right_pwm):
     # We do NOT immediately exchange data here. delay_ms will pace the simulation.
 
 def get_tof():
-    """Returns (left, center, right) virtual ToF distances in mm."""
+    """Returns (left, front_left, center, front_right, right) virtual ToF distances in mm."""
     s = _mouse.get_sensors()
-    return s.get('tof_l', 0), s.get('tof_c', 0), s.get('tof_r', 0)
+    return s.get('tof_l', 0), s.get('tof_al', 0), s.get('tof_c', 0), s.get('tof_ar', 0), s.get('tof_r', 0)
 
 def get_gyro():
     """Returns virtual gyro reading (yaw rate or angle depending on context, typically deg/s or relative heading)."""
