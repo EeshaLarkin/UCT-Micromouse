@@ -19,6 +19,25 @@ static mp_obj_t mpy_uct_mouse_init(void) {
         MX_I2C1_Init();
         MX_I2C2_Init();
 
+        // Re-initialize TIM3 (Motor PWM) and TIM4 (Encoders) alternate functions
+        extern TIM_HandleTypeDef htim3;
+        extern TIM_HandleTypeDef htim4;
+        HAL_TIM_PWM_DeInit(&htim3);
+        HAL_TIM_IC_DeInit(&htim4);
+        
+        extern void MX_TIM3_Init(void);
+        extern void MX_TIM4_Init(void);
+        MX_TIM3_Init();
+        MX_TIM4_Init();
+
+        // Explicitly re-initialize PD7 (MOTOR_EN) as a Push-Pull output
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        GPIO_InitStruct.Pin = GPIO_PIN_7;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+        HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+        
         initMicroMouse();
         mouse_initialized = true;
     }
