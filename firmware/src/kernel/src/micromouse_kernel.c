@@ -345,7 +345,7 @@ void kernel_update_display(void) {
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 28);
-        snprintf(buf, sizeof(buf), "TOF: %-3u %-3u %-3u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
+        snprintf(buf, sizeof(buf), "TOF:%4u %4u %4u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 40);
