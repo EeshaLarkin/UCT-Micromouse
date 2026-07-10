@@ -285,12 +285,18 @@ void factory_reset_make_files(FATFS *fatfs) {
         {"main.py", custom_main_py},
         {"README.txt", custom_readme_txt},
     };
+    char ram_buf[1024]; // Temporary buffer in RAM to prevent Flash read-during-write conflicts
     for (size_t i = 0; i < sizeof(files)/sizeof(files[0]); ++i) {
         FIL fp;
         FRESULT res = f_open(fatfs, &fp, files[i].name, FA_WRITE | FA_CREATE_ALWAYS);
         if (res == FR_OK) {
             UINT n;
-            f_write(&fp, files[i].data, strlen(files[i].data), &n);
+            size_t len = strlen(files[i].data);
+            if (len < sizeof(ram_buf)) {
+                memcpy(ram_buf, files[i].data, len);
+                ram_buf[len] = '\0';
+                f_write(&fp, ram_buf, len, &n);
+            }
             f_close(&fp);
         }
     }
