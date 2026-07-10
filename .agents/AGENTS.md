@@ -105,6 +105,15 @@ The system is strictly divided into three distinct layers to preserve the kernel
   * **Configuration File:** Add `"fast_sim": true` or `"fast_sim": false` in `sim_config.json`.
   * **Environment Variables:** Set `GRADESCOPE_AUTOGRADER=1`, `UCT_MICROMOUSE_FAST_SIM=1`, or `UCT_OFFLINE_MODE=1`.
   * When enabled, `time.sleep` calls are dynamically intercepted via frame-stack analysis (`sys._getframe()`) and redirected to virtual simulator steps.
+* **MicroPython Read-During-Write Flash Corruption (Factory Reset):** When the MicroPython internal FAT filesystem is formatted on first boot, `factory_reset_make_files` writes default files (`boot.py`, `main.py`, `README.txt`) to Flash.
+  * **Impact:** Writing these files by reading directly from C string literals (which also reside in Flash) violates the STM32 single-bank Flash read-during-write hardware constraint. The AHB bus returns corrupted binary garbage, leading to a parser crash: `RuntimeError: name too long`.
+  * **Fix:** Buffer default file strings into a temporary stack RAM array (`ram_buf`) before calling `f_write()`. Reading from RAM during Flash programming cycles prevents bank access collisions.
+* **Unused NVIC Timer Interrupt Storms (Floating Pins):** When the mainboard is handled out-of-chassis, physical contact with the exposed pin headers (`T4C1`, `T4C2`, etc.) injects transient electrical/capacitive noise.
+  * **Impact:** CubeMX enables `TIM4_IRQn` (as well as `TIM5_IRQn` and `TIM7_IRQn`) in the NVIC at Priority 0 by default. High-frequency touch noise on these floating pins registers as capture edges, triggering an interrupt storm. At Priority 0, this starves MicroPython's lower-priority SysTick timer and VM loop, causing a silent CPU freeze.
+  * **Fix:** Comment out `HAL_NVIC_EnableIRQ()` for unused interrupts (`TIM4_IRQn`, `TIM5_IRQn`, `TIM7_IRQn`) inside `MX_NVIC_Init()` in both `main.c` and `MicroMouse_main.c` to prevent noise propagation to the CPU cores.
+* **MicroPython I2C Bus Glitch Recovery Crash:** Physical vibration/bumps can cause transient voltage fluctuations on the I2C lines, triggering standard HAL transaction errors.
+  * **Impact:** If `restartI2C()` performs a full hardware reset (`HAL_I2C_DeInit()` / `HAL_I2C_Init()`) mid-flight, it corrupts the peripheral state register expectations of the active MicroPython VM, locking up the CPU.
+  * **Fix:** Recover safely in software by resetting the state handle to `HAL_I2C_StateTypeDef` `READY` and clearing `ErrorCode` to `HAL_I2C_ERROR_NONE`, without resetting the physical peripheral configuration.
 
 ---
 
