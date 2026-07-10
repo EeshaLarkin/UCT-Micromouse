@@ -229,7 +229,7 @@ void kernel_background_tick(void) {
             refreshADCs();
             refreshSWValues();
             refreshTOFValues();
-            refreshIMUValues();
+            // refreshIMUValues(); // Temporarily disabled for bump-test validation
             refreshINA219Values();
             
             // Snapshot physical state to the C-Kernel state structure
