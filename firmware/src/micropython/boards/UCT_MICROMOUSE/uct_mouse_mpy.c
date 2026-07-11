@@ -30,6 +30,10 @@ static mp_obj_t mpy_uct_mouse_init(void) {
         MX_TIM3_Init();
         MX_TIM4_Init();
 
+        // Enable GPIOD and GPIOC clocks to ensure motor enable and PWM control are active
+        __HAL_RCC_GPIOD_CLK_ENABLE();
+        __HAL_RCC_GPIOC_CLK_ENABLE();
+
         // Explicitly re-initialize PD7 (MOTOR_EN) as a Push-Pull output
         GPIO_InitTypeDef GPIO_InitStruct = {0};
         GPIO_InitStruct.Pin = GPIO_PIN_7;

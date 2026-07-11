@@ -1,6 +1,7 @@
 #include "serial_interface.h"
 #include "micromouse_kernel.h"
 #include <string.h>
+#include <stdio.h>
 
 static UART_HandleTypeDef *kernel_huart;
 static uint8_t rx_byte;

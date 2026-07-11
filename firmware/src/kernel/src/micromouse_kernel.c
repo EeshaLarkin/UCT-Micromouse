@@ -103,8 +103,10 @@ void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
     watchdog_timer_ms = 0; // Feed watchdog on standalone internal actuation
 
     // Convert from percentage (0-100) to timer duty cycle (0-999)
-    uint32_t duty_l = (abs(actual_l) * 1000) / 100;
-    uint32_t duty_r = (abs(actual_r) * 1000) / 100;
+    int16_t abs_l = (actual_l < 0) ? -actual_l : actual_l;
+    int16_t abs_r = (actual_r < 0) ? -actual_r : actual_r;
+    uint32_t duty_l = ((uint32_t)abs_l * 1000) / 100;
+    uint32_t duty_r = ((uint32_t)abs_r * 1000) / 100;
     if (duty_l > 999) duty_l = 999;
     if (duty_r > 999) duty_r = 999;
 
@@ -281,10 +283,10 @@ void kernel_watchdog_tick(void) {
         MOTOR_L.magnitude = 0;
         MOTOR_R.magnitude = 0;
         
+        TIM3->CCR1 = 0;
+        TIM3->CCR2 = 0;
         TIM3->CCR3 = 0;
         TIM3->CCR4 = 0;
-        TIM4->CCR1 = 0;
-        TIM4->CCR2 = 0;
     }
 }
 
