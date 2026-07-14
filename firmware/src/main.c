@@ -73,7 +73,7 @@ __attribute__((weak)) void UCT_KDeploy_initialize(void) {}
 __attribute__((weak)) void UCT_KDeploy_step(void) {}
 #endif
 
-static void raw_uart_print(const char *str) {
+void raw_uart_print(const char *str) {
     if (USART1 != NULL && (RCC->APB2ENR & RCC_APB2ENR_USART1EN)) {
         for (const char *p = str; *p; p++) {
             while (!(USART1->ISR & USART_ISR_TXE));
@@ -107,6 +107,16 @@ int main(void) {
     // 2. Peripheral Initialization
     MX_DMA_Init();
     MX_GPIO_Init();
+
+    // Explicitly configure PD7 (MOTOR_EN) as output push-pull to ensure motor driver can be enabled
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
     MX_ADC1_Init();
     MX_I2C1_Init();
     MX_I2C2_Init();
