@@ -21,7 +21,7 @@ def compute_fnv1a(filepath_or_bytes):
 
 def main():
     parser = argparse.ArgumentParser(description="UCT Micromouse Student Submission Packager")
-    parser.add_argument("-t", "--task", required=True, choices=["milestone1", "milestone2", "milestone3"], help="Target assignment milestone")
+    parser.add_argument("-t", "--task", required=True, choices=["milestone1", "final_demo"], help="Target assignment milestone")
     parser.add_argument("-s", "--src", required=True, help="Path to your task workspace directory (e.g., workspace/task1_square/)")
     parser.add_argument("-o", "--output", help="Output zip filename (defaults to submission_<task>.zip)")
     args = parser.parse_args()
