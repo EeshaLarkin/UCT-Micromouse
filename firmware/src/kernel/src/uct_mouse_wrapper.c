@@ -29,7 +29,9 @@ PikaObj* uct_mouse_get_tof(PikaObj *self) {
     const KernelState_t* s = kernel_get_state();
     PikaObj* tuple = New_pikaTuple();
     pikaList_append(tuple, arg_newInt(s->tof_l));
+    pikaList_append(tuple, arg_newInt(s->tof_al));
     pikaList_append(tuple, arg_newInt(s->tof_c));
+    pikaList_append(tuple, arg_newInt(s->tof_ar));
     pikaList_append(tuple, arg_newInt(s->tof_r));
     return tuple;
 }
@@ -78,4 +80,9 @@ PikaObj* uct_mouse_get_line_sensors(PikaObj *self) {
     pikaList_append(tuple, arg_newInt(s->ir_sl));
     pikaList_append(tuple, arg_newInt(s->ir_sr));
     return tuple;
+}
+
+void uct_mouse_dump_logs(PikaObj *self) {
+    extern void kernel_logger_dump(void);
+    kernel_logger_dump();
 }

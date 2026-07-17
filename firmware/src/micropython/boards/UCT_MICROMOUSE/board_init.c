@@ -28,6 +28,7 @@ extern void MX_TIM5_Init(void);
 extern void MX_TIM7_Init(void);
 extern void MX_USART1_UART_Init(void);
 extern void MX_NVIC_Init(void);
+extern void MX_SPI2_Init(void);
 
 // Extern background routines from the C-Kernel
 extern void refreshADCs(void);
@@ -206,6 +207,9 @@ void board_early_init(void) {
     MX_TIM4_Init();
     MX_TIM5_Init();
     MX_TIM7_Init();
+    
+    uart_print("Initializing SPI2 (External Flash)...\n");
+    MX_SPI2_Init();
 
     uart_print("Boot sequence completed successfully.\n");
 }
@@ -264,16 +268,18 @@ static const char custom_boot_py[] =
     "    # Held during boot -> Mount read-write\r\n"
     "    pyb.usb_mode('VCP+MSC')\r\n"
     "else:\r\n"
-    "    # Fallback to standard VCP+MSC to avoid unsupported argument crash\r\n"
-    "    pyb.usb_mode('VCP+MSC')\r\n";
+    "    # Fallback to VCP-only to prevent corruption from power glitches\r\n"
+    "    pyb.usb_mode('VCP')\r\n";
 
 static const char custom_main_py[] =
     "# main.py -- put your code here!\r\n";
 
 static const char custom_readme_txt[] =
-    "UCT Micromouse (UCT_MMOUSE) internal flash is locked as Read-Only to prevent standard PC editors from wearing it out.\r\n"
+    "UCT Micromouse (UCT_MMOUSE) external SPI flash partition.\r\n"
+    "File storage space: 128 KB (last 128 KB of 1 MB chip).\r\n"
     "\r\n"
-    "To make it writable for dragging and dropping files directly, turn on the mouse while holding down the PE6 User Button.\r\n"
+    "By default, the mouse boots in VCP-only mode to prevent filesystem corruption from power glitches.\r\n"
+    "To mount the drive on your PC (VCP+MSC mode) to access or copy files, hold down the PE6 User Button while resetting the mouse.\r\n"
     "Alternatively, deploy scripts cleanly over VCP serial using 'python tools/deploy.py -e micropython'.\r\n";
 
 void factory_reset_make_files(FATFS *fatfs) {

@@ -3955,6 +3955,14 @@ method_typedef(
     "delay_ms", "ms"
 );
 
+void uct_mouse_dump_logsMethod(PikaObj *self, Args *_args_){
+    uct_mouse_dump_logs(self);
+}
+method_typedef(
+    uct_mouse_dump_logs,
+    "dump_logs", ""
+);
+
 void uct_mouse_get_encodersMethod(PikaObj *self, Args *_args_){
     PikaObj* res = uct_mouse_get_encoders(self);
     method_returnObj(_args_, res);
@@ -4034,6 +4042,7 @@ class_def(uct_mouse){
     method_def(uct_mouse_get_line_sensors, 528952248),
     method_def(uct_mouse_set_motors, 546510804),
     method_def(uct_mouse_delay_ms, 657511251),
+    method_def(uct_mouse_dump_logs, 1066456367),
     method_def(uct_mouse_set_polarity, 1121395780),
     method_def(uct_mouse_get_vbatt, 1303596709),
     method_def(uct_mouse_get_encoders, 1872202775),

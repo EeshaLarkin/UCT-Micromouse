@@ -82,6 +82,11 @@ void raw_uart_print(const char *str) {
     }
 }
 
+int _write(int file, char *ptr, int len) {
+    HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 100);
+    return len;
+}
+
 // -------------------------------------------------------------
 // Hardware Fault Handler
 // -------------------------------------------------------------

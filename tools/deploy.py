@@ -341,6 +341,11 @@ if __name__ == "__main__":
                     if p.vid == 0xf055 and p.pid == 0x9800:
                         mpy_port = p.device
                         break
+                if not mpy_port:
+                    for p in serial.tools.list_ports.comports():
+                        if "ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid == 0x374b) or "usbmodem" in p.device:
+                            mpy_port = p.device
+                            break
             except Exception:
                 pass
                 
@@ -377,25 +382,27 @@ if __name__ == "__main__":
                 if os.path.exists(boot_script):
                     deployed_count += 1
                 
-                # Copy other helper python files from the same directory
+                # Copy other helper python files recursively from the same directory
                 script_dir_path = os.path.dirname(target_script)
-                for item in os.listdir(script_dir_path):
-                    item_path = os.path.join(script_dir_path, item)
-                    if os.path.isdir(item_path) or not item.endswith(".py"):
-                        continue
-                    # Skip the target script itself (already copied as main.py)
-                    if item == os.path.basename(target_script):
-                        continue
-                    # Skip standard PC-only mock libraries and known milestone scripts
-                    if item in ["uct_mouse.py", "micromouse.py", "boot.py"]:
-                        continue
-                    # Skip other milestone/main files to avoid clutter
-                    if item.startswith("milestone") or item == "main.py":
-                        continue
-                    
-                    print(f"    -> Pushing helper {item}...")
-                    subprocess.run(mpremote_cmd + ["fs", "cp", item_path, f":{item}"], check=True)
-                    deployed_count += 1
+                
+                def upload_dir_recursive(local_dir, remote_prefix=""):
+                    for item in os.listdir(local_dir):
+                        local_path = os.path.join(local_dir, item)
+                        if item in ["uct_mouse.py", "micromouse.py", "boot.py", ".git", "__pycache__"]:
+                            continue
+                        if item == os.path.basename(target_script) and remote_prefix == "":
+                            continue
+                        
+                        remote_path = f"{remote_prefix}{item}"
+                        if os.path.isdir(local_path):
+                            # Create remote folder
+                            subprocess.run(mpremote_cmd + ["fs", "mkdir", f":{remote_path}"], capture_output=True)
+                            upload_dir_recursive(local_path, f"{remote_path}/")
+                        elif item.endswith(".py"):
+                            print(f"    -> Pushing helper {remote_path}...")
+                            subprocess.run(mpremote_cmd + ["fs", "cp", local_path, f":{remote_path}"], check=True)
+
+                upload_dir_recursive(script_dir_path)
             else:
                 print(f"[2/2] Mirroring {os.path.basename(target_dir)}/ development folder to the mouse...")
                 

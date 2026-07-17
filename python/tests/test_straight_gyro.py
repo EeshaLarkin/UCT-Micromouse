@@ -13,7 +13,7 @@ def run():
     
     try:
         while True:
-            tof_l, tof_c, tof_r = uct_mouse.get_tof()
+            tof_l, tof_al, tof_c, tof_ar, tof_r = uct_mouse.get_tof()
             gyro = uct_mouse.get_gyro()
             
             # Integrate gyro yaw rate to track heading

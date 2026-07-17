@@ -73,19 +73,35 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 
 ### Flashing Python Code
 1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/binaries/pikascript.bin` or `firmware/binaries/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer, USB Mass Storage drag-and-drop, or `st-flash`.
-2. For **MicroPython**, deploy using the serial virtual com port utility (optionally specifying the serial port with `--port` or `-p` if the USB OTG port is not connected):
-   ```bash
-   python tools/deploy.py --engine micropython --script python/milestone1_square.py --port /dev/cu.usbmodem11303
+
+2. **Organizing Your Code (`workspace/`):**
+   A git-ignored folder named `workspace/` is provided at the root of the project. Organize your assignments into subdirectories under this folder. You can also group auxiliary libraries in subdirectories:
    ```
-3. For **PikaScript**, you can choose between two methods:
-   * **Full Compile & Flash (Requires a local C compiler toolchain):**
-     ```bash
-     python tools/deploy.py --engine pikascript --script python/milestone1_square.py
-     ```
-   * **High-Speed Script-Only Flash (Requires `st-flash` utility; runs in <100ms and does NOT require a local C compiler toolchain):**
-     ```bash
-     python tools/deploy.py --engine pikascript --script python/milestone1_square.py --script-only
-     ```
+   workspace/
+   ├── task1_square/
+   │   ├── run_square.py       <-- Entry point
+   │   └── pid_helper.py       <-- Auxiliary module/library
+   └── task2_maze/
+       ├── main.py             <-- Entry point
+       └── maze_libs/          <-- Subdirectory for nested custom packages
+           └── floodfill.py
+   ```
+
+3. **Deploying with Library Dependencies:**
+   When you run the deploy script and point it to your main entry file, the deployer will automatically:
+   * Copy the targeted file to the mouse filesystem as `main.py` (which runs on boot).
+   * **Auto-package Libraries & Folders:** Scan the same directory and copy *all* other `.py` files and subdirectories (like `maze_libs/`) recursively onto the mouse, preserving your package directory structure so nested imports work natively on the silicon.
+   
+   To deploy for **MicroPython**:
+   ```bash
+   python tools/deploy.py --engine micropython --script workspace/task1_square/run_square.py
+   ```
+   
+   To deploy for **PikaScript**:
+   ```bash
+   # Script-only (fastest, requires st-flash)
+   python tools/deploy.py --engine pikascript --script workspace/task1_square/run_square.py --script-only
+   ```
 4. The mouse will reboot and immediately begin executing your code.
 
 ### Flashing Simulink / C Code
@@ -143,5 +159,24 @@ If you are using the **MicroPython** engine instead of PikaScript, you can debug
        st-flash write firmware/binaries/micropython.bin 0x08000000
        ```
     3. The board will reboot, auto-format the filesystem partition with a clean FAT table, and mount successfully.
+
+### Telemetry Log Extraction (Anti-Cheat & Offline Tuning)
+The microcontroller automatically logs run telemetry (motor PWM inputs, sensor distance values, encoder counts, and gyroscope angles) at 25 Hz to its external SPI flash.
+* **Uniform Connection:** This tool works **identically across all three firmware targets** (MicroPython, PikaScript, and Simulink). Keep your mouse connected via the single **ST-Link debugger USB port**.
+* **Prerequisites:** The extraction tool requires the `pyserial` Python module. Install it via:
+  ```bash
+  pip install pyserial
+  ```
+* **Extraction:** Open a terminal and run the extractor from your project root:
+  ```bash
+  python tools/dump_logs.py
+  ```
+  This script will automatically locate your ST-Link Virtual COM Port, send the extraction trigger, and save the captured stream as `run_log.jsonl` in your folder.
+* **Anti-Cheat Headers:** The first line of every exported log contains a validation header:
+  ```json
+  {"log_header":1,"uid":"066AFF514885864967083830","hash":4017325881}
+  ```
+  This contains your microcontroller's unique 96-bit Device UID and a checksum hash of your compiled script's bytecode/directory layout. Submitting logs with mismatched/duplicate UIDs or copied code hashes will flag the submission for plagiarism review.
+
 
 

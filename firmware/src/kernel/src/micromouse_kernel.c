@@ -22,6 +22,7 @@
 // Expose Jesse's underlying global hardware variables
 extern float IMU_Gyro[3];
 extern int16_t Vbattery;
+extern int16_t Current;
 
 // 2026 Generation Hardware Hooks:
 // Encoders are not yet implemented in the base Simulink hardware template.
@@ -94,6 +95,8 @@ void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
     // Apply hardware-specific wiring polarities
     int16_t actual_l = left_pwm * polarity_l;
     int16_t actual_r = right_pwm * polarity_r;
+
+    printf("ACTUATE: L=%d (act=%d), R=%d (act=%d)\r\n", left_pwm, actual_l, right_pwm, actual_r);
 
     current_state.left_pwm = left_pwm;   // Report the original INTENT back to telemetry
     current_state.right_pwm = right_pwm; 
@@ -171,6 +174,10 @@ void kernel_parse_downlink(const char* rx_string) {
         if (strstr(rx_string, "\"sync\":1") != NULL) force_sync = true;
         if (strstr(rx_string, "\"enc_mode\":\"d\"") != NULL) use_delta_enc = true;
         if (strstr(rx_string, "\"enc_mode\":\"a\"") != NULL) use_delta_enc = false;
+        if (strstr(rx_string, "\"dump\":1") != NULL) {
+            extern void kernel_logger_dump(void);
+            kernel_logger_dump();
+        }
     }
     else if (strstr(rx_string, "\"p\":") != NULL) {
         // Polling ping, handled implicitly
@@ -272,9 +279,8 @@ int kernel_generate_uplink(char* tx_buffer, int max_len) {
 void kernel_watchdog_tick(void) {
     watchdog_timer_ms++;
     
-    // Evaluate EXACTLY ONCE at the 1-second mark to eliminate register spam!
+    /* Temporarily disabled for diagnostic testing
     if (watchdog_timer_ms == 1001) {
-        // Physically disable the motor driver IC for absolute safety
         HAL_GPIO_WritePin(MOTOR_EN_GPIO_Port, MOTOR_EN_Pin, GPIO_PIN_RESET);
         
         current_state.left_pwm = 0;
@@ -288,6 +294,7 @@ void kernel_watchdog_tick(void) {
         TIM3->CCR3 = 0;
         TIM3->CCR4 = 0;
     }
+    */
 }
 
 void kernel_set_title(const char* title) {
@@ -351,25 +358,20 @@ void kernel_update_display(void) {
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 28);
-        bool has_l = current_state.tof_l < 8190;
-        bool has_r = current_state.tof_r < 8190;
-        bool has_al = current_state.tof_al < 8190;
-        bool has_ar = current_state.tof_ar < 8190;
-        bool has_c = current_state.tof_c < 8190;
-
-        if (has_c && has_al && has_ar && !has_l && !has_r) {
-            // (N, NW, NE) layout
-            snprintf(buf, sizeof(buf), "NW%4u N%4u NE%4u", current_state.tof_al, current_state.tof_c, current_state.tof_ar);
-        } else {
-            // (N, W, E) layout (default/fallback and when all 5 are connected)
-            snprintf(buf, sizeof(buf), "W%4u N%4u E%4u ", current_state.tof_l, current_state.tof_c, current_state.tof_r);
-        }
+        uint32_t val_first = (current_state.tof_l < 8190) ? current_state.tof_l : current_state.tof_al;
+        uint32_t val_mid   = current_state.tof_c;
+        uint32_t val_third = (current_state.tof_r < 8190) ? current_state.tof_r : current_state.tof_ar;
+        snprintf(buf, sizeof(buf), "TOF:%4lu %4lu %4lu", (unsigned long)val_first, (unsigned long)val_mid, (unsigned long)val_third);
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 40);
         int vbatt_int = (int)current_state.v_batt;
         int vbatt_frac = (int)(current_state.v_batt * 100.0f) % 100;
-        snprintf(buf, sizeof(buf), "BAT: %d.%02d V       ", vbatt_int, vbatt_frac < 0 ? -vbatt_frac : vbatt_frac);
+        float bat_val = current_state.v_batt;
+        int bat_pct = (int)((bat_val - 3.2f) / (4.2f - 3.2f) * 100.0f);
+        if (bat_pct > 100) bat_pct = 100;
+        if (bat_pct < 0) bat_pct = 0;
+        snprintf(buf, sizeof(buf), "BAT:%d.%02dV %d%% %-3dmA", vbatt_int, vbatt_frac < 0 ? -vbatt_frac : vbatt_frac, bat_pct, Current);
         SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
         SSD1306_GotoXY(0, 52);
@@ -386,6 +388,9 @@ void kernel_update_display(void) {
     if (hi2c2.State == HAL_I2C_STATE_BUSY || hi2c2.ErrorCode != HAL_I2C_ERROR_NONE) {
         extern void restartI2C(I2C_HandleTypeDef *hi2c);
         restartI2C(&hi2c2);
+        
+        extern uint8_t SSD1306_Init(void);
+        SSD1306_Init();
     }
 
     SSD1306_UpdateScreen();

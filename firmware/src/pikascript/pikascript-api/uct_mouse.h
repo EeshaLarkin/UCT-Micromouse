@@ -18,6 +18,7 @@
 PikaObj *New_uct_mouse(Args *args);
 
 void uct_mouse_delay_ms(PikaObj *self, int ms);
+void uct_mouse_dump_logs(PikaObj *self);
 PikaObj* uct_mouse_get_encoders(PikaObj *self);
 pika_float uct_mouse_get_gyro(PikaObj *self);
 PikaObj* uct_mouse_get_line_sensors(PikaObj *self);

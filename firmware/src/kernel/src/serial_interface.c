@@ -18,11 +18,19 @@ void serial_interface_init(UART_HandleTypeDef *huart) {
 }
 
 void serial_interface_tick(void) {
+    // Run logger tick at 25Hz (every 40ms)
+    static uint32_t last_log_time = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_log_time >= 40) {
+        last_log_time = now;
+        extern void kernel_logger_tick(void);
+        kernel_logger_tick();
+    }
+
     uint32_t rate_hz = kernel_get_stream_rate_hz();
     if (rate_hz == 0) return; // Polled mode only
     
     uint32_t period_ms = 1000 / rate_hz;
-    uint32_t now = HAL_GetTick();
     
     if ((now - last_tx_time) >= period_ms) {
         last_tx_time = now;

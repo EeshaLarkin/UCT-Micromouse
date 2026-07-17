@@ -1,4 +1,4 @@
-# Micro-mouse Project: EEE3097S, EEE3098S, EEE3099S (2026 Revised Brief)
+# Micro-mouse Project: EEE3097/8/9S (2026 Revised Brief)
 
 *This document details the project structure, milestones, learning onramps, and ECSA Graduate Attribute 3 (Design) requirements for the 2026 academic year.*
 
@@ -99,15 +99,25 @@ You may choose to develop your solution using either:
 To pass the course, students are required to make **five primary submissions** that document their practical progress and provide evidence for ECSA accreditation:
 
 1.  **Submission 1: Milestone 1 (The Square Run) Code & Physical Evidence**
-    *   **Deliverables:** Student algorithm source file (`main.py` or `.slx` model) and physical run evidence (serial log from the physical mouse + video recording of the mouse traversing a 1.0m x 1.0m square).
-2.  **Submission 2: Milestone 2 (Maze Exploration) Code & Physical Evidence**
-    *   **Deliverables:** Student algorithm source file and physical run evidence (serial log + video recording of the physical mouse autonomously exploring and mapping a maze layout).
-3.  **Submission 3: Milestone 3 (Final Maze Solving) Code & Validation**
-    *   **Deliverables:** Final algorithm source file. This submission is evaluated in simulation (completely solving the maze under stress testing) and validated via a final live physical demonstration of the mouse mapping and traversing the maze as fast as possible.
-4.  **Submission 4: Graduate Attribute (GA3) Design Report 1**
-    *   **Deliverables:** A formal engineering design report (using the template [EEE3097S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097S_designreport.docx)) documenting a structured design process for a chosen subsystem or algorithm.
-5.  **Submission 5: Graduate Attribute (GA3) Design Report 2**
-    *   **Deliverables:** A second formal design report documenting a different, distinct subsystem or design task of the student's choosing.
+    *   **Deliverables:** Run `python tools/package_submission.py --task milestone1 --src workspace/task1_square/` to package your files into **`submission_milestone1.zip`**.
+        *   **Controller Code:** Python scripts and custom package libraries OR your `.slx` model file and generated C code directory (`*_ert_rtw/`).
+        *   **Physical Run Telemetry Log:** Exported JSON telemetry lines (`run_log.jsonl`).
+        *   **Validation Video:** An `.mp4` video showing:
+            1. A close-up of your **Student Card** at the start (declaration of own work, minimum 3 seconds).
+            2. The physical mouse traversing the 1.0m x 1.0m square trajectory and stopping autonomously.
+    *   **Log-Code Verification (Anti-Cheat):** The autograder compiles/hashes your submitted code to verify it matches the FNV-1a `"hash"` field in your telemetry header. Mismatches will reject the submission. The `"uid"` field is monitored retrospectively across all submissions; logs containing identical UIDs under different student accounts are flagged for shared hardware/files plagiarism review.
+2.  **Submission 2: Graduate Attribute (GA3) Design Report 1**
+    *   **Deliverables:** A formal engineering design report (in PDF format) documenting your closed-loop feedback controller design and testing from Milestone 1. Follow the guidelines in [gareport1_instructions.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport1_instructions.md) and the template in [EEE3097_8_9S_designreport_template.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport_template.md).
+3.  **Submission 3: Milestone 2 (Maze Exploration) Code & Physical Evidence**
+    *   **Deliverables:** Run `python tools/package_submission.py --task milestone2 --src workspace/task2_maze/` to package your files into **`submission_milestone2.zip`**.
+        *   **Exploration Code:** Your Python maze navigation modules OR your compiled Simulink generated C code.
+        *   **Physical Run Telemetry Log:** Exported JSON telemetry lines (`run_log.jsonl`).
+        *   **Validation Video:** An `.mp4` video showing a 3-second student card close-up followed by your physical mouse autonomously exploring and mapping a maze layout.
+4.  **Submission 4: Graduate Attribute (GA3) Design Report 2**
+    *   **Deliverables:** A second formal engineering design report (in PDF format) documenting your sensor fusion, mapping state flows, or routing pathfinder designs from Milestone 2. Follow the guidelines in [gareport2_instructions.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport2_instructions.md) and the template in [EEE3097_8_9S_designreport_template.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport_template.md).
+5.  **Submission 5: Milestone 3 (Final Maze Solving) Code & Validation**
+    *   **Deliverables:** Run `python tools/package_submission.py --task milestone3 --src workspace/task3_maze/` to package your files into **`submission_milestone3.zip`**.
+        *   **Solving Code:** Your final high-speed path planning and navigation algorithm. Evaluated in simulation under randomized maze layouts, and validated via a final live physical demonstration of the mouse mapping and traversing the maze as fast as possible.
 
 > [!NOTE]
 > **GA Report Resubmissions (Catch-up):**
@@ -124,7 +134,10 @@ To ensure grading remains scalable and objective, the autograder runs your submi
 
 ### Milestone 1: Dead Reckoning & Closed-Loop Path Traversal (The Square Run)
 *   **Task:** The mouse must drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop.
-*   **Assessment:** Your code is evaluated in co-simulation under motor asymmetry and wheel slip perturbations to assess tracking robustness. Physical validation requires a video demonstrating the physical mouse executing the square run on the lab floor, accompanied by its serial sensor log.
+*   **Assessment:** 
+    *   **Simulation Check:** Your code is evaluated in co-simulation under motor asymmetry ($\pm 10\%$) and wheel slip perturbations to assess tracking robustness.
+    *   **Physical Check:** Verified via an unedited `.mp4` video (starting with a 3-second close-up of your student card) demonstrating the physical mouse autonomously executing the square run on the lab floor within a $\pm 10\text{ cm}$ boundary, and stopping autonomously.
+    *   **Telemetry Verification:** Submission must be accompanied by its raw `run_log.jsonl` containing matching microcontroller hardware UID and code FNV-1a checksum headers.
 
 ### Milestone 2: Robust Maze Exploration
 *   **Task:** Navigate a virtual mouse to explore a 4x6 grid maze. Your algorithm must map as many cells as possible and attempt to return to the starting cell.

@@ -6,6 +6,7 @@ add_library(uct_kernel STATIC
     src/micromouse_kernel.c
     src/simulink_wrapper.c
     src/serial_interface.c
+    src/kernel_logger.c
 )
 
 # Define the STM32 device so the HAL drivers compile properly

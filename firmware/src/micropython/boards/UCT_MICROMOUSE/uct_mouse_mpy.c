@@ -127,6 +127,14 @@ static mp_obj_t mpy_uct_mouse_get_line_sensors(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_line_sensors_obj, mpy_uct_mouse_get_line_sensors);
 
+// 7c. uct_mouse.dump_logs()
+static mp_obj_t mpy_uct_mouse_dump_logs(void) {
+    extern void kernel_logger_dump(void);
+    kernel_logger_dump();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_dump_logs_obj, mpy_uct_mouse_dump_logs);
+
 // Define module globals table
 static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_uct_mouse) },
@@ -139,6 +147,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_delay_ms),    MP_ROM_PTR(&mpy_uct_mouse_delay_ms_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_polarity),MP_ROM_PTR(&mpy_uct_mouse_set_polarity_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_line_sensors), MP_ROM_PTR(&mpy_uct_mouse_get_line_sensors_obj) },
+    { MP_ROM_QSTR(MP_QSTR_dump_logs),    MP_ROM_PTR(&mpy_uct_mouse_dump_logs_obj) },
 };
 static MP_DEFINE_CONST_DICT(uct_mouse_module_globals, uct_mouse_module_globals_table);
 

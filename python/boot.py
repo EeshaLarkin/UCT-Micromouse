@@ -14,5 +14,5 @@ if sw.value() == 0:
     # Mount Read-Write (Standard)
     pyb.usb_mode('VCP+MSC')
 else:
-    # Fallback to standard VCP+MSC to avoid unsupported argument crash
-    pyb.usb_mode('VCP+MSC')
+    # Fallback to VCP-only to prevent corruption from power glitches
+    pyb.usb_mode('VCP')

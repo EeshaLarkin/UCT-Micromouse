@@ -114,6 +114,21 @@ The system is strictly divided into three distinct layers to preserve the kernel
 * **MicroPython I2C Bus Glitch Recovery Crash:** Physical vibration/bumps can cause transient voltage fluctuations on the I2C lines, triggering standard HAL transaction errors.
   * **Impact:** If `restartI2C()` performs a full hardware reset (`HAL_I2C_DeInit()` / `HAL_I2C_Init()`) mid-flight, it corrupts the peripheral state register expectations of the active MicroPython VM, locking up the CPU.
   * **Fix:** Recover safely in software by resetting the state handle to `HAL_I2C_StateTypeDef` `READY` and clearing `ErrorCode` to `HAL_I2C_ERROR_NONE`, without resetting the physical peripheral configuration.
+* **Onboard LED Pin Mapping & Master Gating Control:** 
+  * LED0 is connected to `PC13`, LED1 is connected to `PC14`, and LED2 is connected to `PC15`.
+  * **Critical Gating Pin:** All three LEDs are electrically controlled/gated by pin `PB3` (`CTRL_LEDS`). `PB3` must be written `HIGH` (`GPIO_PIN_SET`) during board initialization, otherwise all LEDs will remain physically turned off regardless of the PC13/PC14/PC15 pin states.
+* **External Flash Partitioning & FAT Filesystem Offset:** To avoid wearing out the internal microcontroller flash, the FAT filesystem (`UCT_MMOUSE` drive) is shifted to the last **128 KB** of the external SPI flash (logical blocks mapped with offset `0xE0000` to `0xFFFFF`).
+* **JSON Telemetry Logger & Sparse Compression:** The C-Kernel automatically logs runs at **25 Hz** in a sparse JSON text format. Logging triggers automatically on first motor actuation, overwrites the previous run (resets pointer to `0x00000`), and writes to the first **896 KB** partition.
+* **Unique UID & Code Verification Hashing (Anti-Cheat):** The first line of every log contains a `log_header` containing the microcontroller's unique 96-bit Device UID and a 32-bit FNV-1a checksum hash of the running Python bytecode / FAT filesystem state to verify student submission authenticity. UIDs are not registered in advance; instead, convenors check logs retrospectively for duplicate UIDs to detect shared code or drives.
+* **VCP Log Dumping protocol:** Exposes serial command `{"c":{"dump":1}}` (and Python helper `uct_mouse.dump_logs()`) which pauses interrupts and dumps log bytes of the last run to the console.
+* **Research Utilization of Telemetry Dataset:** The generated logs from 150+ students are aggregate-audited to build a high-fidelity system identification model of the physical mouse dynamics, and to evaluate off-board path reconstruction (e.g. Extended Kalman Filter/Smoother predictors) in robotics research.
+* **Document Output Compilation Rule:** Do NOT automatically compile or generate PDF/HTML versions of planning, instructions, or course description Markdown documents in the workspace. Any document compilation must be left for the convenor to execute manually when required.
+* **Primary Student Document Policy:** The course handbook `docs/EEE3097_8_9S_M0_Handbook_2026.md` is the **single, master document** disseminated to students. All project tasks, educational objectives, track streams, submission guidelines, and detailed passing/grading criteria must be maintained directly within it.
+* **Markdown List Formatting Rule:** Always place a blank line (empty newline) immediately before initiating a bulleted (`*`, `-`) or numbered (`1.`) list in Markdown documents. Failing to do so causes Pandoc and other parsers to collapse the list items into inline text, rendering raw asterisks in the compiled output.
+
+
+
+
 
 ---
 

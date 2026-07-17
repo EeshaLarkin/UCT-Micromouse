@@ -10,7 +10,7 @@ def run():
     # Read initial distances to choose which wall to follow
     # Give it a moment to initialize and settle
     uct_mouse.delay_ms(100)
-    tof_l, tof_c, tof_r = uct_mouse.get_tof()
+    tof_l, tof_al, tof_c, tof_ar, tof_r = uct_mouse.get_tof()
     
     # Choose which wall to follow based on whichever we started closer to
     if tof_l < tof_r:
@@ -24,7 +24,7 @@ def run():
         
     try:
         while True:
-            tof_l, tof_c, tof_r = uct_mouse.get_tof()
+            tof_l, tof_al, tof_c, tof_ar, tof_r = uct_mouse.get_tof()
             print(f"ToF L: {tof_l}mm, C: {tof_c}mm, R: {tof_r}mm")
             
             if tof_c < 150:

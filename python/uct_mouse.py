@@ -312,3 +312,7 @@ def get_line_sensors():
     """Returns (front_left, front_right, side_left, side_right) downward facing line sensors."""
     s = _mouse.get_sensors()
     return s.get('ir_fl', 0), s.get('ir_fr', 0), s.get('ir_sl', 0), s.get('ir_sr', 0)
+
+def dump_logs():
+    """Triggers telemetry log dump over VCP (ignored on PC)."""
+    pass

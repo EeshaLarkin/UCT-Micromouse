@@ -16,6 +16,7 @@ CFLAGS_EXTRA += -Dmain=jesse_legacy_main -DCOMPILING_FOR_MICROPYTHON -Wno-float-
 
 SRC_C += $(BOARD_DIR)/src_link/kernel/src/micromouse_kernel.c
 SRC_C += $(BOARD_DIR)/src_link/kernel/src/serial_interface.c
+SRC_C += $(BOARD_DIR)/src_link/kernel/src/kernel_logger.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/IMU.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/VL53L0X.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/SSD1306.c
@@ -28,7 +29,9 @@ SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Cod
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/stm32l4xx_hal_msp.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/MicroMouse_main.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/DMA.c
+SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/ZD25WQ80C.c
 SRC_C += $(BOARD_DIR)/external_link/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/VCP.c
+SRC_C += $(BOARD_DIR)/bdev.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_i2c_ex.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_gpio.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_usart.c
