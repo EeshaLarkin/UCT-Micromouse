@@ -1,11 +1,11 @@
 {
   "robot": {
     "mass": 0.238,
-    "axle_half_length": 0.060,
-    "wheel_radius": 0.031,
-    "collision_radius": 0.058,
-    "ticks_per_rot": 8.0,
-    "total_width": 0.143
+    "axle_half_length": 0.054,
+    "wheel_radius": 0.0325,
+    "collision_radius": 0.070,
+    "ticks_per_rot": 1170.0,
+    "total_width": 0.122
   },
   "motor": {
     "max_speed": 0.40,
