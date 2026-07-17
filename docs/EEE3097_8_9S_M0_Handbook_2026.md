@@ -38,6 +38,7 @@ For each of your two GA3 Design Reports, you must identify and document a struct
 Consistent with the professional engineering standard, this selection is completely **open-ended and non-prescriptive**. You may choose any task for which you can confidently present evidence of design thinking.
 
 Illustrative, non-prescriptive examples of design topics include:
+
 * **Stream A (Control & Estimation):** Designing and tuning a discrete PID velocity controller; fusing gyroscope yaw and encoders; or modeling motor parameter identification dynamics.
 * **Stream B (Interface & Systems Engineering):** Designing a visual Blockly block library and web-app generator; implementing high-level API safety wrappers; or coding automated hardware self-test calibrators.
 
