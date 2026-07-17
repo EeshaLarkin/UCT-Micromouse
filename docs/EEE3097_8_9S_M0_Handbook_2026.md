@@ -47,6 +47,14 @@ Illustrative, non-prescriptive examples of design topics include:
 
 To facilitate updates to the core repository without overwriting your progress, the project workspace is partitioned:
 
+* **Cloning the Workspace:** To clone this repository with all required microcontroller submodules, run this command in your terminal:
+  ```bash
+  git clone --recursive https://github.com/nicollsf/UCT-Micromouse.git
+  ```
+  If you have already cloned the repository without the submodules, initialize them using:
+  ```bash
+  git submodule update --init --recursive
+  ```
 * **Your Sandbox (`/workspace/`):** Put all your Python scripts, custom packages, libraries, and Simulink `.slx` files inside the `/workspace/` directory at the project root. This directory is ignored by Git, meaning your code remains safe and untracked when pulling repository updates.
 * **The Deployer Tool (`tools/deploy.py`):** Use this script to copy your local Python files and custom package directories onto the physical mouse's internal drive:
   ```bash
@@ -56,6 +64,9 @@ To facilitate updates to the core repository without overwriting your progress, 
   ```bash
   python tools/physics_sim.py
   ```
+* **Simulation Stress-Testing (Perturbations):** To verify that you are using active feedback control (speed matching and gyro heading alignment) rather than hardcoded open-loop delays, the autograder executes your code in co-simulation under randomized perturbations, including:
+  * **Motor Asymmetry:** Left/right motor gain offsets (up to $\pm 10\%$).
+  * **Wheel Slip / Traction Loss:** Simulated tire slippage to penalize pure time-based dead reckoning.
 
 ---
 
