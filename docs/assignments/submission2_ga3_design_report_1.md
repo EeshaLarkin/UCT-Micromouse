@@ -20,6 +20,7 @@ To ensure standardization for external ECSA audits, you must adhere to these for
 
 ### 3. Open-Ended Design Subsystem Selection
 You can choose any design subsystem from Milestone 1 for which you can confidently present evidence of design thinking. Illustrative examples include:
+
 *   **Closed-Loop Speed Controller:** Tuning and discretizing a PID feedback loop to match wheel speeds.
 *   **Robust Heading Alignment:** Fusing gyroscope yaw rate and encoders to steer and correct trajectory drift.
 *   **DC Motor Drive System:** Modelling motor parameter identification dynamics.

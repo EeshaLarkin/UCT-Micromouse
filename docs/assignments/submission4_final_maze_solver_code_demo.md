@@ -28,6 +28,7 @@ Run the packaging command from your repository root:
 python tools/package_submission.py --task final_demo --src workspace/final_task/
 ```
 Upload the resulting **`submission_final_demo.zip`** to Gradescope. The package must contain:
+
 1. **Your Solving Code:** Python scripts recursively from your workspace OR your Simulink model (`.slx`) and generated C code directory (`*_ert_rtw/`).
 2. **Physical Telemetry Log (`run_log.jsonl`):** Telemetry from your physical exploration and speed runs.
 3. **Physical Run Video (`run_video.mp4`):** An uncut video showing:

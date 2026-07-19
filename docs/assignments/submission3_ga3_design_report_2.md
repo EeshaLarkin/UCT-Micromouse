@@ -20,6 +20,7 @@ To ensure standardization for external ECSA audits, you must adhere to these for
 
 ### 3. Open-Ended Design Subsystem Selection
 You can choose any design subsystem from Milestone 2 for which you can confidently present evidence of design thinking. Illustrative examples include:
+
 *   **Active Wall Centering:** Fusing side ToF measurements to steer down the corridor center.
 *   **Algorithmic Path Exploration:** Designing Stateflow state machines, algorithmic flowcharts, or Python FSM classes to explore and map maze walls.
 *   **Pathfinding Optimizations:** Formulating Floodfill, BFS, or Dijkstra algorithms to calculate the shortest path.

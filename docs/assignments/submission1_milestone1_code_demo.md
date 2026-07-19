@@ -29,6 +29,7 @@ Run the packaging command from your repository root:
 python tools/package_submission.py --task milestone1 --src workspace/task1_square/
 ```
 Upload the resulting **`submission_milestone1.zip`** to Gradescope. The package must contain:
+
 1. **Your Controller Code:** Python scripts (`main.py` + custom libraries) OR your Simulink model (`.slx`) and generated C code directory (`*_ert_rtw/`).
 2. **Physical Telemetry Log (`run_log.jsonl`):** Extracted from your mouse using `python tools/dump_logs.py`.
 3. **Physical Run Video (`run_video.mp4`):** Starting with a **3-second close-up of your Student Card** followed by the uncut square run.
