@@ -14,6 +14,14 @@ Your objective is to design, implement, and validate the code logic that enables
 
 To pass the course and meet ECSA Graduate Attribute 3 (Design) requirements, you must prove that your mouse uses **active feedback control** to adapt to physical disturbances (such as motor asymmetries and wheel slip) rather than relying on faked or open-loop timed delays.
 
+### **Project Reference Documentation:**
+If you need assistance or technical reference details at any stage of the project, refer to the following developer and setup guides located in the `/docs/` directory:
+
+*   **[Student Workflow Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md):** Walks you through setting up Python or Simulink environments, testing algorithms in co-simulation, flashing the physical board over USB, and debugging via the interactive serial REPL console.
+*   **[Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md):** The primary reference for the high-level Python API (`uct_mouse` module) methods, OLED display configurations, and line sensor bindings.
+*   **[Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md):** Covers Simulink template path setups, C-Coder compilation hooks, and automatic Pygame co-simulation socket mappings.
+*   **[Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md):** Contains DC motor wiring diagrams, battery switch details, sensor alternate-function pins, and processor clock-speed Sweeping diagnostics.
+
 ---
 
 ## **2. Development Tracks & Language Choices**
