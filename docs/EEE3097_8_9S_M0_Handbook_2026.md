@@ -75,12 +75,7 @@ To facilitate updates to the core repository without overwriting your progress, 
 
 To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you must complete **four primary submissions** in chronological order:
 
-### **Submission 1: Milestone 1 Design Report (25%)**
-*   **Task:** Submit a formal engineering design report (in PDF format) documenting your closed-loop feedback controller, velocity synchronization, or heading alignment designs from Milestone 1.
-*   **Template:** Follow the formatting rules and character limits in [gareport_guidelines.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport_guidelines.md) and the template in [EEE3097_8_9S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport.docx).
-*   **Assessment & Passing Criteria:** Evaluated against the ECSA GA3 Design rubric. Must demonstrate a structured design brief (3.1), alternative evaluations (3.2), and first-principles modeling (3.3).
-
-### **Submission 2: Milestone 1 Demonstration (20%)**
+### **Submission 1: Milestone 1 Code & Demo (20%)**
 *   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
 *   **Assessment & Grading Metric:** Graded proportionally based on the Euclidean error distance ($d_e$) from the starting point $(0,0)$ at the end of the run:
     *   **100%:** Excellent feedback control ($d_e \le 5\text{ cm}$).
@@ -88,11 +83,16 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
     *   **60%:** Baseline pass ($15\text{ cm} < d_e \le 30\text{ cm}$).
     *   *Note:* The autograder applies motor asymmetry ($\pm 10\%$) and wheel slip perturbations in co-simulation to verify active control.
 
-### **Submission 3: Milestone 2 Design Report (30%)**
+### **Submission 2: GA3 Design Report 1 (25%)**
+*   **Task:** Submit a formal engineering design report (in PDF format) documenting your closed-loop feedback controller, velocity synchronization, or heading alignment designs from Milestone 1.
+*   **Template:** Follow the formatting rules and character limits in [gareport_guidelines.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport_guidelines.md) and the template in [EEE3097_8_9S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport.docx).
+*   **Assessment & Passing Criteria:** Evaluated against the ECSA GA3 Design rubric. Must demonstrate a structured design brief (3.1), alternative evaluations (3.2), and first-principles modeling (3.3).
+
+### **Submission 3: GA3 Design Report 2 (30%)**
 *   **Task:** A second formal engineering design report (in PDF format) documenting your sensor filters, mapping state flows, routing pathfinders, or visual programming interfaces from Milestone 2.
 *   **Assessment & Passing Criteria:** Evaluated against the ECSA GA3 Design rubric. Must demonstrate implementation testing (3.4) and critical evaluation (3.5). One resubmission of this report is permitted if required to demonstrate Graduate Attribute competence.
 
-### **Submission 4: Final Demonstration (25%)**
+### **Submission 4: Final Maze Solver Code & Demo (25%)**
 *   **Task:** Navigate a virtual/physical mouse to explore a 4x6 grid maze, map wall configurations, compute the shortest path, and run from start to target at high speed.
 *   **Assessment & Grading Metric:** Graded proportionally:
     $$\text{Score} = 0.5 \cdot (\% \text{ cells visited}) + 0.5 \cdot (\% \text{ walls mapped}) - \text{penalties}$$
