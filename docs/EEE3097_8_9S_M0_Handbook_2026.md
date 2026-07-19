@@ -3,6 +3,10 @@
 **Course:** EEE3097/8/9S (2026)  
 **Project:** Autonomous Micromouse Robotic Maze Solver
 
+> [!IMPORTANT]
+> **Primary Course GitHub Repository:** [https://github.com/nicollsf/UCT-Micromouse](https://github.com/nicollsf/UCT-Micromouse)  
+> Clone this repository recursively to establish your workspace, obtain updates, and access all templates and instructions.
+
 ---
 
 ## **1. Introduction & Primary Course Task**
