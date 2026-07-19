@@ -1,15 +1,1 @@
-{
-  "score": 95.0,
-  "max_score": 100.0,
-  "output": "=== Milestone 1 Evaluation Results ===\nStart position    : (0.5000, 0.5000)\nFinal position    : (0.4810, 0.5840)\nMax Displacement  : 1.5016 m\nFinal Return Error: 8.61 cm\nSimulation Time  : 27.95 s\nBase accuracy score: 94.59%\nGRADE: 95%\n\n--- Student Output (stdout) ---\n[PC Mock] Connected to Python Physics Simulator (Pre-running).\n--- Milestone 1: Run a Square ---\nDriving side 1...\nTurning corner 1...\nDriving side 2...\nTurning corner 2...\nDriving side 3...\nTurning corner 3...\nDriving side 4...\nTurning corner 4...\nMilestone 1 Completed!\n\n--- Simulator Logs ---\n[Simulator] Loaded configuration from: /Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/tools/simulation_config.json\n[Simulator] Video recording enabled. Saving to: /Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/run.mp4\n[Simulator] Server listening on localhost:8000\n[Simulator] Waiting for student script to connect...\n[Simulator] Student connected from 127.0.0.1:61461\n[Simulator] Cleaning up socket connection...\n[Simulator] Closing video writer...\n[Simulator] Simulation metrics logged to: /Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/trajectory.json\n[Simulator] Closed successfully.\n\n",
-  "visibility": "visible",
-  "tests": [
-    {
-      "name": "MILESTONE1_SQUARE Evaluation",
-      "score": 95.0,
-      "max_score": 100.0,
-      "output": "=== Milestone 1 Evaluation Results ===\nStart position    : (0.5000, 0.5000)\nFinal position    : (0.4810, 0.5840)\nMax Displacement  : 1.5016 m\nFinal Return Error: 8.61 cm\nSimulation Time  : 27.95 s\nBase accuracy score: 94.59%\nGRADE: 95%\n\n--- Student Output (stdout) ---\n[PC Mock] Connected to Python Physics Simulator (Pre-running).\n--- Milestone 1: Run a Square ---\nDriving side 1...\nTurning corner 1...\nDriving side 2...\nTurning corner 2...\nDriving side 3...\nTurning corner 3...\nDriving side 4...\nTurning corner 4...\nMilestone 1 Completed!\n\n--- Simulator Logs ---\n[Simulator] Loaded configuration from: /Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/tools/simulation_config.json\n[Simulator] Video recording enabled. Saving to: /Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/run.mp4\n[Simulator] Server listening on localhost:8000\n[Simulator] Waiting for student script to connect...\n[Simulator] Student connected from 127.0.0.1:61461\n[Simulator] Cleaning up socket connection...\n[Simulator] Closing video writer...\n[Simulator] Simulation metrics logged to: /Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/autograder/trajectory.json\n[Simulator] Closed successfully.\n\n",
-      "visibility": "visible"
-    }
-  ]
-}
+{}

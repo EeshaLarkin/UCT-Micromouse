@@ -75,7 +75,7 @@ To facilitate updates to the core repository without overwriting your progress, 
 
 To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you must complete **four primary submissions** in chronological order:
 
-### **Submission 1: Milestone 1 Code & Demo (20%)**
+### **Submission 1: Milestone 1 Code & Demo (25%)**
 *   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
 *   **Assessment & Grading Metric:** Graded proportionally based on the Euclidean error distance ($d_e$) from the starting point $(0,0)$ at the end of the run:
     *   **100%:** Excellent feedback control ($d_e \le 5\text{ cm}$).
@@ -83,7 +83,7 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
     *   **60%:** Baseline pass ($15\text{ cm} < d_e \le 30\text{ cm}$).
     *   *Note:* The autograder applies motor asymmetry ($\pm 10\%$) and wheel slip perturbations in co-simulation to verify active control.
 
-### **Submission 2: GA3 Design Report 1 (25%)**
+### **Submission 2: GA3 Design Report 1 (20%)**
 *   **Task:** Submit a formal engineering design report (in PDF format) documenting your closed-loop feedback controller, velocity synchronization, or heading alignment designs from Milestone 1.
 *   **Template:** Follow the formatting rules and character limits in [gareport_guidelines.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport_guidelines.md) and the template in [EEE3097_8_9S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport.docx).
 *   **Assessment & Passing Criteria:** Evaluated against the ECSA GA3 Design rubric. Must demonstrate a structured design brief (3.1), alternative evaluations (3.2), and first-principles modeling (3.3).

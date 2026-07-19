@@ -301,7 +301,8 @@ if __name__ == "__main__":
             try:
                 if not os.path.exists(symlink_path):
                     # Create symlink: boards/UCT_MICROMOUSE -> ../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE
-                    os.symlink("../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE", symlink_path)
+                    target_rel_path = os.path.join("..", "..", "..", "..", "..", "firmware", "src", "micropython", "boards", "UCT_MICROMOUSE")
+                    os.symlink(target_rel_path, symlink_path)
                     created_symlink = True
                 
                 subprocess.run(["make", "BOARD=UCT_MICROMOUSE"], cwd=mpy_ports_dir, check=True)

@@ -8,7 +8,7 @@ As part of the course assessment, you must submit two formal engineering design 
 
 The main purpose of these submissions is to demonstrate proficiency in the **ECSA Design Graduate Attribute (GA3)**, which is a mandatory requirement to pass the course.
 
-* **Design Report 1 (25%):** Submitted alongside the Milestone 1 assessment.
+* **Design Report 1 (20%):** Submitted alongside the Milestone 1 assessment.
 * **Design Report 2 (30%):** Submitted alongside the Milestone 2 assessment.
 
 ---
