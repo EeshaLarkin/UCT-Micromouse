@@ -7,7 +7,7 @@
 > **Primary Course GitHub Repository:** [https://github.com/nicollsf/UCT-Micromouse](https://github.com/nicollsf/UCT-Micromouse)  
 > Clone this repository recursively to establish your workspace, obtain updates, and access all templates and instructions.
 > 
-> *Note on Repository Updates:* Necessary updates and bug fixes will be pushed to the repository on the fly during the semester. It is your academic responsibility to configure **GitHub Notifications** (click the **"Watch"** button at the top-right of the repository page and select "All Activity") to automatically track changes. Check notifications and run `git pull` regularly.
+> *Note on Repository Updates:* Necessary updates and bug fixes will be pushed to the repository on the fly during the semester. It is your academic responsibility to configure **GitHub Notifications** (click the **"Watch"** button at the top-right of the repository page and select "All Activity") to automatically track changes. Check notifications and run `git pull --recurse-submodules` regularly to ensure all nested microcontroller submodules remain synchronized.
 
 ---
 
