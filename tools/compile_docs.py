@@ -10,10 +10,17 @@ def create_latex_preamble():
 \usepackage{geometry}
 \geometry{margin=0.8in}
 
-% Set Helvetica as the default sans-serif font and make it the main document font
-\usepackage[scaled]{helvet}
-\renewcommand\familydefault{\sfdefault}
-\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Set system Helvetica font using fontspec under XeLaTeX
+\usepackage{fontspec}
+\setmainfont{Helvetica}
+\setsansfont{Helvetica}
+\renewcommand{\familydefault}{\sfdefault}
+
+% Render math equations using the main text font (Helvetica) to prevent missing glyphs
+\usepackage[italic]{mathastext}
 
 \usepackage{xcolor}
 \definecolor{primary}{HTML}{1A365D}   % Dark Navy
