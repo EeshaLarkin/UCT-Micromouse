@@ -125,6 +125,7 @@ The system is strictly divided into three distinct layers to preserve the kernel
 * **Document Output Compilation Rule:** Do NOT automatically compile or generate PDF/HTML versions of planning, instructions, or course description Markdown documents in the workspace. Any document compilation must be left for the convenor to execute manually when required.
 * **Primary Student Document Policy:** The course handbook `docs/EEE3097_8_9S_M0_Handbook_2026.md` is the **single, master document** disseminated to students. All project tasks, educational objectives, track streams, submission guidelines, and detailed passing/grading criteria must be maintained directly within it.
 * **Markdown List Formatting Rule:** Always place a blank line (empty newline) immediately before initiating a bulleted (`*`, `-`) or numbered (`1.`) list in Markdown documents. Failing to do so causes Pandoc and other parsers to collapse the list items into inline text, rendering raw asterisks in the compiled output.
+* **LMS/D2L Deploy Sync Rule:** Assume that everything in the `workspace/deploy/` folder has been provided to students on D2L. If any changes are made to reference documents (under `docs/` or `docs/assignments/`), you must notify the convenor that they must rebuild and push the updated PDFs to D2L (Amathuba) to prevent synchronization drift.
 
 
 
