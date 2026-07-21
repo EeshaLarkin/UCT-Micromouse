@@ -58,6 +58,7 @@ When instructed to build, reference this exact configuration schema:
 2. **Phase 2 (Completed):** Build the Tier 2 Simulink/Python Abstraction Layer (`simulink_wrapper.c`). Ensure complete polymorphic execution: the exact same Simulink model must compile natively to the STM32 (`Cmd+B`) and run live over USB tether (`Run` button).
 3. **Phase 3 (Completed):** Verify Simulink/Python autograder TCP/IP loopback integration and evaluate Tier 3 userland maze-solving scripts (`milestone1_square.py`, `milestone2_maze.py`).
 4. **Phase 4 (Completed):** Implement and document hardware-level quadrature encoder interface hooks in the C-Kernel, and design delta encoding schema to close the physical control loop.
+5. **Flashing Rule:** Always execute firmware flashing operations (MicroPython, PikaScript, or Simulink) using the central Python deployment tool (`tools/deploy.py`). It manages required board-specific pre-compilation, directory symlinking, dynamic header embedding, CMake project configuration, and `st-flash` utility calls in a single interface.
 
 
 ---
@@ -118,6 +119,12 @@ The system is strictly divided into three distinct layers to preserve the kernel
   * LED0 is connected to `PC13`, LED1 is connected to `PC14`, and LED2 is connected to `PC15`.
   * **Critical Gating Pin:** All three LEDs are electrically controlled/gated by pin `PB3` (`CTRL_LEDS`). `PB3` must be written `HIGH` (`GPIO_PIN_SET`) during board initialization, otherwise all LEDs will remain physically turned off regardless of the PC13/PC14/PC15 pin states.
 * **External Flash Partitioning & FAT Filesystem Offset:** To avoid wearing out the internal microcontroller flash, the FAT filesystem (`UCT_MMOUSE` drive) is shifted to the last **128 KB** of the external SPI flash (logical blocks mapped with offset `0xE0000` to `0xFFFFF`).
+* **MicroPython USB Mounting Mode and Hard Reset Requirement:** By default, MicroPython initializes in VCP-only mode to prevent filesystem corruption. Setting `pyb.usb_mode('VCP+MSC')` in `boot.py` allows the USB drive to mount read-write, but this change **only takes effect on a physical cold/hard reboot** (power cycle or physical reset button). A soft-reboot (`Ctrl+D` over REPL) will not re-initialize the USB controller stack.
+* **ST-Link USB Programmer Endpoint Lockup:** During frequent flash/reset cycles, the ST-Link's onboard USB controller can hang. While macOS still lists the VCP serial port node (`/dev/cu.usbmodem11302`), raw USB commands via `st-flash` or `libusb` will fail with `Couldn't find any ST-Link devices`. This must be resolved by physically unplugging and replugging the ST-Link USB programmer cable.
+* **Backup Domain Reset for GPIO PC14/PC15 release:** Pins PC14 and PC15 (pins 8 and 9) are mapped to LEDs but also function as the Low Speed External (LSE) crystal oscillator. Because the Backup Domain clock settings are battery-backed, any previous firmware that enabled LSE will lock these pins out of GPIO mode. This persists even across flash-erasing the MCU. To release them for GPIO use in MicroPython, you must write to the Power Control and RCC Backup registers to trigger a Backup Domain Reset:
+  1. Set `DBP` bit in `PWR_CR1` (`0x40007000 |= 0x100`) to enable write access.
+  2. Toggle `BDRST` in `RCC_BDCR` (`0x40021090 |= 0x10000`, then clear it).
+  3. Clear `DBP` to restore backup protection.
 * **JSON Telemetry Logger & Sparse Compression:** The C-Kernel automatically logs runs at **25 Hz** in a sparse JSON text format. Logging triggers automatically on first motor actuation, overwrites the previous run (resets pointer to `0x00000`), and writes to the first **896 KB** partition.
 * **Unique UID & Code Verification Hashing (Anti-Cheat):** The first line of every log contains a `log_header` containing the microcontroller's unique 96-bit Device UID and a 32-bit FNV-1a checksum hash of the running Python bytecode / FAT filesystem state to verify student submission authenticity. UIDs are not registered in advance; instead, convenors check logs retrospectively for duplicate UIDs to detect shared code or drives.
 * **VCP Log Dumping protocol:** Exposes serial command `{"c":{"dump":1}}` (and Python helper `uct_mouse.dump_logs()`) which pauses interrupts and dumps log bytes of the last run to the console.
@@ -126,9 +133,7 @@ The system is strictly divided into three distinct layers to preserve the kernel
 * **Primary Student Document Policy:** The course handbook `docs/EEE3097_8_9S_M0_Handbook_2026.md` is the **single, master document** disseminated to students. All project tasks, educational objectives, track streams, submission guidelines, and detailed passing/grading criteria must be maintained directly within it.
 * **Markdown List Formatting Rule:** Always place a blank line (empty newline) immediately before initiating a bulleted (`*`, `-`) or numbered (`1.`) list in Markdown documents. Failing to do so causes Pandoc and other parsers to collapse the list items into inline text, rendering raw asterisks in the compiled output.
 * **LMS/D2L Deploy Sync Rule:** Assume that everything in the `workspace/deploy/` folder has been provided to students on D2L. If any changes are made to reference documents (under `docs/` or `docs/assignments/`), you must notify the convenor that they must rebuild and push the updated PDFs to D2L (Amathuba) to prevent synchronization drift.
-
-
-
+* **MicroPython Connection Strategy:** Students using the MicroPython engine must flash the base interpreter binary (`micropython.bin`) once via ST-Link. After that, they should interact with the mouse purely over the processor board's USB OTG port, which hosts the REPL interface and creates the USB Mass Storage device.
 
 
 ---

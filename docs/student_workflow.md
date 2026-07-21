@@ -68,8 +68,10 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 
 ### Physical Setup
 1. Turn on the mouse using the physical battery switch.
-2. Connect the mouse to your laptop via USB-C.
+2. Connect the mouse to your laptop via a single USB-C cable to the ST-Link debugger port. **WARNING: AVOID PLUGGING IN ANY MORE THAN ONE USB CABLE AT A TIME. DO NOT simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger, as this can damage your hardware or host device due to ground loops.**
 3. Ensure the serial COM port is recognized (e.g., `/dev/cu.usbmodem*` on Mac/Linux, `COM*` on Windows).
+4. **WARNING: DO NOT rotate the mouse wheels manually/externally.** Forcing the wheels to spin by hand back-drives the high-ratio gearbox, which is highly likely to strip the gears and permanently destroy the motor assembly.
+5. **WARNING: DO NOT plug the battery into the main power board while any USB cables are attached.** Connecting the battery under USB power can cause the onboard boost converter to fail catastrophically.
 
 ### Flashing Python Code
 1. We use a firmware base that hosts the Python engine. Ensure the correct binary (`firmware/binaries/pikascript.bin` or `firmware/binaries/micropython.bin`) is flashed onto your STM32 Nucleo board using STM32CubeProgrammer, USB Mass Storage drag-and-drop, or `st-flash`.
@@ -139,10 +141,11 @@ If you are using the **MicroPython** engine instead of PikaScript, you can debug
    ```bash
    python -m mpremote repl
    ```
-3. Once connected, press **Ctrl+D** to trigger a soft-reboot. 
-4. The terminal will display the full Python error traceback showing the exact file name and line number causing the crash.
+3. **Diagnosing Runtime Crashes:** Once connected, press **Ctrl+D** to trigger a soft-reboot. The terminal will display the full Python error traceback showing the exact file name and line number causing the crash.
+4. **Diagnosing Early Boot / Startup Issues:** If the board is crashing early in `boot.py`, frozen, or failing to start, connect to the serial console and press the **physical Reset button** on the processor board. This performs a hard reset, allowing you to observe the boot loader initialization and capture the absolute first error messages printed to stdout during boot.
 5. Press **Ctrl+]** (or **Ctrl+x**) to exit the REPL shell.
 * **Tip (Interactive Execution):** You can also use the REPL as an interactive shell. At the `>>>` prompt, you can type Python code directly (e.g., `import uct_mouse` followed by `uct_mouse.get_tof()` or `uct_mouse.set_motors(30, 30)`) to query sensors or actuate motors in real time.
+* **Tip (Untethered Crash Logging):** The default student template `main.py` is equipped with a global exception handler. If the mouse crashes or raises a Python exception while running **untethered** in the maze, it will automatically write the complete traceback to a file named `error_log.txt` on the USB drive. After a crash, simply plug the mouse into your computer, mount the USB drive, and open `error_log.txt` to find the exact line number and cause of the crash.
 
 - **USB Drive Filesystem Corruption & The Hybrid Bootloader (MicroPython):**
   - **Symptom:** When the mouse suffers a power glitch (e.g. from a gentle bump) while connected to the PC as a USB Mass Storage device, the FAT filesystem can easily get corrupted. When this happens, the MicroPython kernel crashes during boot, and the USB OTG port (`VID:PID=F055:9800`) will fail to enumerate entirely.
@@ -162,7 +165,7 @@ If you are using the **MicroPython** engine instead of PikaScript, you can debug
 
 ### Telemetry Log Extraction (Anti-Cheat & Offline Tuning)
 The microcontroller automatically logs run telemetry (motor PWM inputs, sensor distance values, encoder counts, and gyroscope angles) at 25 Hz to its external SPI flash.
-* **Uniform Connection:** This tool works **identically across all three firmware targets** (MicroPython, PikaScript, and Simulink). Keep your mouse connected via the single **ST-Link debugger USB port**.
+* **Uniform Connection & Safety:** This tool works **identically across all three firmware targets** (MicroPython, PikaScript, and Simulink). Keep your mouse connected via the single **ST-Link debugger USB port**. **WARNING: NEVER plug in more than one USB cable at a time (e.g. power board, processor board, and ST-Link simultaneously) to protect your hardware and host devices from damage.**
 * **Prerequisites:** The extraction tool requires the `pyserial` Python module. Install it via:
   ```bash
   pip install pyserial

@@ -8,6 +8,12 @@
 > Clone this repository recursively to establish your workspace, obtain updates, and access all templates and instructions.
 > 
 > *Note on Repository Updates:* Necessary updates and bug fixes will be pushed to the repository on the fly during the semester. It is your academic responsibility to configure **GitHub Notifications** (click the **"Watch"** button at the top-right of the repository page and select "All Activity") to automatically track changes. Check notifications and run `git pull --recurse-submodules` regularly to ensure all nested microcontroller submodules remain synchronized.
+> 
+> [!WARNING]
+> **CRITICAL HARDWARE SAFETY WARNING:** 
+> 1. **AVOID PLUGGING IN ANY MORE THAN ONE USB CABLE AT A TIME:** To protect your hardware (microcontroller, power board, and laptop/charger) from ground loop damage, do not simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger.
+> 2. **DO NOT ROTATE THE MOUSE WHEELS EXTERNALLY/MANUALLY:** The wheels are connected to a high-ratio gearbox that is not back-drivable. Forcing the wheels to rotate by hand is highly likely to strip the gears and permanently destroy the motor assembly.
+> 3. **DO NOT PLUG IN THE BATTERY WHILE USB IS ATTACHED:** Never plug the battery into the main power board while any USB cables are connected to the mouse. Doing so can cause catastrophic failure of the board's boost converter.
 
 ---
 
@@ -119,7 +125,7 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 
 Your grades are verified through physical run telemetry logs and video evidence:
 
-* **Single-Cable Connection:** Connect the USB cable to the **ST-Link debugger USB port** (the same port used for flashing code). You do not need to swap cables or connect to the processor OTG port.
+* **Single-Cable Connection & Safety:** Connect the USB cable ONLY to the **ST-Link debugger USB port** (the same port used for flashing code). You do not need to swap cables or connect to the processor OTG port. **WARNING: AVOID PLUGGING IN ANY MORE THAN ONE USB CABLE AT A TIME (e.g. power board, processor board, and ST-Link simultaneously) to protect your hardware from damage.**
 * **Log Extraction:** Extract the log from your physical mouse by running:
   ```bash
   python tools/dump_logs.py

@@ -14,6 +14,7 @@
 #endif
 #include "IMU.h"
 
+#include "Buttons.h"
 #include "VL53L0X.h"
 
 #include "INA219.h"
@@ -205,8 +206,8 @@ void kernel_snapshot_state(void) {
     current_state.renc = rightEncoderCount;
     current_state.gyro   = IMU_Gyro[2];          // Assuming Z is the yaw axis
     current_state.v_batt = (float)Vbattery / 1000.0f; 
-    current_state.btn1 = 0;  // TODO: Connect to board tactile button 1
-    current_state.btn2 = 0;  // TODO: Connect to board tactile button 2
+    current_state.btn1 = SW1.state;
+    current_state.btn2 = SW2.state;
 }
 
 int kernel_generate_uplink(char* tx_buffer, int max_len) {

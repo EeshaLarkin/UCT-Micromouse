@@ -68,7 +68,7 @@ def main(stdscr, method='tcp'):
             mouse.configure(data='d', sync=1)
         else:
             # MicroPython REPL mode
-            port = Micromouse().find_serial_port()
+            port = args.port if args.port else Micromouse().find_serial_port()
             if not port:
                 raise ConnectionError("No MicroPython serial port found! Is the board plugged in?")
             
@@ -139,7 +139,7 @@ def main(stdscr, method='tcp'):
                             v_batt = float(parts[1].strip())
                             tof_part = parts[0].split("T:")[1].strip()
                             tof_vals = eval(tof_part)
-                            s["tof_l"], s["tof_c"], s["tof_r"] = tof_vals
+                            s["tof_l"], s["tof_c"], s["tof_r"] = tof_vals[0], tof_vals[2], tof_vals[4]
                             s["v_batt"] = v_batt
                         except Exception:
                             pass
@@ -217,6 +217,11 @@ if __name__ == "__main__":
         choices=["tcp", "serial", "repl"],
         default="tcp",
         help="Connection method: 'tcp' for Simulink simulation, 'serial' for PikaScript/Simulink hardware tether, 'repl' for MicroPython hardware REPL (default: tcp)"
+    )
+    parser.add_argument(
+        "--port", "-p",
+        default=None,
+        help="Manually specify serial VCP port (e.g. /dev/cu.usbmodem3054337831352)"
     )
     args = parser.parse_args()
     curses.wrapper(lambda stdscr: main(stdscr, args.method))

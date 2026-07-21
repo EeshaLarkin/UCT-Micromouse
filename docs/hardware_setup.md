@@ -2,6 +2,12 @@
 
 This guide details the physical hardware configuration, known hardware issues (such as the silicon speed lottery), and calibration procedures for the UCT Micromouse.
 
+> [!WARNING]
+> **CRITICAL HARDWARE SAFETY WARNINGS:**
+> *   **AVOID MULTIPLE USB CONNECTIONS:** To protect your hardware (microcontroller, power board, and laptop/charger) from damage due to ground loops or power contention, **NEVER PLUG IN MORE THAN ONE USB CABLE AT A TIME.** Do not simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger. Always use a single cable connected to the ST-Link debugger port.
+> *   **DO NOT TURN WHEELS MANUALLY:** The wheels are connected to a high-ratio gearbox. Rotating the wheels externally by hand is highly likely to strip the gears and permanently destroy the motor assembly.
+> *   **DO NOT CONNECT BATTERY WHILE USB IS ATTACHED:** Never plug the battery into the main power board while any USB cables are connected to the mouse. Doing so can cause catastrophic failure of the onboard boost converter.
+
 ---
 
 ## 1. Electrical & Peripheral Configuration
@@ -11,9 +17,10 @@ The Micromouse is built around an STM32 micro-controller board routing sensor ar
 *   **Motors:** Brushed DC motors driven via H-bridge controllers. Handled via standard PWM timers.
 *   **Time-of-Flight (ToF):** 3x VL53L0X I2C distance sensors (Left, Center, Right).
 *   **Encoders:** Quadrature wheel encoders reporting pulse counts to the timer counter register to track mouse telemetry.
-*   **Battery Monitoring:** INA219 current/power monitor or ADC configuration providing real-time voltage tracking to prevent cell brownout or damage.
+*   **Battery Monitoring & Current Sensing:** INA219 current/power monitor or ADC configuration providing real-time bidirectional current and voltage tracking. Negative current values are fully supported and represent reverse current flow.
 *   **IMU Gyroscope:** Integrated I2C IMU to monitor yaw angular velocity.
 *   **Display:** SSD1306 I2C OLED display indicating system state, battery levels, sensor distances, and error states.
+*   **Onboard LEDs:** Three hardware-identical LEDs (LED0 on `PC13`, LED1 on `PC14`, LED2 on `PC15`) electrically gated by pin `PB3` (`CTRL_LEDS`). Pin `PB3` must be written `HIGH` to enable any of the LEDs.
 
 ---
 
