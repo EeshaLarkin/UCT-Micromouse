@@ -95,9 +95,14 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
    * **Auto-package Libraries & Folders:** Scan the same directory and copy *all* other `.py` files and subdirectories (like `maze_libs/`) recursively onto the mouse, preserving your package directory structure so nested imports work natively on the silicon.
    
    To deploy for **MicroPython**:
-   ```bash
-   python tools/deploy.py --engine micropython --script workspace/task1_square/run_square.py
-   ```
+   * **Deploy a Single Script (and its dependencies):**
+     ```bash
+     python tools/deploy.py --engine micropython --script workspace/task1_square/run_square.py
+     ```
+   * **Mirror a Full Task Directory (mounts folder contents as root):**
+     ```bash
+     python tools/deploy.py --engine micropython --src-dir workspace/task1_square
+     ```
    
    To deploy for **PikaScript**:
    ```bash
