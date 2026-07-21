@@ -132,8 +132,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--src-dir", "-d",
-        default="python/src",
-        help="Path to the dedicated python development folder to mirror to the mouse (default: python/src)"
+        default="workspace",
+        help="Path to the dedicated python development folder to mirror to the mouse (default: workspace)"
     )
     args = parser.parse_args()
 
@@ -265,18 +265,34 @@ if __name__ == "__main__":
             print("    -> Building Simulink firmware target...")
             subprocess.run(["cmake", "--build", "firmware/build", "--target", "simulink_firmware"], cwd=repo_root, check=True)
         except subprocess.CalledProcessError:
-            print("Build failed! Check your Simulink autocoded source files.")
-            sys.exit(1)
-            
-        # Copy to central firmware/ directory
-        bin_path = os.path.join(repo_root, "firmware", "build", "simulink_firmware.bin")
+        # Re-route model build outputs to central build/ directory to keep repo clean
+        simulink_build_dir = os.path.join(repo_root, "build", "UCT_KDeploy_ert_rtw")
         central_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
-        if not os.path.exists(bin_path):
-            print(f"Error: Compiled firmware not found at {bin_path}")
-            sys.exit(1)
-        shutil.copy(bin_path, central_bin_path)
-        print(f"    -> Copied compiled firmware to {central_bin_path}")
         
+        # Compile if not present or requested
+        print("[1/2] Preparing Simulink firmware binary...")
+        if not os.path.exists(simulink_build_dir) or args.flash:
+            # We compile by invoking the Simulink build helper script
+            print("    -> Compiling Simulink model code...")
+            compile_script = os.path.join(repo_root, "tools", "compile_simulink_pc.py")
+            if os.path.exists(compile_script):
+                subprocess.run([sys.executable, compile_script], check=True)
+            else:
+                print("Error: Simulink compiler script not found!")
+                sys.exit(1)
+
+        sim_bin = os.path.join(simulink_build_dir, "UCT_KDeploy.bin")
+        if not os.path.exists(sim_bin):
+            # Fall back to checking standard directories
+            sim_bin = os.path.join(repo_root, "UCT_KDeploy_ert_rtw", "UCT_KDeploy.bin")
+            
+        if not os.path.exists(sim_bin):
+            print(f"Error: Compiled Simulink binary not found. Please build model first.")
+            sys.exit(1)
+
+        shutil.copy(sim_bin, central_bin_path)
+        print(f"    -> Copied compiled binary to {central_bin_path}")
+
         # Flash the compiled firmware onto the board
         print(f"[2/2] Flashing Simulink firmware...")
         flash_firmware(central_bin_path)
@@ -389,7 +405,11 @@ if __name__ == "__main__":
                 def upload_dir_recursive(local_dir, remote_prefix=""):
                     for item in os.listdir(local_dir):
                         local_path = os.path.join(local_dir, item)
-                        if item in ["uct_mouse.py", "micromouse.py", "boot.py", ".git", "__pycache__"]:
+                        name_lower = item.lower()
+                        if name_lower in ignore_names or name_lower in {"uct_mouse.py", "micromouse.py", "boot.py"}:
+                            continue
+                        _, ext = os.path.splitext(name_lower)
+                        if ext in ignore_exts:
                             continue
                         if item == os.path.basename(target_script) and remote_prefix == "":
                             continue
@@ -399,7 +419,7 @@ if __name__ == "__main__":
                             # Create remote folder
                             subprocess.run(mpremote_cmd + ["fs", "mkdir", f":{remote_path}"], capture_output=True)
                             upload_dir_recursive(local_path, f"{remote_path}/")
-                        elif item.endswith(".py"):
+                        else:
                             print(f"    -> Pushing helper {remote_path}...")
                             subprocess.run(mpremote_cmd + ["fs", "cp", local_path, f":{remote_path}"], check=True)
 
@@ -420,11 +440,18 @@ if __name__ == "__main__":
                     # Skip hidden files
                     if item.startswith('.'):
                         continue
+                    name_lower = item.lower()
+                    if name_lower in ignore_names:
+                        continue
+                    _, ext = os.path.splitext(name_lower)
+                    if ext in ignore_exts:
+                        continue
+                        
                     print(f"    -> Pushing {item}...")
                     subprocess.run(mpremote_cmd + ["fs", "cp", "-r", item_path, f":{item}"], check=True)
                 deployed_count = "all"
                 
-            print(f"Success! {deployed_count} python scripts copied via serial to internal flash.")
+            print(f"Successfully deployed {deployed_count} files to the Micromouse.")
             print("Soft-rebooting the board...")
             subprocess.run(mpremote_cmd + ["soft-reset"], check=False)
             print("Done! The mouse is now running your code.")
