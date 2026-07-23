@@ -78,8 +78,16 @@ def main(stdscr, method='tcp'):
             
             # Exit Raw REPL first (in case we were stuck in it), then interrupt any running script
             ser.write(b"\x02\r\n\x03\x03\r\n")
-            time.sleep(1.0)
-            ser.read(ser.in_waiting) # clear buffer (tracebacks from interrupted script)
+            
+            # Wait for standard REPL prompt '>>> ' to ensure script has fully stopped and traceback printed
+            data = b""
+            start_time = time.time()
+            while time.time() - start_time < 3.0:
+                if ser.in_waiting > 0:
+                    data += ser.read(ser.in_waiting)
+                    if data.endswith(b'>>> '):
+                        break
+                time.sleep(0.01)
             
             # Enter Raw REPL mode
             ser.write(b"\x01")
