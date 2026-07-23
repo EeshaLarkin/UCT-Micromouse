@@ -59,11 +59,13 @@
 void board_startup(void);
 void board_early_init(void);
 void kernel_background_tick(void);
+void board_start_soft_reset(void);
 
 #define MICROPY_BOARD_STARTUP       board_startup
 #define MICROPY_BOARD_EARLY_INIT    board_early_init
 #define MICROPY_VM_HOOK_LOOP        kernel_background_tick();
 #define MICROPY_INTERNAL_EVENT_HOOK kernel_background_tick();
+#define MICROPY_BOARD_START_SOFT_RESET(state) board_start_soft_reset()
 
 // Expose the custom uct_mouse module as a built-in module
 extern const struct _mp_obj_module_t uct_mouse_module;

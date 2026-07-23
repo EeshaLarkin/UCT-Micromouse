@@ -42,7 +42,26 @@ When deploying to a physical differential-drive mouse:
 ## 📚 Documentation Index
 
 Detailed guides and specifications are available in the [docs/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/) directory:
+*   [Primary Student Handbook](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_M0_Handbook_2026.md) ([PDF version](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_M0_Handbook_2026.pdf)): The master guidelines, project tasks, and grading/compliance criteria.
+*   [Course Plan](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/course_plan_2026.md): Academic year schedule and milestones timeline.
 *   [Project Workflow & Setup](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md): Step-by-step instructions on setting up your workspace, running the simulator, and deploying code.
 *   [Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md): C-Caller blocks mapping, PC build compilation, and desktop co-simulation loopbacks.
 *   [Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md): C-Kernel architecture overview, telemetry design, and the high-level Python API.
 *   [Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md): Pin configurations, motor polarity calibration, and baud-rate clock diagnostics.
+*   [Assembly Guides & Schematics](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assembly/): Detailed hardware assembly instructions, videos, and PCB schematics.
+*   [Milestone & Assignment Specs](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/): Complete instructions and guidelines for milestones, reports, and final demonstrations.
+
+---
+
+## ⚠️ Critical Hardware Safety Warnings (Prevent Damage to Your Mouse)
+
+To prevent permanent damage, component failure, or destroying your Micromouse hardware, you must strictly follow these three safety rules:
+
+*   **Avoid Multiple USB Connections (Ground Loop Prevention)**: 
+    To protect your hardware (microcontroller, power board, and laptop/charger) from ground loop damage, **never plug in more than one USB cable at a time.** Do not simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger. Always use a single cable connected exclusively to the ST-Link debugger port.
+*   **Do Not Connect Battery While USB is Attached**: 
+    Never plug the battery into the main power board while any USB cables are connected to the mouse. Doing so can cause power contention and catastrophic failure (e.g. burn out) of the onboard boost converter.
+*   **Do Not Rotate Wheels Manually/Externally**: 
+    The wheels are connected to a high-ratio gearbox that is not back-drivable. Forcing the wheels to spin by hand back-drives the gearbox, which is highly likely to strip the gears and permanently destroy the motor assembly.
+
+

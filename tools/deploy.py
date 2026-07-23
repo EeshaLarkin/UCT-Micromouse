@@ -144,6 +144,10 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.abspath(os.path.join(script_dir, ".."))
 
+    # Define files/folders to ignore during deployment
+    ignore_names = {"deploy", "ekf_research", "attic", "build", "matlab", "external", "tools", ".git", "__pycache__"}
+    ignore_exts = {".pdf", ".zip", ".docx", ".md", ".slx", ".slxc", ".bin", ".elf", ".map", ".mp4"}
+
     # Resolve target paths
     target_script = None
     target_dir = None
@@ -251,20 +255,6 @@ if __name__ == "__main__":
 
     elif args.engine == "simulink":
         # === SIMULINK ENGINE FLOW ===
-        print("[1/2] Compiling Simulink firmware...")
-        
-        # Check if code generation outputs are present
-        simulink_dir = os.path.join(repo_root, "firmware", "build", "UCT_KDeploy_ert_rtw")
-        if not os.path.exists(simulink_dir):
-            print(f"Warning: Simulink code-gen directory not found at {simulink_dir}.")
-            print("Please run Code Generation (Ctrl+B) in your Simulink model before compiling!")
-            
-        try:
-            print("    -> Configuring CMake...")
-            subprocess.run(["cmake", "-S", "firmware", "-B", "firmware/build"], cwd=repo_root, check=True)
-            print("    -> Building Simulink firmware target...")
-            subprocess.run(["cmake", "--build", "firmware/build", "--target", "simulink_firmware"], cwd=repo_root, check=True)
-        except subprocess.CalledProcessError:
         # Re-route model build outputs to central build/ directory to keep repo clean
         simulink_build_dir = os.path.join(repo_root, "build", "UCT_KDeploy_ert_rtw")
         central_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
@@ -355,12 +345,13 @@ if __name__ == "__main__":
             try:
                 import serial.tools.list_ports
                 for p in serial.tools.list_ports.comports():
-                    if p.vid == 0xf055 and p.pid == 0x9800:
+                    if p.vid == 0xf055 and p.pid in (0x9800, 0x9801, 0x9802):
                         mpy_port = p.device
                         break
                 if not mpy_port:
                     for p in serial.tools.list_ports.comports():
-                        if "ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid == 0x374b) or "usbmodem" in p.device:
+                        # Exclude 0xf055 from fallback to ensure we only pick the real ST-Link VCP
+                        if p.vid != 0xf055 and ("ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid == 0x374b) or "usbmodem" in p.device):
                             mpy_port = p.device
                             break
             except Exception:

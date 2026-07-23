@@ -6,45 +6,65 @@ extern volatile bool mouse_initialized;
 extern void initMicroMouse(void);
 
 static mp_obj_t mpy_uct_mouse_init(void) {
-    if (!mouse_initialized) {
-        // Re-initialize I2C1 and I2C2 to ensure GPIO alternate functions are correct
-        // after MicroPython boot pin configurations have finished.
-        extern I2C_HandleTypeDef hi2c1;
-        extern I2C_HandleTypeDef hi2c2;
-        HAL_I2C_DeInit(&hi2c1);
-        HAL_I2C_DeInit(&hi2c2);
-        
-        extern void MX_I2C1_Init(void);
-        extern void MX_I2C2_Init(void);
-        MX_I2C1_Init();
-        MX_I2C2_Init();
+    // 1. Force disable all DMA channels to prevent background memory corruption
+    DMA1_Channel1->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel2->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel3->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel4->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel5->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel6->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel7->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel1->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel2->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel3->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel4->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel5->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel6->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel7->CCR &= ~DMA_CCR_EN;
 
-        // Re-initialize TIM3 (Motor PWM) and TIM4 (Encoders) alternate functions
-        extern TIM_HandleTypeDef htim3;
-        extern TIM_HandleTypeDef htim4;
-        HAL_TIM_PWM_DeInit(&htim3);
-        HAL_TIM_IC_DeInit(&htim4);
-        
-        extern void MX_TIM3_Init(void);
-        extern void MX_TIM4_Init(void);
-        MX_TIM3_Init();
-        MX_TIM4_Init();
+    // Force de-initialization state first to pause background tick I2C reads
+    mouse_initialized = false;
 
-        // Enable GPIOD and GPIOC clocks to ensure motor enable and PWM control are active
-        __HAL_RCC_GPIOD_CLK_ENABLE();
-        __HAL_RCC_GPIOC_CLK_ENABLE();
+    // Re-initialize I2C1 and I2C2 to ensure GPIO alternate functions are correct
+    // after MicroPython boot pin configurations have finished.
+    extern I2C_HandleTypeDef hi2c1;
+    extern I2C_HandleTypeDef hi2c2;
+    hi2c1.State = HAL_I2C_STATE_RESET;
+    hi2c2.State = HAL_I2C_STATE_RESET;
+    HAL_I2C_DeInit(&hi2c1);
+    HAL_I2C_DeInit(&hi2c2);
+    
+    extern void MX_I2C1_Init(void);
+    extern void MX_I2C2_Init(void);
+    MX_I2C1_Init();
+    MX_I2C2_Init();
 
-        // Explicitly re-initialize PD7 (MOTOR_EN) as a Push-Pull output
-        GPIO_InitTypeDef GPIO_InitStruct = {0};
-        GPIO_InitStruct.Pin = GPIO_PIN_7;
-        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-        
-        initMicroMouse();
-        mouse_initialized = true;
-    }
+    // Re-initialize TIM3 (Motor PWM) and TIM4 (Encoders) alternate functions
+    extern TIM_HandleTypeDef htim3;
+    extern TIM_HandleTypeDef htim4;
+    HAL_TIM_PWM_DeInit(&htim3);
+    HAL_TIM_IC_DeInit(&htim4);
+    
+    extern void MX_TIM3_Init(void);
+    extern void MX_TIM4_Init(void);
+    MX_TIM3_Init();
+    MX_TIM4_Init();
+
+    // Enable GPIOD and GPIOC clocks to ensure motor enable and PWM control are active
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+
+    // Explicitly re-initialize PD7 (MOTOR_EN) as a Push-Pull output
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+    
+    initMicroMouse();
+    mouse_initialized = true;
+
     return mp_obj_new_int(1);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_init_obj, mpy_uct_mouse_init);

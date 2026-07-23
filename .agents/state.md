@@ -9,6 +9,11 @@
 
 ### Peripheral & Display Features
 * **OLED Blank Screen:** Added explicit re-initialization calls (`MX_I2C1_Init`, `MX_I2C2_Init`) inside `initMicroMouse()` to restore I2C clocks after the MicroPython VM boot sequence.
+* **OLED Blanking on USB Connect (Fixed):** Removed the code in `bdev.c` (`BDEV_IOCTL_INIT`) that set `mouse_initialized = false` when mounting the USB FAT filesystem, resolving the issue where display updates and live telemetry would halt upon plugging in the USB-C OTG cable.
+* **SPI2 De-Initialization on Soft Reset (Fixed):** Added `HAL_SPI_DeInit(&hspi2)` inside `ext_flash_init()` in `bdev.c` to reset the `hspi2` handle state to `RESET`. This forces `HAL_SPI_Init` to execute `HAL_SPI_MspInit` and re-assert the GPIO alternate function configurations on PB13/PB14/PB15, preventing the SPI pins from remaining floating after a MicroPython soft reset.
+* **I2C Bus Lockup from USB Preemption (Fixed):**
+  * Gated all sensor reads and display updates inside `kernel_background_tick()` in `board_init.c` by disabling the USB interrupt (`OTG_FS_IRQn`) using `HAL_NVIC_DisableIRQ()` and `HAL_NVIC_EnableIRQ()`. This prevents high-priority USB mass storage block reads from preempting I2C transfers mid-byte and causing permanent physical bus lockups.
+  * Rate-limited the OLED `kernel_update_display()` updates to 10 Hz (every 100ms) to reduce CPU/I2C contention and minimize USB interrupt latency.
 * **OLED TOF Dynamic Layout & Alignment:** 
   * Reformatted TOF readings to a fixed-width `%4u` representation to prevent horizontal layout shifting on digits changes.
   * Implemented dynamic layout configuration: if only (N, NW, NE) is connected, shows `NW / N / NE`; if (N, W, E) or all 5 are connected, shows `W / N / E`.

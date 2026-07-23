@@ -2,6 +2,7 @@
 #include "storage.h"
 #include "ZD25WQ80C.h"
 #include <string.h>
+#include "main.h"
 
 #define PARTITION_START_ADDR  0xE0000 // Last 128KB of 1MB chip
 #define NUM_BLOCKS            256     // 128KB / 512 bytes = 256 logical blocks
@@ -16,9 +17,26 @@ static uint8_t sector_cache[SEC_SIZE];
 static uint32_t cached_sector_addr = 0xFFFFFFFFU;
 static bool cache_dirty = false;
 
-// Initialize flash if not done yet
 static int ext_flash_init(void) {
     if (!flash.initialized) {
+        // De-initialize first to reset hspi2 state and force MspInit to re-configure GPIO alternate functions
+        extern SPI_HandleTypeDef hspi2;
+        HAL_SPI_DeInit(&hspi2);
+
+        // Initialize SPI2 peripheral
+        extern void MX_SPI2_Init(void);
+        MX_SPI2_Init();
+        
+        // Re-initialize FLASH_CS GPIO Pin (PB12) as output and de-assert it (HIGH)
+        __HAL_RCC_GPIOB_CLK_ENABLE();
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        GPIO_InitStruct.Pin = FLASH_CS_Pin;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+        HAL_GPIO_Init(FLASH_CS_GPIO_Port, &GPIO_InitStruct);
+        HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
+        
         if (!initZD25WQ80C()) {
             return -1;
         }
@@ -44,9 +62,16 @@ static int ext_flash_flush(void) {
     return 0;
 }
 
+volatile bool ext_flash_busy = false;
+
 // Read blocks
 int uct_bdev_readblocks(uint8_t *dest, uint32_t block_num, uint32_t num_blocks) {
-    if (ext_flash_init() < 0) return -1;
+    ext_flash_busy = true;
+    int ret = 0;
+    if (ext_flash_init() < 0) {
+        ext_flash_busy = false;
+        return -1;
+    }
 
     for (uint32_t i = 0; i < num_blocks; i++) {
         uint32_t logical_block = block_num + i;
@@ -60,16 +85,23 @@ int uct_bdev_readblocks(uint8_t *dest, uint32_t block_num, uint32_t num_blocks) 
         } else {
             // If the sector is not cached, read directly from flash
             if (ZD25WQ80C_Read(byte_addr, dest + i * BLOCK_SIZE, BLOCK_SIZE) != HAL_OK) {
-                return -1;
+                ret = -1;
+                break;
             }
         }
     }
-    return 0;
+    ext_flash_busy = false;
+    return ret;
 }
 
 // Write blocks
 int uct_bdev_writeblocks(const uint8_t *src, uint32_t block_num, uint32_t num_blocks) {
-    if (ext_flash_init() < 0) return -1;
+    ext_flash_busy = true;
+    int ret = 0;
+    if (ext_flash_init() < 0) {
+        ext_flash_busy = false;
+        return -1;
+    }
 
     for (uint32_t i = 0; i < num_blocks; i++) {
         uint32_t logical_block = block_num + i;
@@ -79,11 +111,15 @@ int uct_bdev_writeblocks(const uint8_t *src, uint32_t block_num, uint32_t num_bl
 
         if (sector_addr != cached_sector_addr) {
             // Flush old cache if dirty
-            if (ext_flash_flush() < 0) return -1;
+            if (ext_flash_flush() < 0) {
+                ret = -1;
+                break;
+            }
 
             // Load new sector into cache
             if (ZD25WQ80C_Read(sector_addr, sector_cache, SEC_SIZE) != HAL_OK) {
-                return -1;
+                ret = -1;
+                break;
             }
             cached_sector_addr = sector_addr;
         }
@@ -92,20 +128,93 @@ int uct_bdev_writeblocks(const uint8_t *src, uint32_t block_num, uint32_t num_bl
         memcpy(sector_cache + sector_offset, src + i * BLOCK_SIZE, BLOCK_SIZE);
         cache_dirty = true;
     }
-    return 0;
+    ext_flash_busy = false;
+    return ret;
 }
 
 // IOCTL handler
 int uct_bdev_ioctl(uint32_t op, uint32_t arg) {
+    ext_flash_busy = true;
+    int ret = -1;
     switch (op) {
         case BDEV_IOCTL_INIT:
-            return ext_flash_init();
+            {
+                // Force SPI flash re-initialization to restore GPIO alternate functions after MicroPython pin resets
+                extern ZD25WQ80C_t flash;
+                flash.initialized = false;
+            }
+            ret = ext_flash_init();
+            break;
         case BDEV_IOCTL_SYNC:
-            return ext_flash_flush();
+            ret = ext_flash_flush();
+            break;
         case BDEV_IOCTL_NUM_BLOCKS:
-            return NUM_BLOCKS;
+            ret = NUM_BLOCKS;
+            break;
         case BDEV_IOCTL_IRQ_HANDLER:
-            return 0;
+            ret = 0;
+            break;
     }
-    return -1;
+    ext_flash_busy = false;
+    return ret;
+}
+
+// Systematically de-initialize custom peripherals and clear/disable NVIC interrupts before soft-reboot
+void board_start_soft_reset(void) {
+    extern volatile bool mouse_initialized;
+    mouse_initialized = false;
+    
+    // Enable DMA clocks to safely access CCR registers without HardFault
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
+    
+    // Stop all motor PWM actuation immediately if initialized
+    if (mouse_initialized) {
+        TIM3->CCR3 = 0;
+        TIM3->CCR4 = 0;
+    }
+    
+    // Force disable all DMA channels to prevent background transfers during reboot transition
+    DMA1_Channel1->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel2->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel3->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel4->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel5->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel6->CCR &= ~DMA_CCR_EN;
+    DMA1_Channel7->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel1->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel2->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel3->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel4->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel5->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel6->CCR &= ~DMA_CCR_EN;
+    DMA2_Channel7->CCR &= ~DMA_CCR_EN;
+    
+    // Disable NVIC interrupts for custom peripherals (keep VCP/USB interrupts active)
+    NVIC_DisableIRQ(TIM1_UP_TIM16_IRQn);
+    NVIC_DisableIRQ(TIM1_CC_IRQn);
+    NVIC_DisableIRQ(TIM3_IRQn);
+    NVIC_DisableIRQ(TIM4_IRQn);
+    NVIC_DisableIRQ(TIM5_IRQn);
+    NVIC_DisableIRQ(TIM6_DAC_IRQn);
+    NVIC_DisableIRQ(TIM7_IRQn);
+    NVIC_DisableIRQ(ADC1_2_IRQn);
+    NVIC_DisableIRQ(DMA1_Channel1_IRQn);
+    NVIC_DisableIRQ(DMA2_Channel3_IRQn);
+    NVIC_DisableIRQ(DMA2_Channel6_IRQn);
+    NVIC_DisableIRQ(DMA2_Channel7_IRQn);
+    
+    // Clear any pending interrupts to prevent immediately jumping into unmapped handlers in new vector table
+    NVIC_ClearPendingIRQ(TIM1_UP_TIM16_IRQn);
+    NVIC_ClearPendingIRQ(TIM1_CC_IRQn);
+    NVIC_ClearPendingIRQ(TIM3_IRQn);
+    NVIC_ClearPendingIRQ(TIM4_IRQn);
+    NVIC_ClearPendingIRQ(TIM5_IRQn);
+    NVIC_ClearPendingIRQ(TIM6_DAC_IRQn);
+    NVIC_ClearPendingIRQ(TIM7_IRQn);
+    NVIC_ClearPendingIRQ(ADC1_2_IRQn);
+    NVIC_ClearPendingIRQ(DMA1_Channel1_IRQn);
+    NVIC_ClearPendingIRQ(DMA2_Channel3_IRQn);
+    NVIC_ClearPendingIRQ(DMA2_Channel6_IRQn);
+    NVIC_ClearPendingIRQ(DMA2_Channel7_IRQn);
 }

@@ -386,7 +386,15 @@ void kernel_update_display(void) {
     
     // Auto-recover I2C2 bus if it gets stuck in BUSY or ERROR state (due to motor noise)
     extern I2C_HandleTypeDef hi2c2;
-    if (hi2c2.State == HAL_I2C_STATE_BUSY || hi2c2.ErrorCode != HAL_I2C_ERROR_NONE) {
+    static uint32_t i2c2_busy_ticks = 0;
+    if (hi2c2.State == HAL_I2C_STATE_BUSY) {
+        i2c2_busy_ticks++;
+    } else {
+        i2c2_busy_ticks = 0;
+    }
+
+    if (hi2c2.ErrorCode != HAL_I2C_ERROR_NONE || i2c2_busy_ticks > 20) {
+        i2c2_busy_ticks = 0;
         extern void restartI2C(I2C_HandleTypeDef *hi2c);
         restartI2C(&hi2c2);
         

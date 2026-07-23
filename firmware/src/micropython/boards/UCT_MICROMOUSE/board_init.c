@@ -8,6 +8,7 @@
 #include "serial_interface.h"
 #include "dma.h"
 #include "micromouse_kernel.h"
+#include "SSD1306.h"
 
 #if MICROPY_HW_TINYUSB_STACK
 #include "shared/tinyusb/mp_usbd_cdc.h"
@@ -216,6 +217,13 @@ void board_early_init(void) {
 
 // Background tick function hook called inside MicroPython VM execution and delay loops
 void kernel_background_tick(void) {
+    extern volatile bool ext_flash_busy;
+    if (ext_flash_busy) {
+        return;
+    }
+    
+
+
     static bool in_tick = false;
     if (in_tick) {
         return;
@@ -230,6 +238,9 @@ void kernel_background_tick(void) {
         last_tick = now;
         
         if (mouse_initialized) {
+            // Disable USB interrupt during I2C sensor reads to prevent preemption-induced I2C bus lockup
+            HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
+            
             refreshADCs();
             refreshSWValues();
             refreshTOFValues();
@@ -239,8 +250,17 @@ void kernel_background_tick(void) {
             // Snapshot physical state to the C-Kernel state structure
             kernel_snapshot_state();
             
-            // Refresh local SSD1306 OLED screen
-            kernel_update_display();
+            HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
+            
+            // Rate-limit OLED display updates to 10 Hz (every 100ms) to prevent excessive USB interrupt blocking
+            static uint32_t last_display_update = 0;
+            if (now - last_display_update >= 100) {
+                last_display_update = now;
+                
+                HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
+                kernel_update_display();
+                HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
+            }
         }
         
         // Feed kernel software watchdog
@@ -256,20 +276,26 @@ void kernel_background_tick(void) {
 
 static const char custom_boot_py[] =
     "# boot.py - UCT Micromouse Hybrid Bootloader\r\n"
-    "import machine\r\n"
-    "import pyb\r\n"
-    "import time\r\n"
-    "\r\n"
-    "# The User Switch is on PE6, active low\r\n"
-    "sw = machine.Pin('E6', machine.Pin.IN, machine.Pin.PULL_UP)\r\n"
-    "time.sleep_ms(50)\r\n"
-    "\r\n"
-    "if sw.value() == 0:\r\n"
-    "    # Held during boot -> Mount read-write\r\n"
-    "    pyb.usb_mode('VCP+MSC')\r\n"
-    "else:\r\n"
-    "    # Fallback to VCP-only to prevent corruption from power glitches\r\n"
-    "    pyb.usb_mode('VCP')\r\n";
+    "try:\r\n"
+    "    import machine\r\n"
+    "    import pyb\r\n"
+    "    import time\r\n"
+    "     \r\n"
+    "    # The User Switch is on PE6, active low\r\n"
+    "    sw = machine.Pin('PE6', machine.Pin.IN, machine.Pin.PULL_UP)\r\n"
+    "    time.sleep_ms(50)\r\n"
+    "     \r\n"
+    "    # If switch is pressed (LOW) during boot, mount as Read-Write\r\n"
+    "    if sw.value() == 0:\r\n"
+    "        # Mount Read-Write (Standard)\r\n"
+    "        # pyb.usb_mode('VCP+MSC')\r\n"
+    "        pass\r\n"
+    "    else:\r\n"
+    "        # Fallback to VCP-only to prevent corruption from power glitches\r\n"
+    "        # pyb.usb_mode('VCP')\r\n"
+    "        pass\r\n"
+    "except Exception as e:\r\n"
+    "    pass\r\n";
 
 static const char custom_main_py[] =
     "# main.py -- put your code here!\r\n";
@@ -278,9 +304,9 @@ static const char custom_readme_txt[] =
     "UCT Micromouse (UCT_MMOUSE) external SPI flash partition.\r\n"
     "File storage space: 128 KB (last 128 KB of 1 MB chip).\r\n"
     "\r\n"
-    "By default, the mouse boots in VCP-only mode to prevent filesystem corruption from power glitches.\r\n"
-    "To mount the drive on your PC (VCP+MSC mode) to access or copy files, hold down the PE6 User Button while resetting the mouse.\r\n"
-    "Alternatively, deploy scripts cleanly over VCP serial using 'python tools/deploy.py -e micropython'.\r\n";
+    "By default, the mouse boots in VCP+MSC mode.\r\n"
+    "This mounts the virtual USB drive on your PC and enables VCP serial telemetry simultaneously.\r\n"
+    "Deploy scripts cleanly over VCP serial using 'python tools/deploy.py -e micropython'.\r\n";
 
 void factory_reset_make_files(FATFS *fatfs) {
     struct {
