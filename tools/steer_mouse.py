@@ -76,8 +76,8 @@ def main(stdscr, method='tcp'):
             stdscr.refresh()
             ser = serial.Serial(port, 115200, timeout=0.1)
             
-            # Send Ctrl-C to interrupt any running script
-            ser.write(b"\r\n\x03\x03\r\n")
+            # Exit Raw REPL first (in case we were stuck in it), then interrupt any running script
+            ser.write(b"\x02\r\n\x03\x03\r\n")
             time.sleep(0.5)
             ser.read(ser.in_waiting) # clear buffer (tracebacks from interrupted script)
             
