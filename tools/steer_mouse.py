@@ -78,12 +78,12 @@ def main(stdscr, method='tcp'):
             
             # Exit Raw REPL first (in case we were stuck in it), then interrupt any running script
             ser.write(b"\x02\r\n\x03\x03\r\n")
-            time.sleep(0.5)
+            time.sleep(1.0)
             ser.read(ser.in_waiting) # clear buffer (tracebacks from interrupted script)
             
             # Enter Raw REPL mode
             ser.write(b"\x01")
-            time.sleep(0.2)
+            time.sleep(0.5)
             
             # Initialize uct_mouse via Raw REPL
             stdout, stderr = send_raw_command(ser, "import uct_mouse; uct_mouse.init()")
