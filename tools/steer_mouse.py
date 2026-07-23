@@ -20,12 +20,12 @@ def send_raw_command(ser, cmd):
     # Read response
     data = b''
     start_time = time.time()
-    while time.time() - start_time < 0.2:
+    while time.time() - start_time < 0.8:
         if ser.in_waiting > 0:
             data += ser.read(ser.in_waiting)
             if data.endswith(b'\x04>'):
                 break
-        time.sleep(0.005)
+        time.sleep(0.001)
         
     if not data.startswith(b'OK'):
         return "", f"No OK prefix: {data!r}"
