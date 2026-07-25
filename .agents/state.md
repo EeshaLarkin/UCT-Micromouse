@@ -3,17 +3,26 @@
 ## 1. Summary of Completed Fixes
 
 ### Hardware Ruggedization
-* **NVIC Timer Interrupt Storms:** Disabled unused timer interrupts (`TIM4_IRQn`, `TIM5_IRQn`, and `TIM7_IRQn`) at priority 0 in `MX_NVIC_Init()` inside both `main.c` and `MicroMouse_main.c`. This prevents touch-induced electrostatic noise on exposed header pins from freezing the CPU.
+* **NVIC Timer Interrupt Storms:** Disabled unused timer interrupts (`TIM5_IRQn` and `TIM7_IRQn`) at priority 0 in `MX_NVIC_Init()` inside both `main.c` and `MicroMouse_main.c`. This prevents touch-induced electrostatic noise on exposed header pins from freezing the CPU.
+* **TIM4 Encoder Interrupt Priority & Routing:**
+  * Lowered `TIM4_IRQn` priority to `5` in `initMotors()` inside `Motors.c` to prevent high-frequency encoder edge captures from starving critical lower-priority interrupts like SysTick and USB.
+  * Patched the MicroPython core interrupt file (`external/micropython/ports/stm32/stm32_it.c`) inside `TIM4_IRQHandler` to explicitly invoke `HAL_TIM_IRQHandler(&htim4)` when `COMPILING_FOR_MICROPYTHON` is defined. This routes capture events to our speed/position callbacks instead of letting them lock up the CPU in an infinite interrupt-re-entry loop.
+* **Encoder Open-Drain Pull-Up configuration:** Configured PD12-PD15 with internal pull-up resistors (`GPIO_PULLUP`) inside `stm32l4xx_hal_msp.c` to support open-collector motor encoders and prevent signal floating on transitions.
+* **Unconditional Position Tracking:** Modified the capture callback inside `Motors.c` to increment/decrement `leftEncoderCount` and `rightEncoderCount` unconditionally on every edge, rather than trapping position tracking inside the speed threshold filters.
 * **Global EXTI Handlers:** Added explicit default vectors for all unused EXTI GPIO lines in `stm32l4xx_it.c` to prevent locking in the default handler.
 * **Flash Read-During-Write filesystem corruption:** Staged default factory files (`boot.py`, `main.py`) in stack RAM in `board_init.c` to bypass bank collisions during format.
 
 ### Peripheral & Display Features
+* **OLED Early Boot Splash Screen:** Added SSD1306 initialization and welcoming text drawing inside the early C hook `board_early_init()` in `board_init.c`. This provides immediate visual power-on feedback to users without invoking I2C sensor bus scans inside `boot.py` (which could deadlock the boot process).
 * **OLED Blank Screen:** Added explicit re-initialization calls (`MX_I2C1_Init`, `MX_I2C2_Init`) inside `initMicroMouse()` to restore I2C clocks after the MicroPython VM boot sequence.
 * **OLED Blanking on USB Connect (Fixed):** Removed the code in `bdev.c` (`BDEV_IOCTL_INIT`) that set `mouse_initialized = false` when mounting the USB FAT filesystem, resolving the issue where display updates and live telemetry would halt upon plugging in the USB-C OTG cable.
 * **SPI2 De-Initialization on Soft Reset (Fixed):** Added `HAL_SPI_DeInit(&hspi2)` inside `ext_flash_init()` in `bdev.c` to reset the `hspi2` handle state to `RESET`. This forces `HAL_SPI_Init` to execute `HAL_SPI_MspInit` and re-assert the GPIO alternate function configurations on PB13/PB14/PB15, preventing the SPI pins from remaining floating after a MicroPython soft reset.
 * **I2C Bus Lockup from USB Preemption (Fixed):**
   * Gated all sensor reads and display updates inside `kernel_background_tick()` in `board_init.c` by disabling the USB interrupt (`OTG_FS_IRQn`) using `HAL_NVIC_DisableIRQ()` and `HAL_NVIC_EnableIRQ()`. This prevents high-priority USB mass storage block reads from preempting I2C transfers mid-byte and causing permanent physical bus lockups.
   * Rate-limited the OLED `kernel_update_display()` updates to 10 Hz (every 100ms) to reduce CPU/I2C contention and minimize USB interrupt latency.
+* **I2C Bus Congestion and Back-off Cool-downs:** 
+  * Localized the `I2C_TIMEOUT` to 2ms inside `VL53L0X.c` and `IMU.c` for quick register reads, while keeping the 50ms global timeout in `main.h` for large OLED frame buffer transfers.
+  * Implemented a 100ms error cool-down (back-off) inside `getVL53L0()` and `refreshIMUValues()` to immediately skip reading failed or missing sensors, preventing CPU starvation from cumulative blocking timeouts.
 * **OLED TOF Dynamic Layout & Alignment:** 
   * Reformatted TOF readings to a fixed-width `%4u` representation to prevent horizontal layout shifting on digits changes.
   * Implemented dynamic layout configuration: if only (N, NW, NE) is connected, shows `NW / N / NE`; if (N, W, E) or all 5 are connected, shows `W / N / E`.
@@ -25,7 +34,6 @@
 ### Motor & Encoder Control Bedrock (PikaScript / C-Kernel)
 * **Baudrate Calibration & Reversion:** Reverted the clock-divider `USART1->BRR` in `board_init.c` and `main.c` back to the standard `694` (confirming 80 MHz operation) after verifying clean telemetry at 115200 baud.
 * **Ternary Absolute Value Bypass:** Replaced standard `<stdlib.h>` `abs()` duty-cycle calculations in [micromouse_kernel.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/src/kernel/src/micromouse_kernel.c) with direct safe ternary expressions (`(val < 0) ? -val : val`). This completely bypasses the signed-integer compiler sign-mangling bug on negative left motor PWM values.
-* **Quadrature Encoder Interrupt Counters:** Implemented physical encoder increments directly in the `TIM4` input capture callback in [Motors.c](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external/MicroMouseTemplate/MicroMouseProgramming_Code/Core/Src/Motors.c). Both `leftEncoderCount` and `rightEncoderCount` now correctly increment or decrement based on phase B direction pins, restoring position tracking.
 * **Safety Watchdog Timer Verification:** Verified that the 1-second watchdog cutoff functions correctly and has been re-enabled.
 
 ### External Flash & Logging System
@@ -33,7 +41,6 @@
 * **JSON Sparse Telemetry Logger:** Built a 25 Hz sequential logger writing telemetry JSON lines directly to the external flash. Features automatic logging activation on first motor command, overwrites previous run logs on startup, and utilizes sparse comparisons to optimize memory.
 * **Anti-Cheat Verification Headers:** Integrated Unique Device ID (96-bit MCU UID) and 32-bit FNV-1a code-structure verification hashes into the telemetry headers to detect identical code submissions or copied logs.
 * **Universal Serial Log Dump Protocol:** Added VCP serial JSON command `{"c":{"dump":1}}` (and Python wrapper `uct_mouse.dump_logs()`) to stream log files over UART instantly on all three firmware runtimes without requiring code re-flashing.
-
 
 ### Standalone C/Simulink Template Target Fixes
 * **Timebase Interrupt Tick Restore (SysTick/TIM6 Linkage Bug Fixed):**
@@ -59,10 +66,8 @@ Register-level diagnostic dumps verified that the microcontroller peripheral sta
 ---
 
 ## 3. Pending Verification & Next Steps
-1. **Physical LED Check:** Confirm why the center and right LEDs are physically non-responsive even though the MCU is successfully driving PC14 and PC15 registers.
-   * **Verification Completed so far:**
-     * Verified that `GPIOC->MODER` configuration registers for pins 13, 14, and 15 are correctly set to `01` (General purpose output mode).
-     * Verified that `RCC->BDCR` is successfully cleared to `0x00000000`, proving that LSE is disabled and freeing the pins from the low-speed oscillator.
-     * Verified that the master power gating pin `PB3` (`CTRL_LEDS`) is successfully driven HIGH (proven by the fact that the Left LED on PC13 functions and blinks).
-     * Verified that `GPIOC->ODR` output data registers for pins 13, 14, and 15 successfully toggle state, proving that the MCU is electrically driving all three outputs.
-2. **Remove Trace Prints:** If the board boots successfully, the raw UART trace prints in `main.c` and `VL53L0X.c` can be cleaned up/removed to keep the output tidy.
+1. **Flash Accelerometer-Logging Firmware:**
+   * **Detail:** The changes to `kernel_logger.c` to write the 3-axis accelerometer readings (`"ax"`, `"ay"`, `"az"`) to external flash have been coded and committed to git, but since the mouse was placed on charge, they have not yet been flashed to the physical MCU. 
+   * **Next Step:** Flash the board using `python tools/deploy.py --engine micropython --flash` once charging is complete, and verify that the dump logs contain `"ax"`, `"ay"`, and `"az"` keys.
+2. **Physical LED Check:** Confirm why the center and right LEDs are physically non-responsive even though the MCU is successfully driving PC14 and PC15 registers.
+3. **Remove Trace Prints:** If the board boots successfully, the raw UART trace prints in `main.c` and `VL53L0X.c` can be cleaned up/removed to keep the output tidy.
