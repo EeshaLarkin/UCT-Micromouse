@@ -216,12 +216,12 @@ void board_early_init(void) {
     uart_print("Initializing Boot OLED Display...\n");
     SSD1306_Init();
     SSD1306_Fill(SSD1306_COLOR_BLACK);
-    SSD1306_GotoXY(0, 0);
-    SSD1306_Puts("UCT Micromouse", &Font_11x18, SSD1306_COLOR_WHITE);
-    SSD1306_GotoXY(0, 24);
-    SSD1306_Puts("MicroPython VCP/REPL", &Font_7x10, SSD1306_COLOR_WHITE);
-    SSD1306_GotoXY(0, 40);
-    SSD1306_Puts("Status: Idle/Ready", &Font_7x10, SSD1306_COLOR_WHITE);
+    SSD1306_GotoXY(4, 2);
+    SSD1306_Puts("UCT Mouse", &Font_11x18, SSD1306_COLOR_WHITE);
+    SSD1306_GotoXY(4, 24);
+    SSD1306_Puts("REPL/VCP Ready", &Font_7x10, SSD1306_COLOR_WHITE);
+    SSD1306_GotoXY(4, 40);
+    SSD1306_Puts("Status: Idle", &Font_7x10, SSD1306_COLOR_WHITE);
     SSD1306_UpdateScreen();
 
     uart_print("Boot sequence completed successfully.\n");
