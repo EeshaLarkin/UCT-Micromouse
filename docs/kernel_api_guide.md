@@ -21,6 +21,7 @@ Students interact with the hardware and simulation environment strictly through 
 | `delay_ms` | `ms` *(int)* | `None` | Delays execution. **CRITICAL:** On physical hardware, sensor/display updates are paced inside this call; control loops must call this to update values. |
 | `set_polarity` | `left` *(int)*, `right` *(int)* | `None` | Normalizes physical motor wiring. Pass `1` (normal) or `-1` (reversed) to mathematically match your chassis. |
 | `get_line_sensors`| None | `(fl, fr, sl, sr)` *(tuple of ints)* | Returns raw ADC readings for Front-Left, Front-Right, Side-Left, and Side-Right photodetector line sensors. |
+| `get_telemetry` | None | `(ax, ay, az, gx, gy, gz, lenc, renc, current, battery_pct)` *(tuple)* | Returns full 6-DOF IMU data (ax/ay/az in m/s², gx/gy/gz in rad/s), encoders, battery current (mA), and battery life (%). |
 
 ---
 
