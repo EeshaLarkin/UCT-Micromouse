@@ -32,6 +32,9 @@ static int32_t last_lenc = 0;
 static int32_t last_renc = 0;
 static float last_gyro = 0.0f;
 static float last_v_batt = 0.0f;
+static float last_ax = 0.0f;
+static float last_ay = 0.0f;
+static float last_az = 0.0f;
 
 // Unique Device ID (UID) starting address on STM32L4
 #define STM32L4_UID_ADDR 0x1FFF7590U
@@ -144,6 +147,9 @@ void kernel_logger_tick(void) {
         last_tof_ar = s->tof_ar; last_tof_r = s->tof_r;
         last_lenc = s->lenc; last_renc = s->renc;
         last_gyro = s->gyro; last_v_batt = s->v_batt;
+        
+        extern float IMU_Accel[3];
+        last_ax = IMU_Accel[0]; last_ay = IMU_Accel[1]; last_az = IMU_Accel[2];
     }
 
     // 3. Perform sparse compression check. Build JSON listing only changed values.
@@ -205,6 +211,23 @@ void kernel_logger_tick(void) {
         if (!first) { written += snprintf(record_buf + written, sizeof(record_buf) - written, ","); }
         written += snprintf(record_buf + written, sizeof(record_buf) - written, "\"v\":%.2f", (double)s->v_batt);
         last_v_batt = s->v_batt; first = false;
+    }
+
+    extern float IMU_Accel[3];
+    if (abs((int)(IMU_Accel[0] * 10.0f) - (int)(last_ax * 10.0f)) > 1) { // 0.1 m/s2 threshold filter
+        if (!first) { written += snprintf(record_buf + written, sizeof(record_buf) - written, ","); }
+        written += snprintf(record_buf + written, sizeof(record_buf) - written, "\"ax\":%.2f", (double)IMU_Accel[0]);
+        last_ax = IMU_Accel[0]; first = false;
+    }
+    if (abs((int)(IMU_Accel[1] * 10.0f) - (int)(last_ay * 10.0f)) > 1) {
+        if (!first) { written += snprintf(record_buf + written, sizeof(record_buf) - written, ","); }
+        written += snprintf(record_buf + written, sizeof(record_buf) - written, "\"ay\":%.2f", (double)IMU_Accel[1]);
+        last_ay = IMU_Accel[1]; first = false;
+    }
+    if (abs((int)(IMU_Accel[2] * 10.0f) - (int)(last_az * 10.0f)) > 1) {
+        if (!first) { written += snprintf(record_buf + written, sizeof(record_buf) - written, ","); }
+        written += snprintf(record_buf + written, sizeof(record_buf) - written, "\"az\":%.2f", (double)IMU_Accel[2]);
+        last_az = IMU_Accel[2]; first = false;
     }
 
     // Only log if something has changed (avoiding empty ticks)
