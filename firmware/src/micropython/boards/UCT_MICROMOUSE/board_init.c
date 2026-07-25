@@ -238,9 +238,6 @@ void kernel_background_tick(void) {
         last_tick = now;
         
         if (mouse_initialized) {
-            // Disable USB interrupt during I2C sensor reads to prevent preemption-induced I2C bus lockup
-            HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
-            
             refreshADCs();
             refreshSWValues();
             refreshTOFValues();
@@ -250,16 +247,11 @@ void kernel_background_tick(void) {
             // Snapshot physical state to the C-Kernel state structure
             kernel_snapshot_state();
             
-            HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
-            
-            // Rate-limit OLED display updates to 10 Hz (every 100ms) to prevent excessive USB interrupt blocking
+            // Rate-limit OLED display updates to 10 Hz (every 100ms)
             static uint32_t last_display_update = 0;
             if (now - last_display_update >= 100) {
                 last_display_update = now;
-                
-                HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
                 kernel_update_display();
-                HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
             }
         }
         

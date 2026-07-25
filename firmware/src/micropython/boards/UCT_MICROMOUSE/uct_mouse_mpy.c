@@ -6,6 +6,12 @@ extern volatile bool mouse_initialized;
 extern void initMicroMouse(void);
 
 static mp_obj_t mpy_uct_mouse_init(void) {
+    // Disable I2C interrupts in the NVIC to prevent conflicts with polling-mode C-Kernel reads
+    HAL_NVIC_DisableIRQ(I2C1_EV_IRQn);
+    HAL_NVIC_DisableIRQ(I2C1_ER_IRQn);
+    HAL_NVIC_DisableIRQ(I2C2_EV_IRQn);
+    HAL_NVIC_DisableIRQ(I2C2_ER_IRQn);
+
     // 1. Force disable all DMA channels to prevent background memory corruption
     DMA1_Channel1->CCR &= ~DMA_CCR_EN;
     DMA1_Channel2->CCR &= ~DMA_CCR_EN;
