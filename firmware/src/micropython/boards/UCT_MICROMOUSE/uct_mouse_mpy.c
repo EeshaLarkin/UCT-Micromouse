@@ -161,6 +161,30 @@ static mp_obj_t mpy_uct_mouse_dump_logs(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_dump_logs_obj, mpy_uct_mouse_dump_logs);
 
+// 7d. uct_mouse.get_telemetry() -> tuple (ax, ay, az, gx, gy, gz, lenc, renc, current, battery_pct)
+static mp_obj_t mpy_uct_mouse_get_telemetry(void) {
+    extern float IMU_Accel[3];
+    extern float IMU_Gyro[3];
+    extern int16_t Current;
+    extern int8_t batteryLife;
+    const KernelState_t* state = kernel_get_state();
+    
+    mp_obj_t tuple[10] = {
+        mp_obj_new_float(IMU_Accel[0]),
+        mp_obj_new_float(IMU_Accel[1]),
+        mp_obj_new_float(IMU_Accel[2]),
+        mp_obj_new_float(IMU_Gyro[0]),
+        mp_obj_new_float(IMU_Gyro[1]),
+        mp_obj_new_float(IMU_Gyro[2]),
+        mp_obj_new_int(state->lenc),
+        mp_obj_new_int(state->renc),
+        mp_obj_new_float((float)Current),
+        mp_obj_new_int((int)batteryLife)
+    };
+    return mp_obj_new_tuple(10, tuple);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_telemetry_obj, mpy_uct_mouse_get_telemetry);
+
 // Define module globals table
 static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_uct_mouse) },
@@ -174,6 +198,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_set_polarity),MP_ROM_PTR(&mpy_uct_mouse_set_polarity_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_line_sensors), MP_ROM_PTR(&mpy_uct_mouse_get_line_sensors_obj) },
     { MP_ROM_QSTR(MP_QSTR_dump_logs),    MP_ROM_PTR(&mpy_uct_mouse_dump_logs_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_telemetry), MP_ROM_PTR(&mpy_uct_mouse_get_telemetry_obj) },
 };
 static MP_DEFINE_CONST_DICT(uct_mouse_module_globals, uct_mouse_module_globals_table);
 

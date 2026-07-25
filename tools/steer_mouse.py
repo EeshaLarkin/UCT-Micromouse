@@ -146,19 +146,27 @@ def main(stdscr, method='tcp'):
                     raw_tx = cmd
                     raw_rx = stdout if not stderr else f"ERR: {stderr}"
                 else:
-                    cmd = "print('T:', uct_mouse.get_tof(), 'B:', uct_mouse.get_vbatt())"
+                    cmd = "print('T:', uct_mouse.get_tof(), 'V:', uct_mouse.get_vbatt(), 'M:', uct_mouse.get_telemetry())"
                     stdout, stderr = send_raw_command(ser, cmd)
                     raw_tx = cmd
                     raw_rx = stdout if not stderr else f"ERR: {stderr}"
                     
-                    if not stderr and "T:" in stdout and "B:" in stdout:
+                    if not stderr and "T:" in stdout and "V:" in stdout and "M:" in stdout:
                         try:
-                            parts = stdout.split("B:")
-                            v_batt = float(parts[1].strip())
-                            tof_part = parts[0].split("T:")[1].strip()
+                            parts_m = stdout.split("M:")
+                            parts_v = parts_m[0].split("V:")
+                            tof_part = parts_v[0].split("T:")[1].strip()
+                            v_batt = float(parts_v[1].strip())
+                            m_vals = eval(parts_m[1].strip())
                             tof_vals = eval(tof_part)
-                            s["tof_l"], s["tof_c"], s["tof_r"] = tof_vals[0], tof_vals[2], tof_vals[4]
+                            
+                            s["tof_l"], s["tof_al"], s["tof_c"], s["tof_ar"], s["tof_r"] = tof_vals
                             s["v_batt"] = v_batt
+                            s["ax"], s["ay"], s["az"] = m_vals[0], m_vals[1], m_vals[2]
+                            s["gx"], s["gy"], s["gz"] = m_vals[3], m_vals[4], m_vals[5]
+                            s["lenc"], s["renc"] = m_vals[6], m_vals[7]
+                            s["current"] = m_vals[8]
+                            s["battery_pct"] = m_vals[9]
                         except Exception:
                             pass
             
@@ -166,13 +174,16 @@ def main(stdscr, method='tcp'):
             stdscr.addstr(0, 0, "=== UCT Micromouse Keyboard steering Dashboard ===")
             stdscr.addstr(1, 0, "Connected! Steer with ARROWS. SPACE to brake. 'q' to quit.")
             stdscr.addstr(3, 0, f"Motor Intent : Left={pwm_l:<4} | Right={pwm_r:<4}")
-            stdscr.addstr(4, 0, f"ToF Sensors  : L={s.get('tof_l',0):<4} | C={s.get('tof_c',0):<4} | R={s.get('tof_r',0):<4}")
-            stdscr.addstr(5, 0, f"Battery      : {s.get('v_batt', 0.0):.2f} V")
+            stdscr.addstr(4, 0, f"ToF Sensors  : L={s.get('tof_l',0):<4} | AL={s.get('tof_al',0):<4} | C={s.get('tof_c',0):<4} | AR={s.get('tof_ar',0):<4} | R={s.get('tof_r',0):<4}")
+            stdscr.addstr(5, 0, f"Encoders     : L={s.get('lenc',0):<6} | R={s.get('renc',0):<6}")
+            stdscr.addstr(6, 0, f"IMU Accel    : X={s.get('ax',0.0):.2f} | Y={s.get('ay',0.0):.2f} | Z={s.get('az',0.0):.2f} (m/s2)")
+            stdscr.addstr(7, 0, f"IMU Gyro     : X={s.get('gx',0.0):.2f} | Y={s.get('gy',0.0):.2f} | Z={s.get('gz',0.0):.2f} (rad/s)")
+            stdscr.addstr(8, 0, f"Battery      : {s.get('v_batt', 0.0):.2f} V ({s.get('battery_pct', 0)}%) | Current: {s.get('current', 0.0):.1f} mA")
             
-            stdscr.addstr(7, 0, "-" * 60)
-            stdscr.addstr(8, 0, f"RAW TX: {raw_tx:<52}"[:60])
-            stdscr.addstr(9, 0, f"RAW RX: {raw_rx:<52}"[:60])
             stdscr.addstr(10, 0, "-" * 60)
+            stdscr.addstr(11, 0, f"RAW TX: {raw_tx:<52}"[:60])
+            stdscr.addstr(12, 0, f"RAW RX: {raw_rx:<52}"[:60])
+            stdscr.addstr(13, 0, "-" * 60)
             
             stdscr.refresh()
             time.sleep(0.05)
