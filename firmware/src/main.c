@@ -165,10 +165,18 @@ int main(void) {
     initMicroMouse();
 
     // Hardware LED verification test: Force all three LEDs ON at boot
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStructLED = {0};
+    GPIO_InitStructLED.Pin = GPIO_PIN_4 | GPIO_PIN_5;
+    GPIO_InitStructLED.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStructLED.Pull = GPIO_NOPULL;
+    GPIO_InitStructLED.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStructLED);
+
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);   // PB3 (gating CTRL_LEDS)
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);  // PC13 (Left LED)
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);  // PC14 (Middle LED)
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);  // PC15 (Right LED)
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);   // PA4 (Middle LED)
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);   // PA5 (Right LED)
 
     raw_uart_print("Micromouse Hardware Initialized.\r\n");
 

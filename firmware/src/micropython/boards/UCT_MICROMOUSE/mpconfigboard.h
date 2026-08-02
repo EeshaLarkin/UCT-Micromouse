@@ -47,8 +47,8 @@
 
 // LEDs (PC13, PC14, PC15)
 #define MICROPY_HW_LED1             (pin_C13)
-#define MICROPY_HW_LED2             (pin_C14)
-#define MICROPY_HW_LED3             (pin_C15)
+#define MICROPY_HW_LED2             (pin_A4)
+#define MICROPY_HW_LED3             (pin_A5)
 #define MICROPY_HW_LED_ON(pin)      (mp_hal_pin_high(pin))
 #define MICROPY_HW_LED_OFF(pin)     (mp_hal_pin_low(pin))
 
