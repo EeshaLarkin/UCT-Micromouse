@@ -6,7 +6,7 @@ This guide details the physical hardware configuration, known hardware issues (s
 > **CRITICAL HARDWARE SAFETY WARNINGS:**
 > *   **AVOID MULTIPLE USB CONNECTIONS:** To protect your hardware (microcontroller, power board, and laptop/charger) from damage due to ground loops or power contention, **NEVER PLUG IN MORE THAN ONE USB CABLE AT A TIME.** Do not simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger. Always use a single cable connected to the ST-Link debugger port.
 > *   **DO NOT TURN WHEELS MANUALLY:** The wheels are connected to a high-ratio gearbox. Rotating the wheels externally by hand is highly likely to strip the gears and permanently destroy the motor assembly.
-> *   **DO NOT CONNECT BATTERY WHILE USB IS ATTACHED:** Never plug the battery into the main power board while any USB cables are connected to the mouse. Doing so can cause catastrophic failure of the onboard boost converter.
+> *   **DO NOT INITIALIZE BATTERY CONNECTION WHILE BOARD IS POWERED:** Under normal operation, the battery is plugged into the power board exactly once (during initial assembly) and remains connected. When plugging in the battery connector initially, **ensure the board is completely unpowered (disconnect all USB cables)**. Connecting the battery while the board is powered (e.g., via USB) will cause the onboard charging/boost circuitry to fail catastrophically (with a high risk of the charging chip catching fire).
 
 ---
 

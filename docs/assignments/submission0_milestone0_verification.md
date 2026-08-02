@@ -22,7 +22,7 @@ Before powering on or plugging in your mouse, verify the following guidelines to
 
 *   **Avoid Multiple USB Connections:** Never plug in more than one USB cable at a time. Only connect to the **ST-Link debugger USB port** (the micro-USB port on the ST-Link programmer board). Plugging in the ST-Link and the processor OTG port simultaneously can cause ground loops and destroy your laptop's USB controllers or the board.
 *   **Do Not Force Wheel Rotation:** The wheels are connected to high-ratio gearboxes. Attempting to spin the wheels rapidly by hand will strip the gears and destroy the motor assembly. To test encoders, only rotate them extremely slowly by hand, or roll the mouse gently along a surface.
-*   **Do Not Connect Battery with USB Connected:** Ensure the battery is disconnected from the main power board whenever a USB cable is plugged in. Plugging in the battery under USB power can burn out the board's boost converters.
+*   **Do Not Initialize Battery Connection While Powered:** Under normal operation, the battery is plugged into the power board exactly once (during initial assembly) and remains connected. When plugging in the battery connector initially, **ensure the board is completely unpowered (disconnect all USB cables)**. Connecting the battery while the board is powered (e.g., via USB) will cause the onboard charging/boost circuitry to fail catastrophically and can cause the charger chip to catch fire.
 
 ---
 

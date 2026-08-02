@@ -13,7 +13,7 @@
 > **CRITICAL HARDWARE SAFETY WARNING:** 
 > 1. **AVOID PLUGGING IN ANY MORE THAN ONE USB CABLE AT A TIME:** To protect your hardware (microcontroller, power board, and laptop/charger) from ground loop damage, do not simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger.
 > 2. **DO NOT ROTATE THE MOUSE WHEELS EXTERNALLY/MANUALLY:** The wheels are connected to a high-ratio gearbox that is not back-drivable. Forcing the wheels to rotate by hand is highly likely to strip the gears and permanently destroy the motor assembly.
-> 3. **DO NOT PLUG IN THE BATTERY WHILE USB IS ATTACHED:** Never plug the battery into the main power board while any USB cables are connected to the mouse. Doing so can cause catastrophic failure of the board's boost converter.
+> 3. **DO NOT INITIALIZE THE BATTERY CONNECTION WHILE THE BOARD IS POWERED:** Under normal operation, the LiPo battery is plugged into the power board exactly once during assembly and remains connected. When initially plugging the battery connector into the board, **ensure all USB cables are disconnected and the board is completely unpowered**. Connecting the battery while the board is already powered (e.g., via USB) will cause the onboard charging/boost circuitry to fail catastrophically (with a high risk of the charging chip catching fire).
 
 ---
 
