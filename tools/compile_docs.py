@@ -17,6 +17,7 @@ def create_latex_preamble():
 \usepackage{fontspec}
 \setmainfont{Helvetica}
 \setsansfont{Helvetica}
+\setmonofont{Courier}
 \renewcommand{\familydefault}{\sfdefault}
 
 % Render math equations using the main text font (Helvetica) to prevent missing glyphs
@@ -70,19 +71,29 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(script_dir)
     rel_path = os.path.relpath(md_file, repo_root)
+    tex_rel_path = rel_path.replace('_', r'\_')
     github_url = f"https://github.com/nicollsf/UCT-Micromouse/blob/main/{rel_path}"
 
     import datetime
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Construct the injected header warning banner
+    # Construct the injected header warning banner using a native LaTeX box
     injected_header = (
-        f"> [!IMPORTANT]\n"
-        f"> **Static PDF Export:** This PDF was generated on **{timestamp}**.\n"
-        f"> The definitive, live master version of this document is maintained in Markdown (`.md`) format at:\n"
-        f"> **Link to Master Source:** [{rel_path}]({github_url})\n"
-        f"> *Students are advised to run `git pull --recurse-submodules` in their workspaces to receive the latest updates. In case of discrepancy, the repository `.md` file is the master reference.*\n\n"
-        f"---\n\n"
+        "\\noindent\\fbox{\n"
+        "\\begin{minipage}{\\dimexpr\\textwidth-2\\fboxsep-2\\fboxrule\\relax}\n"
+        "\\medskip\n"
+        "\\hspace{10pt}\\textbf{\\textcolor{primary}{Static PDF Export Notice}}\n"
+        "\\vspace{0.5em}\\\\\n"
+        "\\hspace{10pt}This PDF was generated on \\texttt{" + timestamp + "}. The definitive, live master version\\\\\n"
+        "\\hspace{10pt}of this document is maintained in Markdown (\\texttt{.md}) format at:\\\\\n"
+        "\\hspace{10pt}\\textbf{Link to Master Source:} \\href{" + github_url + "}{" + tex_rel_path + "} \\\\\n\n"
+        "\\hspace{10pt}\\textit{Students are advised to run \\texttt{git pull --recurse-submodules} in their}\\\\\n"
+        "\\hspace{10pt}\\textit{workspaces to receive the latest updates. In case of discrepancy,}\\\\\n"
+        "\\hspace{10pt}\\textit{the repository \\texttt{.md} file is the master reference.}\n"
+        "\\medskip\n"
+        "\\end{minipage}\n"
+        "}\n\n"
+        "\\vspace{1.5em}\n\n"
     )
 
     output_pdf = md_file.rsplit('.', 1)[0] + '.pdf'
