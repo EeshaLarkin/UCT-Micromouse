@@ -105,11 +105,28 @@ def main():
         f.write(create_latex_preamble())
         preamble_path = f.name
 
-    # Create a temporary markdown file with the warning banner injected
+    # Create a temporary markdown file with the warning banner injected after the main title
     with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as temp_md:
         with open(md_file, 'r', encoding='utf-8') as original_f:
-            temp_md.write(injected_header)
-            temp_md.write(original_f.read())
+            lines = original_f.readlines()
+
+        # Find the main title heading (# )
+        title_idx = -1
+        for idx, line in enumerate(lines):
+            if line.strip().startswith('# '):
+                title_idx = idx
+                break
+
+        if title_idx != -1:
+            # Insert after the title line (and any trailing blank line)
+            insert_idx = title_idx + 1
+            while insert_idx < len(lines) and lines[insert_idx].strip() == '':
+                insert_idx += 1
+            new_content = "".join(lines[:insert_idx]) + injected_header + "".join(lines[insert_idx:])
+        else:
+            new_content = injected_header + "".join(lines)
+
+        temp_md.write(new_content)
         temp_md_path = temp_md.name
 
     try:
