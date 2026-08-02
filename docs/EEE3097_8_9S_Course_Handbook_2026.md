@@ -9,6 +9,15 @@
 > 
 > *Note on Repository Updates:* Necessary updates and bug fixes will be pushed to the repository on the fly during the semester. It is your academic responsibility to configure **GitHub Notifications** (click the **"Watch"** button at the top-right of the repository page and select "All Activity") to automatically track changes. Check notifications and run `git pull --recurse-submodules` regularly to ensure all nested microcontroller submodules remain synchronized.
 > 
+> **Definitive Source of Truth (.md format):**  
+> All files in the repository ending in `.md` (Markdown format) represent the single, definitive source of truth for course instructions, rubrics, and technical guides. Any PDF versions distributed on D2L (Amathuba) are compiled directly from these Markdown files. Always pull the latest repository updates to ensure your local documentation is accurate and up-to-date.
+> 
+> **How to Read Markdown (.md) Files:**  
+> Markdown files are plain-text documents containing formatting markup. To read them with rich graphical styling (headers, bold text, links, and tables):
+> *   **VS Code (Recommended):** Open the `.md` file and press **`Cmd+Shift+V`** (macOS) or **`Ctrl+Shift+V`** (Windows/Linux) to open the side-by-side graphical Preview panel.
+> *   **Web Browser Extension:** Install the "Markdown Viewer" extension (Chrome/Firefox/Edge). Drag-and-drop local `.md` files into your browser window to render them as styled webpages.
+> *   **GitHub Web Page:** Viewing the files directly on the GitHub web interface automatically renders them with rich formatting.
+> 
 > [!WARNING]
 > **CRITICAL HARDWARE SAFETY WARNING:** 
 > 1. **AVOID PLUGGING IN ANY MORE THAN ONE USB CABLE AT A TIME:** To protect your hardware (microcontroller, power board, and laptop/charger) from ground loop damage, do not simultaneously connect USB cables to the power board, the processor board, and the ST-Link debugger.

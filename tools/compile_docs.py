@@ -66,6 +66,25 @@ def main():
         print(f"[Error] Source file not found: {sys.argv[1]}")
         sys.exit(1)
 
+    # Determine paths relative to repository root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(script_dir)
+    rel_path = os.path.relpath(md_file, repo_root)
+    github_url = f"https://github.com/nicollsf/UCT-Micromouse/blob/main/{rel_path}"
+
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Construct the injected header warning banner
+    injected_header = (
+        f"> [!IMPORTANT]\n"
+        f"> **Static PDF Export:** This PDF was generated on **{timestamp}**.\n"
+        f"> The definitive, live master version of this document is maintained in Markdown (`.md`) format at:\n"
+        f"> **Link to Master Source:** [{rel_path}]({github_url})\n"
+        f"> *Students are advised to run `git pull --recurse-submodules` in their workspaces to receive the latest updates. In case of discrepancy, the repository `.md` file is the master reference.*\n\n"
+        f"---\n\n"
+    )
+
     output_pdf = md_file.rsplit('.', 1)[0] + '.pdf'
     
     print(f"=== Compiling Styled PDF: {os.path.basename(md_file)} ===")
@@ -75,11 +94,18 @@ def main():
         f.write(create_latex_preamble())
         preamble_path = f.name
 
+    # Create a temporary markdown file with the warning banner injected
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as temp_md:
+        with open(md_file, 'r', encoding='utf-8') as original_f:
+            temp_md.write(injected_header)
+            temp_md.write(original_f.read())
+        temp_md_path = temp_md.name
+
     try:
         # Build command using xelatex engine for system font support
         cmd = [
             "pandoc",
-            md_file,
+            temp_md_path,
             "-o", output_pdf,
             "--pdf-engine=xelatex",
             f"--include-in-header={preamble_path}"
@@ -92,9 +118,11 @@ def main():
         print(f"[Error] Pandoc compilation failed: {e}")
         sys.exit(1)
     finally:
-        # Clean up temporary preamble file
+        # Clean up temporary files
         if os.path.exists(preamble_path):
             os.remove(preamble_path)
+        if os.path.exists(temp_md_path):
+            os.remove(temp_md_path)
 
 if __name__ == "__main__":
     main()
