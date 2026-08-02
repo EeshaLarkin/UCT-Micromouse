@@ -8,19 +8,24 @@
 #ifdef __arm__
 // --- PHYSICAL HARDWARE MODE (Compiling for STM32) ---
 #include "micromouse_kernel.h"
+#include "LEDs.h"
 
 extern float IMU_Gyro[3];
 extern float IMU_Accel[3];
 extern float IMU_Temp;
+extern int16_t Vbattery;
+extern int16_t Current;
 
 void simulink_ext_set_motors(int16_t left, int16_t right) {
     kernel_set_pwm(left, right);
 }
 
 void simulink_ext_set_leds(uint8_t led0, uint8_t led1, uint8_t led2) {
-    // TODO: Map to actual hardware GPIO pins in main.h
-    // e.g., HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, led0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    //       HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, led1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET); // PB3 (gating CTRL_LEDS)
+    
+    HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, led0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, led1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, led2 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 // To actually display these, you will eventually want to store them in a global char array
