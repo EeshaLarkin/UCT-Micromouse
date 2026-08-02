@@ -109,6 +109,19 @@ int main(void) {
     SystemClock_Config();
     SystemCoreClockUpdate(); // Sync HAL global variables with physical clock
 
+    // Reset the Backup Domain to release PC14 and PC15 from LSE crystal oscillator mode 
+    // so they can be used as standard GPIO pins for the LEDs.
+    RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
+    (void)RCC->APB1ENR1;                 // Read back to ensure APB1 clock peripheral is stable
+    PWR->CR1 |= PWR_CR1_DBP;
+    while (!(PWR->CR1 & PWR_CR1_DBP));   // Wait for write access to Backup Domain to register
+    RCC->BDCR |= RCC_BDCR_BDRST;
+    RCC->BDCR &= ~RCC_BDCR_BDRST;
+    PWR->CR1 &= ~PWR_CR1_DBP;            // Restore Backup Protection
+
+    // Give hardware power rails (OLED, ToF sensors) time to stabilize on cold boot
+    HAL_Delay(500);
+
     // 2. Peripheral Initialization
     MX_DMA_Init();
     MX_GPIO_Init();
@@ -133,21 +146,29 @@ int main(void) {
     MX_USART1_UART_Init();
     MX_NVIC_Init();
 
-    // Initialize the HAL handle instance first to avoid null pointer dereferences
     huart1.Instance = USART1;
     huart1.gState = HAL_UART_STATE_READY;
     huart1.RxState = HAL_UART_STATE_READY;
 
-    // Configure UART for standard 80 MHz APB clock (80,000,000 / 115200 = 694)
+    // Force standard 80 MHz APB clock baud divider (80,000,000 / 115200 = 694)
     __HAL_UART_DISABLE(&huart1);
     USART1->BRR = 694; 
     __HAL_UART_ENABLE(&huart1);
 
     raw_uart_print("\r\n--- STM32 Core Boot Completed ---\r\n");
+    char debug_buf[64];
+    snprintf(debug_buf, sizeof(debug_buf), "RCC->BDCR: 0x%08lX\r\n", RCC->BDCR);
+    raw_uart_print(debug_buf);
     raw_uart_print("Initializing Micromouse Hardware...\r\n");
 
     // 4. Initialize Hardware Sensors & Actuators
     initMicroMouse();
+
+    // Hardware LED verification test: Force all three LEDs ON at boot
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);   // PB3 (gating CTRL_LEDS)
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);  // PC13 (Left LED)
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);  // PC14 (Middle LED)
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);  // PC15 (Right LED)
 
     raw_uart_print("Micromouse Hardware Initialized.\r\n");
 
@@ -215,6 +236,10 @@ int main(void) {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     serial_interface_rx_callback(huart);
+}
+
+void USART1_IRQHandler(void) {
+    HAL_UART_IRQHandler(&huart1);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {

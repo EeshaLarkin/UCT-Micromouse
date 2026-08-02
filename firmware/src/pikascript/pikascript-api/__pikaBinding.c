@@ -3963,6 +3963,15 @@ method_typedef(
     "dump_logs", ""
 );
 
+void uct_mouse_get_buttonMethod(PikaObj *self, Args *_args_){
+    int res = uct_mouse_get_button(self);
+    method_returnInt(_args_, res);
+}
+method_typedef(
+    uct_mouse_get_button,
+    "get_button", ""
+);
+
 void uct_mouse_get_encodersMethod(PikaObj *self, Args *_args_){
     PikaObj* res = uct_mouse_get_encoders(self);
     method_returnObj(_args_, res);
@@ -4017,6 +4026,16 @@ method_typedef(
     "init", ""
 );
 
+void uct_mouse_set_ledMethod(PikaObj *self, Args *_args_){
+    int led_idx = args_getInt(_args_, "led_idx");
+    int state = args_getInt(_args_, "state");
+    uct_mouse_set_led(self, led_idx, state);
+}
+method_typedef(
+    uct_mouse_set_led,
+    "set_led", "led_idx,state"
+);
+
 void uct_mouse_set_motorsMethod(PikaObj *self, Args *_args_){
     int left_pwm = args_getInt(_args_, "left_pwm");
     int right_pwm = args_getInt(_args_, "right_pwm");
@@ -4039,12 +4058,14 @@ method_typedef(
 
 class_def(uct_mouse){
     __BEFORE_MOETHOD_DEF
+    method_def(uct_mouse_set_led, 204143333),
     method_def(uct_mouse_get_line_sensors, 528952248),
     method_def(uct_mouse_set_motors, 546510804),
     method_def(uct_mouse_delay_ms, 657511251),
     method_def(uct_mouse_dump_logs, 1066456367),
     method_def(uct_mouse_set_polarity, 1121395780),
     method_def(uct_mouse_get_vbatt, 1303596709),
+    method_def(uct_mouse_get_button, 1457009472),
     method_def(uct_mouse_get_encoders, 1872202775),
     method_def(uct_mouse_get_tof, 1886405933),
     method_def(uct_mouse_init, 2090370361),

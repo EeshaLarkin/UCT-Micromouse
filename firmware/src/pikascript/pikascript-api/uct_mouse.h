@@ -19,12 +19,14 @@ PikaObj *New_uct_mouse(Args *args);
 
 void uct_mouse_delay_ms(PikaObj *self, int ms);
 void uct_mouse_dump_logs(PikaObj *self);
+int uct_mouse_get_button(PikaObj *self);
 PikaObj* uct_mouse_get_encoders(PikaObj *self);
 pika_float uct_mouse_get_gyro(PikaObj *self);
 PikaObj* uct_mouse_get_line_sensors(PikaObj *self);
 PikaObj* uct_mouse_get_tof(PikaObj *self);
 pika_float uct_mouse_get_vbatt(PikaObj *self);
 int uct_mouse_init(PikaObj *self);
+void uct_mouse_set_led(PikaObj *self, int led_idx, int state);
 void uct_mouse_set_motors(PikaObj *self, int left_pwm, int right_pwm);
 void uct_mouse_set_polarity(PikaObj *self, int left_polarity, int right_polarity);
 

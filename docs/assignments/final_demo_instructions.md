@@ -69,10 +69,19 @@ To verify that your physical run is authentic, the video must strictly adhere to
 
 ### 6. Evaluation Criteria
 
-#### A. Co-Simulation Speed & Accuracy (Automated Check)
-The autograder will execute your solving code in the visual simulation testbed across multiple randomized maze layouts.
-* **Exploration Rate:** The mouse must correctly map at least 80% of the walls.
-* **Speed Run Execution:** The mouse must execute the run without collisions. Your grade is directly proportional to the traversal speed.
+#### A. Co-Simulation Speed & Accuracy (Automated Check - 80% of Milestone Mark)
+The autograder executes your solving code in the visual simulation testbed across a randomized perfect maze configuration. The simulation runs up to a **90-second limit** and automatically completes when the mouse is detected to be **stationary for 3.0 seconds** after initial movement.
 
-#### B. Physical Validation (Live Demo Check)
+The score is calculated out of 100 points as follows:
+*   **Exploration Progress Score (80 points max):** Earned proportionally based on the closest distance the mouse achieves to the maze center zone $(1.0, 1.0)$ during the run. Reaching within a $0.25\text{ m}$ radius of the center target awards the full **80 pts**.
+*   **Speed Run Traversal Bonus (20 points max):** Unlocked only if the center is successfully reached. Evaluated continuously based on the simulation elapsed time:
+    *   $\text{Time} \le 30.0$ seconds: Full **20 pts**
+    *   $30.0\text{ s} < \text{Time} \le 90.0\text{ s}$: Scales linearly from **20 down to 5 pts**
+    *   $\text{Time} > 90.0$ seconds: **0 pts**
+*   **Applied Penalties:**
+    *   **Collision Penalty ($-10$ points):** Subtracted if the mouse contacts any walls.
+    *   **Timeout Penalty ($-10$ points):** Subtracted if the controller fails to stop within the 90-second limit.
+
+#### B. Physical Validation (Live Demo Check - 20% of Milestone Mark)
 You will present your mouse for a live physical evaluation run in the lab maze. The mouse must successfully map, return, and solve the layout under physical timing limits.
+

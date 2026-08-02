@@ -11,6 +11,13 @@ static uint32_t last_tx_time = 0;
 
 void serial_interface_init(UART_HandleTypeDef *huart) {
     kernel_huart = huart;
+    
+    // Force disable DMA2 Channel 7 to prevent the hardware DMA controller
+    // from hijacking incoming USART1 RX bytes into the legacy circular buffer.
+    #ifdef DMA2
+    DMA2_Channel7->CCR &= ~DMA_CCR_EN;
+    #endif
+    
     kernel_init();
     
     // Start listening for the first byte via interrupt
@@ -34,7 +41,7 @@ void serial_interface_tick(void) {
     
     if ((now - last_tx_time) >= period_ms) {
         last_tx_time = now;
-        char tx_buffer[256];
+        char tx_buffer[512];
         int len = kernel_generate_uplink(tx_buffer, sizeof(tx_buffer));
         if (len > 0) {
             // Send the JSON packet over the ST-Link VCP

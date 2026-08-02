@@ -75,14 +75,17 @@ def main(stdscr, method='tcp'):
             stdscr.addstr(1, 0, f"Connecting to REPL on {port}...       ")
             stdscr.refresh()
             ser = serial.Serial(port, 115200, timeout=0.1)
+            ser.dtr = True
+            ser.rts = True
+            time.sleep(3.0) # Wait for STM32 and filesystem mounting to boot fully
             
-            # Exit Raw REPL first (in case we were stuck in it), then interrupt any running script
-            ser.write(b"\x02\r\n\x03\x03\r\n")
+            # Interrupt any running script cleanly with Ctrl-C
+            ser.write(b"\x03\x03\x03")
             
             # Wait for standard REPL prompt '>>> ' to ensure script has fully stopped and traceback printed
             data = b""
             start_time = time.time()
-            while time.time() - start_time < 3.0:
+            while time.time() - start_time < 5.0:
                 if ser.in_waiting > 0:
                     data += ser.read(ser.in_waiting)
                     if data.endswith(b'>>> '):
@@ -95,7 +98,7 @@ def main(stdscr, method='tcp'):
             # Wait for raw REPL prompt '>' to ensure the buffer is fully sync'd
             data = b""
             start_time = time.time()
-            while time.time() - start_time < 2.0:
+            while time.time() - start_time < 3.0:
                 if ser.in_waiting > 0:
                     data += ser.read(ser.in_waiting)
                     if data.endswith(b'>'):
@@ -123,10 +126,10 @@ def main(stdscr, method='tcp'):
                 pwm_l, pwm_r = -100, -100
                 actuate = True
             elif key == curses.KEY_LEFT:
-                pwm_l, pwm_r = -60, 60
+                pwm_l, pwm_r = -95, 95
                 actuate = True
             elif key == curses.KEY_RIGHT:
-                pwm_l, pwm_r = 60, -60
+                pwm_l, pwm_r = 95, -95
                 actuate = True
             
             if method in ['tcp', 'serial']:

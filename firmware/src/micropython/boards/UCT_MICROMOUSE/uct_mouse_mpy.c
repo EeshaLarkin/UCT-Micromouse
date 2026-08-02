@@ -6,6 +6,10 @@ extern volatile bool mouse_initialized;
 extern void initMicroMouse(void);
 
 static mp_obj_t mpy_uct_mouse_init(void) {
+    if (mouse_initialized) {
+        return mp_obj_new_int(1);
+    }
+
     // Disable I2C interrupts in the NVIC to prevent conflicts with polling-mode C-Kernel reads
     HAL_NVIC_DisableIRQ(I2C1_EV_IRQn);
     HAL_NVIC_DisableIRQ(I2C1_ER_IRQn);

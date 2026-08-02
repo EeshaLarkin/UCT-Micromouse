@@ -26,6 +26,14 @@ typedef struct {
     float v_batt;
     uint8_t btn1;
     uint8_t btn2;
+    float ax;
+    float ay;
+    float az;
+    float gx;
+    float gy;
+    float gz;
+    float current;
+    uint32_t bdcr;
 } KernelState_t;
 
 void kernel_init(void);

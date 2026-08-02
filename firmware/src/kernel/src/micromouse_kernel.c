@@ -22,6 +22,7 @@
 #include "SSD1306.h"
 // Expose Jesse's underlying global hardware variables
 extern float IMU_Gyro[3];
+extern float IMU_Accel[3];
 extern int16_t Vbattery;
 extern int16_t Current;
 
@@ -55,8 +56,8 @@ static char kernel_title[20] = "   Simulink       ";
 
 // Hardware-specific wiring polarities (1 = normal, -1 = reversed)
 // Standard differential drive usually requires one to be -1. Adjust as needed per physical board.
-static volatile int16_t polarity_l = 1;
-static volatile int16_t polarity_r = 1;
+static volatile int16_t polarity_l = -1;
+static volatile int16_t polarity_r = -1;
 
 // -------------------------------------------------------------
 // Telemetry Configuration Table
@@ -80,7 +81,12 @@ static const TelemetryField_t telemetry_table[] = {
     FIELD(ir_sl,  VAR_UINT16,    false), FIELD(ir_sr,  VAR_UINT16,    false),
     FIELD(lenc,   VAR_INT32,     true),  FIELD(renc,   VAR_INT32,     true),
     FIELD(gyro,   VAR_FLOAT_3DP, false), FIELD(v_batt, VAR_FLOAT_2DP, false),
-    FIELD(btn1,   VAR_UINT8,     false), FIELD(btn2,   VAR_UINT8,     false)
+    FIELD(btn1,   VAR_UINT8,     false), FIELD(btn2,   VAR_UINT8,     false),
+    FIELD(ax,      VAR_FLOAT_2DP, false), FIELD(ay,      VAR_FLOAT_2DP, false),
+    FIELD(az,      VAR_FLOAT_2DP, false), FIELD(gx,      VAR_FLOAT_2DP, false),
+    FIELD(gy,      VAR_FLOAT_2DP, false), FIELD(gz,      VAR_FLOAT_2DP, false),
+    FIELD(current, VAR_FLOAT_2DP, false),
+    FIELD(bdcr,    VAR_INT32,     false)
 };
 
 static const int num_telemetry_fields = sizeof(telemetry_table) / sizeof(telemetry_table[0]);
@@ -179,6 +185,11 @@ void kernel_parse_downlink(const char* rx_string) {
             extern void kernel_logger_dump(void);
             kernel_logger_dump();
         }
+        if (strstr(rx_string, "\"erase\":1") != NULL) {
+            extern HAL_StatusTypeDef ZD25WQ80C_ChipErase(void);
+            kernel_set_pwm(0, 0);
+            ZD25WQ80C_ChipErase();
+        }
     }
     else if (strstr(rx_string, "\"p\":") != NULL) {
         // Polling ping, handled implicitly
@@ -208,6 +219,14 @@ void kernel_snapshot_state(void) {
     current_state.v_batt = (float)Vbattery / 1000.0f; 
     current_state.btn1 = SW1.state;
     current_state.btn2 = SW2.state;
+    current_state.ax = IMU_Accel[0];
+    current_state.ay = IMU_Accel[1];
+    current_state.az = IMU_Accel[2];
+    current_state.gx = IMU_Gyro[0];
+    current_state.gy = IMU_Gyro[1];
+    current_state.gz = IMU_Gyro[2];
+    current_state.current = (float)Current;
+    current_state.bdcr = RCC->BDCR;
 }
 
 int kernel_generate_uplink(char* tx_buffer, int max_len) {

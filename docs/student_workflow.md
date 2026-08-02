@@ -157,16 +157,13 @@ If you are using the **MicroPython** engine instead of PikaScript, you can debug
   - **The Fix (VCP-Only Mode):** To prevent this, the firmware uses a *Hybrid Bootloader*. By default, the board boots in VCP-only mode (`pyb.usb_mode('VCP')`). The USB drive is **not** mounted on your PC, ensuring it cannot be corrupted by power loss or bumps.
   - **Accessing the USB Drive (VCP+MSC Mode):** If you need to mount the internal flash drive (`UCT_MMOUSE`) to drag and drop files directly, **hold down the User Button (SW1 / Pin PE6) while powering on or resetting the board**. It will boot in dual VCP+MSC mode.
   - **Manual Serial Port:** You can deploy code over the ST-Link Virtual COM Port (instead of OTG) using the manual `--port` parameter in the deployer script (e.g., `python tools/deploy.py -e micropython -s python/main.py --port /dev/cu.usbmodem11303`).
-  - **Recovery from Corruption:** If your filesystem is already corrupted and the board fails to boot:
-    1. Erase the entire flash chip to clear the corrupted FAT sectors:
+  - **Recovery from Corruption:** If your filesystem is already corrupted, or you wish to start from a completely uniform blank slate:
+    1. Run the central factory reset utility from your terminal:
        ```bash
-       st-flash erase
+       python tools/factory_reset.py --engine micropython
        ```
-    2. Write the compiled MicroPython binary back onto the board:
-       ```bash
-       st-flash write firmware/binaries/micropython.bin 0x08000000
-       ```
-    3. The board will reboot, auto-format the filesystem partition with a clean FAT table, and mount successfully.
+    2. The script will automatically trigger a chip erase command on the external SPI flash, wipe the internal STM32 flash, and reflash a clean MicroPython binary.
+    3. On the next boot, the board will automatically detect the clean SPI flash, format a new FAT partition structure, and populate the default `boot.py` and `main.py` files.
 
 ### Telemetry Log Extraction (Anti-Cheat & Offline Tuning)
 The microcontroller automatically logs run telemetry (motor PWM inputs, sensor distance values, encoder counts, and gyroscope angles) at 25 Hz to its external SPI flash.

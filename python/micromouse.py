@@ -34,7 +34,15 @@ class Micromouse:
             "gyro": 0.0,
             "v_batt": 0.0,
             "btn1": 0,
-            "btn2": 0
+            "btn2": 0,
+            "ax": 0.0,
+            "ay": 0.0,
+            "az": 0.0,
+            "gx": 0.0,
+            "gy": 0.0,
+            "gz": 0.0,
+            "current": 0.0,
+            "bdcr": 0
         }
         self.last_packet = {}
         self.tracked_deltas = set()
@@ -57,6 +65,12 @@ class Micromouse:
             else:
                 # Absolute Update
                 self.shadow[key] = value
+
+        if "v_batt" in self.shadow:
+            v = self.shadow["v_batt"]
+            # Assuming a 1S LiPo battery (empty at 3.3V, full at 4.2V)
+            pct = int((v - 3.3) / (4.2 - 3.3) * 100) if v > 3.0 else 0
+            self.shadow["battery_pct"] = max(0, min(100, pct))
 
     def find_serial_port(self):
         """Finds the ST-Link or MicroPython Virtual COM Port cross-platform."""

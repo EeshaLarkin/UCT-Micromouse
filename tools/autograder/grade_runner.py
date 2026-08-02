@@ -98,6 +98,22 @@ def main():
         write_results(0.0, f"System Error: Failed to load test suite for assignment '{assignment_name}': {e}")
         return
 
+    # Early exit for Milestone 0 (log submission only, no simulator needed)
+    if assignment_name == "milestone0_verification":
+        print("[Grader] Milestone 0 log evaluation track detected.")
+        try:
+            log_path = os.path.join(SUBMISSION_DIR, "run_log.jsonl")
+            if not os.path.exists(log_path):
+                # Scan for any .jsonl file in the submission folder as fallback
+                candidates = glob.glob(os.path.join(SUBMISSION_DIR, "*.jsonl"))
+                if candidates:
+                    log_path = candidates[0]
+            score, feedback = test_suite.evaluate_log(log_path)
+            write_results(score, feedback, "Milestone 0 Evaluation")
+        except Exception as e:
+            write_results(0.0, f"Grading Error: Failed to evaluate log submission: {e}", "Milestone 0 Evaluation")
+        return
+
     # 3. Detect submission track (Simulink vs Python)
     print(f"[Grader] Scanning submission directory: {SUBMISSION_DIR}")
     

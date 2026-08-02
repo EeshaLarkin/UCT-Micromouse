@@ -1,4 +1,4 @@
-# **M0: EEE3097/8/9S Course Handbook & Project Specifications**
+# **EEE3097/8/9S Course Handbook & Project Specifications**
 
 **Course:** EEE3097/8/9S (2026)  
 **Project:** Autonomous Micromouse Robotic Maze Solver
@@ -29,6 +29,7 @@ To pass the course and meet ECSA Graduate Attribute 3 (Design) requirements, you
 ### **Project Reference Documentation:**
 If you need assistance or technical reference details at any stage of the project, refer to the following developer and setup guides located in the `/docs/` directory:
 
+*   **[Milestone 0: Hardware Verification Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/submission0_milestone0_verification.md):** A step-by-step guide to confirm your physical build is functional, test sensors, and verify telemetry connections.
 *   **[Student Workflow Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md):** Walks you through setting up Python or Simulink environments, testing algorithms in co-simulation, flashing the physical board over USB, and debugging via the interactive serial REPL console.
 *   **[Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md):** The primary reference for the high-level Python API (`uct_mouse` module) methods, OLED display configurations, and line sensor bindings.
 *   **[Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md):** Covers Simulink template path setups, C-Coder compilation hooks, and automatic Pygame co-simulation socket mappings.
@@ -93,15 +94,22 @@ To facilitate updates to the core repository without overwriting your progress, 
 
 ## **5. Chronological Submissions & Detailed Assessment Rubrics**
 
-To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you must complete **four primary submissions** in chronological order:
+To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you must complete **four primary graded submissions** (and one initial build prerequisite) in chronological order:
+
+### **Prerequisite: Milestone 0 Build Verification (0%)**
+*   **Task:** Complete the physical assembly of your mouse, power on the board, and verify that the sensors, motors, encoders, and live telemetry are fully functioning.
+*   **Verification:** Run the telemetry extraction utility (`python tools/dump_logs.py`) and confirm telemetry logs can be retrieved over the serial interface. Refer to the [Milestone 0: Hardware Verification Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/submission0_milestone0_verification.md) for detailed instructions.
 
 ### **Submission 1: Milestone 1 Code & Demo (25%)**
 *   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
-*   **Assessment & Grading Metric:** Graded proportionally based on the Euclidean error distance ($d_e$) from the starting point $(0,0)$ at the end of the run:
-    *   **100%:** Excellent feedback control ($d_e \le 5\text{ cm}$).
-    *   **75%:** Good tracking control ($5\text{ cm} < d_e \le 15\text{ cm}$).
-    *   **60%:** Baseline pass ($15\text{ cm} < d_e \le 30\text{ cm}$).
-    *   *Note:* The autograder applies motor asymmetry ($\pm 10\%$) and wheel slip perturbations in co-simulation to verify active control.
+*   **Assessment & Grading Metric:** The milestone mark is split as **60% Autograded Trajectory**, **30% Tutor Physical Run Evaluation**, and **10% Submission Compliance** (proper files and student card shown). 
+    *   *Autograder Score (100 pts max):* Checked in co-simulation. Completes automatically when the mouse stops for 3.0s:
+        *   **Progression (60 pts max):** 20 pts per corner reached sequentially clockwise (Corner 1, 2, and 3).
+        *   **Return Bonus (20 pts):** Stops within 30 cm of start.
+        *   **Return Accuracy (20 pts max):** Scales continuously down to 0 pts at 30 cm error.
+        *   *Penalties:* -10 pts for timeout (45s limit); Wall contact immediately halts the simulation, naturally capping the score based on progress before contact. No additional numerical collision penalties are subtracted.
+    *   *Physical Run (30%):* Tutor evaluation of video run performance, turning accuracy, and floor stability.
+    *   *Compliance (10%):* Legible 3s student card close-up (5%) and code-telemetry log zip formatting (5%).
 
 ### **Submission 2: GA3 Design Report 1 (20%)**
 *   **Task:** Submit a formal engineering design report (in PDF format) documenting your closed-loop feedback controller, velocity synchronization, or heading alignment designs from Milestone 1.
@@ -114,10 +122,16 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 
 ### **Submission 4: Final Maze Solver Code & Demo (25%)**
 *   **Task:** Navigate a virtual/physical mouse to explore a 4x6 grid maze, map wall configurations, compute the shortest path, and run from start to target at high speed.
-*   **Assessment & Grading Metric:** Graded proportionally:
-    $$\text{Score} = 0.5 \cdot (\% \text{ cells visited}) + 0.5 \cdot (\% \text{ walls mapped}) - \text{penalties}$$
-    *   *Collision Tolerance:* Hitting a wall does **not** result in a 0%. The simulation halts, and you receive the score accrued before the collision, minus a $-10\%$ penalty.
-    *   *Bonus:* Extra marks are awarded for successfully planning and executing a high-speed solving run to the target cell.
+*   **Assessment & Grading Metric:** The milestone mark is split as **60% Autograded Trajectory**, **30% Tutor Physical Run Evaluation**, and **10% Submission Compliance** (proper files and student card shown).
+    *   *Autograder Score (100 pts max):* Checked in procedurally generated mazes. Completes automatically when the mouse stops for 3.0s:
+        *   **Exploration Progress (80 pts max):** Graded proportionally based on the closest distance achieved to the maze center zone $(1.0, 1.0)$. Reaching the center zone awards the full 80 pts.
+        *   **Speed Run Bonus (20 pts max):** Unlocked if center is reached. Scales continuously from 20 pts (time $\le 30$s) to 0 pts (time $\ge 90$s).
+        *   *Penalties:* -10 pts for timeout (90s limit); Wall contact immediately halts the simulation, naturally capping the score.
+    *   *Physical Run (30%):* Tutor evaluation of active wall-centering, mapping, shortest-path solving, and speed run.
+    *   *Compliance (10%):* Legible 3s student card close-up (5%) and code-telemetry log zip formatting (5%).
+
+*   *Note on Grading Thresholds:* The grading thresholds, coefficients, and parameter metrics detailed in this handbook serve as baseline targets. Course staff reserve the right to tailor or adjust specific parameters post-submission to ensure final grades remain highly representative of actual design and hardware performance.
+
 
 ---
 

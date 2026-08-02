@@ -39,17 +39,18 @@ When deploying to a physical differential-drive mouse:
 
 ---
 
-## 📚 Documentation Index
+## 📚 Master Documentation Index
 
-Detailed guides and specifications are available in the [docs/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/) directory:
-*   [Primary Student Handbook](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_M0_Handbook_2026.md) ([PDF version](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_M0_Handbook_2026.pdf)): The master guidelines, project tasks, and grading/compliance criteria.
-*   [Course Plan](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/course_plan_2026.md): Academic year schedule and milestones timeline.
-*   [Project Workflow & Setup](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md): Step-by-step instructions on setting up your workspace, running the simulator, and deploying code.
-*   [Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md): C-Caller blocks mapping, PC build compilation, and desktop co-simulation loopbacks.
-*   [Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md): C-Kernel architecture overview, telemetry design, and the high-level Python API.
-*   [Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md): Pin configurations, motor polarity calibration, and baud-rate clock diagnostics.
-*   [Assembly Guides & Schematics](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assembly/): Detailed hardware assembly instructions, videos, and PCB schematics.
-*   [Milestone & Assignment Specs](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/): Complete instructions and guidelines for milestones, reports, and final demonstrations.
+All `.md` (Markdown) files in this repository are the **definitive master sources** of truth for this course. PDF files provided on D2L (Amathuba) are generated directly from these documents. 
+
+### How to Read Markdown Files
+*   **In VS Code:** Open any `.md` file and press **`Ctrl+Shift+V`** (or **`Cmd+Shift+V`** on macOS) to open the rich styled preview.
+*   **In a Browser:** Install the *Markdown Viewer* extension for Chrome/Firefox to open local `.md` files directly in your browser.
+
+A complete, detailed index of all project guides is located in the **[Documentation Index (docs/README.md)](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/README.md)**. Key quick links include:
+*   [Primary Student Handbook](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_Course_Handbook_2026.md) ([PDF version](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_Course_Handbook_2026.pdf)): The master guidelines, ECSA compliance criteria, and graded milestone rubrics.
+*   [Milestone 0: Hardware Verification Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/submission0_milestone0_verification.md): Physical assembly, verification checks, and telemetry setup.
+*   [Project Workflow & Setup](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md): Setup environment, simulation execution, and VCP code flashing.
 
 ---
 
