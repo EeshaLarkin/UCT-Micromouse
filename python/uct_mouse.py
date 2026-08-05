@@ -313,6 +313,11 @@ def get_line_sensors():
     s = _mouse.get_sensors()
     return s.get('ir_fl', 0), s.get('ir_fr', 0), s.get('ir_sl', 0), s.get('ir_sr', 0)
 
+def get_button():
+    """Returns the state of the user button SW1 (btn1)."""
+    s = _mouse.get_sensors()
+    return s.get('btn1', 0)
+
 def dump_logs():
     """Triggers telemetry log dump over VCP (ignored on PC)."""
     pass
