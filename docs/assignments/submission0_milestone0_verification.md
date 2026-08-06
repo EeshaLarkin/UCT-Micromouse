@@ -121,6 +121,9 @@ To verify all sensors (ToF, Gyro, Encoders, Battery) and actuate the motors, use
 
 To confirm your milestone completion, register your hardware, and prime your account for future autograded submissions, you must submit your telemetry log file:
 
+> [!IMPORTANT]
+> **Telemetry Logging Trigger**: To conserve flash memory, the C-Kernel only activates logging once the motors are commanded to spin for the first time (`PWM != 0`). If you attempt to dump logs immediately after booting without having spun the wheels (either using the keyboard dashboard or by running a motor script), the extractor will return `Saved 0 log records`. Ensure the wheels are actuated at least once before running the dump tool.
+
 1.  With the mouse still connected via the ST-Link USB cable, run the log extraction tool from the project root:
     ```bash
     python tools/dump_logs.py
