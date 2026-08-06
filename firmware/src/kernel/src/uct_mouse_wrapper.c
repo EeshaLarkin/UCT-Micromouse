@@ -105,3 +105,7 @@ int uct_mouse_get_button(PikaObj *self) {
     // SW1 is on PE6, active low
     return (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_6) == GPIO_PIN_RESET) ? 1 : 0;
 }
+
+void uct_mouse_log_custom(PikaObj *self, char *json_str) {
+    kernel_logger_write_custom(json_str);
+}

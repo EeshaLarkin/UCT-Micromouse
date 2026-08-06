@@ -102,6 +102,15 @@ static void append_to_log(const char *str) {
     }
 }
 
+void kernel_logger_write_custom(const char *json_str) {
+    if (!logging_active) {
+        logging_active = true;
+        kernel_logger_init();
+    }
+    append_to_log(json_str);
+    append_to_log("\n");
+}
+
 void kernel_logger_init(void) {
     if (!flash.initialized) {
         initZD25WQ80C();

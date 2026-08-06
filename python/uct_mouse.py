@@ -318,6 +318,10 @@ def get_button():
     s = _mouse.get_sensors()
     return s.get('btn1', 0)
 
+def log_custom(json_str):
+    """Logs a custom JSON string (prints to stdout on PC; writes to flash on mouse)."""
+    print(f"[LOG_CUSTOM] {json_str}")
+
 def dump_logs():
     """Triggers telemetry log dump over VCP (ignored on PC)."""
     pass

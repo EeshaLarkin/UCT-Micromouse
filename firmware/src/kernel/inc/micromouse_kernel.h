@@ -58,5 +58,6 @@ void kernel_set_oled_line1(const char* text);
 void kernel_set_oled_line2(const char* text);
 void kernel_set_oled_line3(const char* text);
 void kernel_set_oled_line4(const char* text);
+void kernel_logger_write_custom(const char* json_str);
 
 #endif // MICROMOUSE_KERNEL_H

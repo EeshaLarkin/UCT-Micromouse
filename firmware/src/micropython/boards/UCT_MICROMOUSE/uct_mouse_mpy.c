@@ -189,6 +189,15 @@ static mp_obj_t mpy_uct_mouse_get_telemetry(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_telemetry_obj, mpy_uct_mouse_get_telemetry);
 
+// 7e. uct_mouse.log_custom(json_str)
+static mp_obj_t mpy_uct_mouse_log_custom(mp_obj_t str_obj) {
+    const char *str = mp_obj_str_get_str(str_obj);
+    extern void kernel_logger_write_custom(const char* json_str);
+    kernel_logger_write_custom(str);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(mpy_uct_mouse_log_custom_obj, mpy_uct_mouse_log_custom);
+
 // Define module globals table
 static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_uct_mouse) },
@@ -203,6 +212,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_line_sensors), MP_ROM_PTR(&mpy_uct_mouse_get_line_sensors_obj) },
     { MP_ROM_QSTR(MP_QSTR_dump_logs),    MP_ROM_PTR(&mpy_uct_mouse_dump_logs_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_telemetry), MP_ROM_PTR(&mpy_uct_mouse_get_telemetry_obj) },
+    { MP_ROM_QSTR(MP_QSTR_log_custom),   MP_ROM_PTR(&mpy_uct_mouse_log_custom_obj) },
 };
 static MP_DEFINE_CONST_DICT(uct_mouse_module_globals, uct_mouse_module_globals_table);
 
