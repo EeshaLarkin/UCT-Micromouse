@@ -201,6 +201,11 @@ int main(void) {
         python_code = student_python_code;
     }
     
+    // Turn off boot diagnostic LEDs to start the python application with a clean slate
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
     // Execute the Python script natively!
     obj_run(pikaMain, (char*)python_code);
     

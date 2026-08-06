@@ -13,6 +13,7 @@
 
 extern UART_HandleTypeDef huart1;
 extern ZD25WQ80C_t flash;
+void kernel_logger_init(void);
 
 static uint8_t log_page_buf[LOG_PAGE_SIZE];
 static uint16_t log_page_idx = 0;

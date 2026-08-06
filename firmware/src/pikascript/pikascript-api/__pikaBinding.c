@@ -4026,6 +4026,15 @@ method_typedef(
     "init", ""
 );
 
+void uct_mouse_log_customMethod(PikaObj *self, Args *_args_){
+    char* json_str = args_getStr(_args_, "json_str");
+    uct_mouse_log_custom(self, json_str);
+}
+method_typedef(
+    uct_mouse_log_custom,
+    "log_custom", "json_str"
+);
+
 void uct_mouse_set_ledMethod(PikaObj *self, Args *_args_){
     int led_idx = args_getInt(_args_, "led_idx");
     int state = args_getInt(_args_, "state");
@@ -4068,6 +4077,7 @@ class_def(uct_mouse){
     method_def(uct_mouse_get_button, 1457009472),
     method_def(uct_mouse_get_encoders, 1872202775),
     method_def(uct_mouse_get_tof, 1886405933),
+    method_def(uct_mouse_log_custom, 2061909953),
     method_def(uct_mouse_init, 2090370361),
     method_def(uct_mouse_get_gyro, 2121397861),
 };
