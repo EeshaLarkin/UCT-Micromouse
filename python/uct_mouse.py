@@ -322,6 +322,10 @@ def log_custom(json_str):
     """Logs a custom JSON string (prints to stdout on PC; writes to flash on mouse)."""
     print(f"[LOG_CUSTOM] {json_str}")
 
+def get_ticks_ms():
+    """Returns elapsed time in milliseconds."""
+    return int(time.time() * 1000)
+
 def dump_logs():
     """Triggers telemetry log dump over VCP (ignored on PC)."""
     pass

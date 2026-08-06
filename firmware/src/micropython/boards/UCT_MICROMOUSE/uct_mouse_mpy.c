@@ -198,6 +198,12 @@ static mp_obj_t mpy_uct_mouse_log_custom(mp_obj_t str_obj) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(mpy_uct_mouse_log_custom_obj, mpy_uct_mouse_log_custom);
 
+// 7f. uct_mouse.get_ticks_ms() -> int
+static mp_obj_t mpy_uct_mouse_get_ticks_ms(void) {
+    return mp_obj_new_int(HAL_GetTick());
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_ticks_ms_obj, mpy_uct_mouse_get_ticks_ms);
+
 // Define module globals table
 static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_uct_mouse) },
@@ -213,6 +219,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_dump_logs),    MP_ROM_PTR(&mpy_uct_mouse_dump_logs_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_telemetry), MP_ROM_PTR(&mpy_uct_mouse_get_telemetry_obj) },
     { MP_ROM_QSTR(MP_QSTR_log_custom),   MP_ROM_PTR(&mpy_uct_mouse_log_custom_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_ticks_ms), MP_ROM_PTR(&mpy_uct_mouse_get_ticks_ms_obj) },
 };
 static MP_DEFINE_CONST_DICT(uct_mouse_module_globals, uct_mouse_module_globals_table);
 

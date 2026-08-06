@@ -109,3 +109,7 @@ int uct_mouse_get_button(PikaObj *self) {
 void uct_mouse_log_custom(PikaObj *self, char *json_str) {
     kernel_logger_write_custom(json_str);
 }
+
+int uct_mouse_get_ticks_ms(PikaObj *self) {
+    return (int)HAL_GetTick();
+}
