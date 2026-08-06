@@ -34,6 +34,7 @@ extern void MX_NVIC_Init(void);
 extern void MX_ADC1_Init(void);
 extern void MX_I2C1_Init(void);
 extern void MX_I2C2_Init(void);
+extern void MX_SPI2_Init(void);
 
 extern void initMicroMouse(void);
 extern void SystemClock_Config(void);
@@ -144,6 +145,7 @@ int main(void) {
     MX_TIM5_Init();
     MX_TIM7_Init();
     MX_USART1_UART_Init();
+    MX_SPI2_Init();
     MX_NVIC_Init();
 
     huart1.Instance = USART1;
