@@ -116,9 +116,26 @@ void kernel_logger_init(void) {
     if (!flash.initialized) {
         initZD25WQ80C();
     }
-    log_write_addr = LOGGER_PARTITION_START;
+    
+    // Scan the flash partition to find where the previous log ended (to recover from resets)
+    uint32_t addr = LOGGER_PARTITION_START;
+    uint8_t first_char = 0;
+    while (addr < LOGGER_PARTITION_MAX) {
+        if (ZD25WQ80C_Read(addr, &first_char, 1) == HAL_OK) {
+            // An empty/erased flash page starts with 0xFF. 
+            // If we find 0xFF, it means this page is unused, so the log ended in the previous page.
+            if (first_char == 0xFF) {
+                break;
+            }
+        } else {
+            break;
+        }
+        addr += LOG_PAGE_SIZE;
+    }
+    
+    log_write_addr = addr;
     log_page_idx = 0;
-    header_written = false;
+    header_written = (log_write_addr > LOGGER_PARTITION_START);
     logging_active = false;
 }
 
@@ -128,7 +145,10 @@ void kernel_logger_tick(void) {
     if (!logging_active) {
         if (s->left_pwm != 0 || s->right_pwm != 0) {
             logging_active = true;
-            kernel_logger_init(); // Reset logging pointers to start fresh
+            // Force reset log partition pointers to start fresh on a new run
+            log_write_addr = LOGGER_PARTITION_START;
+            log_page_idx = 0;
+            header_written = false;
         } else {
             return; // Stay idle
         }
