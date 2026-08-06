@@ -65,3 +65,7 @@ void serial_interface_rx_callback(UART_HandleTypeDef *huart) {
         HAL_UART_Receive_IT(kernel_huart, &rx_byte, 1);
     }
 }
+
+UART_HandleTypeDef* serial_interface_get_huart(void) {
+    return kernel_huart;
+}

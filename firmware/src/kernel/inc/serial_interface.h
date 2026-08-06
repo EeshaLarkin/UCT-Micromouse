@@ -6,5 +6,6 @@
 void serial_interface_init(UART_HandleTypeDef *huart);
 void serial_interface_tick(void);
 void serial_interface_rx_callback(UART_HandleTypeDef *huart);
+UART_HandleTypeDef* serial_interface_get_huart(void);
 
 #endif // SERIAL_INTERFACE_H

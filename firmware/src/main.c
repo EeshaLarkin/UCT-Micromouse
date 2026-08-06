@@ -5,6 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 
+// Uncomment this to route telemetry over Wi-Fi (ESP32 on UART4) instead of USART1 (USB debug)
+//#define USE_WIFI_TELEMETRY 1
+
+#ifdef USE_WIFI_TELEMETRY
+UART_HandleTypeDef huart4;
+#endif
+
 #ifdef COMPILING_FOR_PIKASCRIPT
 #include "pikaScript.h"
 #if __has_include("student_code.h")
@@ -183,7 +190,13 @@ int main(void) {
     raw_uart_print("Micromouse Hardware Initialized.\r\n");
 
     // 5. Start Delta-Shadow Network Proxy
+#ifdef USE_WIFI_TELEMETRY
+    extern void MX_UART4_Init(void);
+    MX_UART4_Init();
+    serial_interface_init(&huart4);
+#else
     serial_interface_init(&huart1);
+#endif
 
 #ifdef COMPILING_FOR_PIKASCRIPT
     // Give the PC Serial Monitor time to connect before Python starts shouting!
@@ -256,6 +269,45 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 void USART1_IRQHandler(void) {
     HAL_UART_IRQHandler(&huart1);
 }
+
+#ifdef USE_WIFI_TELEMETRY
+void UART4_IRQHandler(void) {
+    HAL_UART_IRQHandler(&huart4);
+}
+
+void MX_UART4_Init(void) {
+    // 1. Enable peripheral clocks
+    __HAL_RCC_UART4_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    // 2. Configure GPIO pins PA0 (TX) and PA1 (RX)
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_UART4;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    // 3. Initialize UART4 peripheral handle
+    huart4.Instance = UART4;
+    huart4.Init.BaudRate = 115200;
+    huart4.Init.WordLength = UART_WORDLENGTH_8B;
+    huart4.Init.StopBits = UART_STOPBITS_1;
+    huart4.Init.Parity = UART_PARITY_NONE;
+    huart4.Init.Mode = UART_MODE_TX_RX;
+    huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+    huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+    huart4.AdvancedInit.AdcPinSelection = UART_ADVFEATURE_ADC_DAD_ENABLE;
+    
+    HAL_UART_Init(&huart4);
+
+    // 4. Configure NVIC for UART4 Interrupt
+    HAL_NVIC_SetPriority(UART4_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(UART4_IRQn);
+}
+#endif
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     // Hijack TIM6 to advance HAL timebase while muting legacy ghost telemetry

@@ -35,6 +35,9 @@ def attempt_dump(port, baudrate):
         print(f"Error opening serial port: {e}")
         return None
 
+    # Wait for STM32 and USB driver to boot fully after the DTR reset
+    time.sleep(2.5)
+
     # Clear input buffer of any active telemetry streams
     ser.reset_input_buffer()
     

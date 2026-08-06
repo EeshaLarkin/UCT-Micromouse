@@ -23,6 +23,7 @@ int uct_mouse_get_button(PikaObj *self);
 PikaObj* uct_mouse_get_encoders(PikaObj *self);
 pika_float uct_mouse_get_gyro(PikaObj *self);
 PikaObj* uct_mouse_get_line_sensors(PikaObj *self);
+int uct_mouse_get_ticks_ms(PikaObj *self);
 PikaObj* uct_mouse_get_tof(PikaObj *self);
 pika_float uct_mouse_get_vbatt(PikaObj *self);
 int uct_mouse_init(PikaObj *self);

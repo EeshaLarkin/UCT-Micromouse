@@ -11,7 +11,7 @@
 #define LOG_PAGE_SIZE           256U
 #define LOG_SECTOR_SIZE         4096U
 
-extern UART_HandleTypeDef huart1;
+#include "serial_interface.h"
 extern ZD25WQ80C_t flash;
 void kernel_logger_init(void);
 
@@ -66,7 +66,10 @@ static uint32_t compute_code_hash(void) {
 }
 
 static void raw_logger_uart_print(const char *msg) {
-    HAL_UART_Transmit(&huart1, (uint8_t *)msg, (uint16_t)strlen(msg), 1000);
+    UART_HandleTypeDef* huart = serial_interface_get_huart();
+    if (huart != NULL) {
+        HAL_UART_Transmit(huart, (uint8_t *)msg, (uint16_t)strlen(msg), 1000);
+    }
 }
 
 // Ensures current sector is erased before writing
@@ -281,10 +284,13 @@ void kernel_logger_dump(void) {
     static uint8_t dump_buf[LOG_PAGE_SIZE];
     uint32_t current_addr = LOGGER_PARTITION_START;
     
+    UART_HandleTypeDef* huart = serial_interface_get_huart();
     while (current_addr < log_write_addr && current_addr < LOGGER_PARTITION_MAX) {
         if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
             // Stream raw data over UART to host console
-            HAL_UART_Transmit(&huart1, dump_buf, LOG_PAGE_SIZE, 1000);
+            if (huart != NULL) {
+                HAL_UART_Transmit(huart, dump_buf, LOG_PAGE_SIZE, 1000);
+            }
         }
         current_addr += LOG_PAGE_SIZE;
     }

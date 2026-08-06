@@ -3999,6 +3999,15 @@ method_typedef(
     "get_line_sensors", ""
 );
 
+void uct_mouse_get_ticks_msMethod(PikaObj *self, Args *_args_){
+    int res = uct_mouse_get_ticks_ms(self);
+    method_returnInt(_args_, res);
+}
+method_typedef(
+    uct_mouse_get_ticks_ms,
+    "get_ticks_ms", ""
+);
+
 void uct_mouse_get_tofMethod(PikaObj *self, Args *_args_){
     PikaObj* res = uct_mouse_get_tof(self);
     method_returnObj(_args_, res);
@@ -4073,6 +4082,7 @@ class_def(uct_mouse){
     method_def(uct_mouse_delay_ms, 657511251),
     method_def(uct_mouse_dump_logs, 1066456367),
     method_def(uct_mouse_set_polarity, 1121395780),
+    method_def(uct_mouse_get_ticks_ms, 1179620097),
     method_def(uct_mouse_get_vbatt, 1303596709),
     method_def(uct_mouse_get_button, 1457009472),
     method_def(uct_mouse_get_encoders, 1872202775),
