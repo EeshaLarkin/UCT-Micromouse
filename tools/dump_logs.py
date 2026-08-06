@@ -27,28 +27,18 @@ def detect_port():
     print("[Port Detector] Error: No compatible serial device detected!")
     return None
 
-def main():
-    parser = argparse.ArgumentParser(description="UCT Micromouse Serial Log Extractor")
-    parser.add_argument("-p", "--port", help="Serial port of the mouse (auto-detected if omitted)")
-    parser.add_argument("-o", "--output", default="run_log.jsonl", help="Output file path (default: run_log.jsonl)")
-    args = parser.parse_args()
-
-    port = args.port or detect_port()
-    if not port:
-        sys.exit(1)
-
-    print(f"Connecting to {port}...")
+def attempt_dump(port, baudrate):
+    print(f"Connecting to {port} at {baudrate} baud...")
     try:
-        ser = serial.Serial(port, 115200, timeout=2.0)
+        ser = serial.Serial(port, baudrate, timeout=1.0)
     except Exception as e:
         print(f"Error opening serial port: {e}")
-        sys.exit(1)
+        return None
 
     # Clear input buffer of any active telemetry streams
     ser.reset_input_buffer()
     
     # Exiting raw REPL if MicroPython is locked up
-    print("Exiting raw REPL if locked...")
     ser.write(b'\x02') 
     time.sleep(0.2)
     ser.reset_input_buffer()
@@ -63,7 +53,7 @@ def main():
     started = False
     finished = False
     start_time = time.time()
-    timeout = 10.0 # 10s max read timeout
+    timeout = 8.0 # 8s max read timeout for this attempt
 
     while time.time() - start_time < timeout:
         try:
@@ -86,30 +76,43 @@ def main():
                 line_clean = line.strip()
                 if line_clean:
                     lines.append(line_clean)
-        except KeyboardInterrupt:
-            print("Capture interrupted by user.")
-            break
         except Exception as e:
             print(f"Error reading stream: {e}")
             break
 
     ser.close()
+    
+    if started and finished:
+        return lines
+    return None
 
-    if not started:
-        print("Error: Log dump never started. Make sure the mouse is powered on and flashed with the C-Kernel.")
+def main():
+    parser = argparse.ArgumentParser(description="UCT Micromouse Serial Log Extractor")
+    parser.add_argument("-p", "--port", help="Serial port of the mouse (auto-detected if omitted)")
+    parser.add_argument("-o", "--output", default="run_log.jsonl", help="Output file path (default: run_log.jsonl)")
+    args = parser.parse_args()
+
+    port = args.port or detect_port()
+    if not port:
         sys.exit(1)
-        
-    if not finished:
-        print("Warning: Log dump capture timed out before seeing end marker.")
+
+    # Try standard 115200 baud first
+    lines = attempt_dump(port, 115200)
+    
+    # If 115200 fails, try the 72 MHz silicon outlier fallback at 103680 baud
+    if lines is None:
+        print("[Baud Sweep] 115200 baud timed out. Attempting 72 MHz silicon outlier fallback at 103680 baud...")
+        lines = attempt_dump(port, 103680)
+
+    if lines is None:
+        print("Error: Log dump failed. Make sure the mouse is powered on, flashed with the C-Kernel, and the correct port is selected.")
+        sys.exit(1)
 
     # Write captured telemetry lines to output file
-    if lines:
-        with open(args.output, "w") as f:
-            for l in lines:
-                f.write(l + "\n")
-        print(f"Saved {len(lines)} log records to: {args.output}")
-    else:
-        print("No log records captured.")
+    with open(args.output, "w") as f:
+        for l in lines:
+            f.write(l + "\n")
+    print(f"Saved {len(lines)} log records to: {args.output}")
 
 if __name__ == "__main__":
     main()
