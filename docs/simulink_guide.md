@@ -8,7 +8,7 @@ This document describes how to use MATLAB/Simulink for development on the UCT Mi
 
 To prevent compiled artifacts and cache folders from polluting the repository root, all simulation and code generation paths are dynamically redirected:
 
-*   **`startup.m` (Root-Level):** Must be run when opening MATLAB in the project root. It automatically sets the MATLAB search path and configures the Simulink file generation folders to output strictly to `firmware/build/slprj/` and `firmware/build/UCT_KDeploy_ert_rtw/`.
+*   **`startup.m` (under `matlab/`):** Must be run when opening MATLAB. Navigate into the `matlab/` directory and run `startup.m`. It automatically sets the MATLAB search path and configures the Simulink file generation folders to output strictly to `build/slprj/` and `build/UCT_KDeploy_ert_rtw/`.
 *   **Models Path:** All templates and models reside under [matlab/simulink/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab/simulink).
 
 ---

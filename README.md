@@ -12,7 +12,7 @@ This repository provides a complete, visual desktop simulation testbed and hardw
 
 You can run your control algorithms in interactive desktop co-simulation in under a minute:
 
-1. **Initialize the Workspace**: Open MATLAB in the project root directory and run `startup.m`. This adds the required folders to the MATLAB search path and configures cache/build directories.
+1. **Initialize the Workspace**: Open MATLAB and navigate into the `matlab/` folder, then run `startup.m`. This adds the required folders to the MATLAB search path and configures cache/build directories.
 2. **Open the Model**: Navigate to `matlab/simulink/` and open `StudentTemplate.slx`.
 3. **Run the Simulation**: Click the **Run** button in the Simulink toolbar. The 2D Pygame-based maze physics simulator will launch automatically in a background task, showing your virtual mouse traversing the maze.
 4. **Iterate**: Modifying your controller in Simulink updates the mouse behavior dynamically in the visual simulator window. Clicking **Stop** in Simulink automatically closes the visualization window.

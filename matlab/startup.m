@@ -3,7 +3,10 @@ function startup()
     
     disp('Initializing UCT-Micromouse MATLAB/Simulink environment...');
     
-    projectRoot = pwd;
+    % Find the absolute parent repository root based on this script's location
+    mfilePath = mfilename('fullpath');
+    matlabDir = fileparts(mfilePath);
+    projectRoot = fileparts(matlabDir);
     
     % Add essential directories to the MATLAB path
     addpath(fullfile(projectRoot, 'matlab', 'simulink'));
