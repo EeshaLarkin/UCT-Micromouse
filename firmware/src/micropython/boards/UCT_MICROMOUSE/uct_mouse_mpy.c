@@ -229,3 +229,14 @@ const mp_obj_module_t uct_mouse_module = {
     .globals = (mp_obj_dict_t *)&uct_mouse_module_globals,
 };
 MP_REGISTER_MODULE(MP_QSTR_uct_mouse, uct_mouse_module);
+
+// Linker wrapper to hijack TIM4 interrupt handler without editing stock MicroPython stm32_it.c
+#include "stm32l4xx_hal.h"
+void __real_TIM4_IRQHandler(void);
+void __wrap_TIM4_IRQHandler(void) {
+    __real_TIM4_IRQHandler(); // Call stock MicroPython handler
+    
+    // Call our custom HAL encoder tick handler
+    extern TIM_HandleTypeDef htim4;
+    HAL_TIM_IRQHandler(&htim4);
+}

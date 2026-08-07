@@ -76,6 +76,7 @@ set(COMMON_SOURCES
 )
 
 set(COMMON_INCLUDES
+    src/kernel/inc
     ${TEMPLATE_DIR}/Core/Inc
     ${TEMPLATE_DIR}/USB_DEVICE/App
     ${TEMPLATE_DIR}/USB_DEVICE/Target
@@ -85,7 +86,6 @@ set(COMMON_INCLUDES
     ${TEMPLATE_DIR}/Drivers/CMSIS/Include
     ${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Inc
     ${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
-    src/kernel/inc
 )
 
 set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/STM32L476VETX_FLASH.ld")

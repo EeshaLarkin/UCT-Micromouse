@@ -38,4 +38,6 @@ SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_usart.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_dma.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_rcc.c
 
+LDFLAGS_EXTRA += -Wl,--wrap=TIM4_IRQHandler
+
 
