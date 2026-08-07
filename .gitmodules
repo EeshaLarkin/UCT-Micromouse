@@ -1,6 +1,6 @@
 [submodule "external/MicroMouseTemplate"]
 	path = external/MicroMouseTemplate
-	url = https://github.com/nicollsf/MicroMouseTemplate.git
+	url = https://github.com/JesseJabezArendse/MicroMouseTemplate.git
 [submodule "external/micropython"]
 	path = external/micropython
 	url = https://github.com/micropython/micropython.git
