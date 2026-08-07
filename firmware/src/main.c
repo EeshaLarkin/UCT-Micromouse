@@ -44,6 +44,7 @@ extern void MX_I2C2_Init(void);
 extern void MX_SPI2_Init(void);
 
 extern void initMicroMouse(void);
+extern void kernel_logger_init(void);
 extern void SystemClock_Config(void);
 
 // Expose the raw hardware polling functions to bypass Jesse's screen updates
@@ -172,6 +173,7 @@ int main(void) {
 
     // 4. Initialize Hardware Sensors & Actuators
     initMicroMouse();
+    kernel_logger_init();
 
     // Hardware LED verification test: Force all three LEDs ON at boot
     __HAL_RCC_GPIOA_CLK_ENABLE();

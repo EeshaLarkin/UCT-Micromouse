@@ -14,6 +14,9 @@
 #include "serial_interface.h"
 extern ZD25WQ80C_t flash;
 void kernel_logger_init(void);
+static void backup_write_log_addr(uint32_t addr);
+static void backup_invalidate_log(void);
+static uint32_t backup_read_log_addr(void);
 
 static uint8_t log_page_buf[LOG_PAGE_SIZE];
 static uint16_t log_page_idx = 0;
@@ -90,6 +93,8 @@ static void flush_log_page(void) {
             }
             ZD25WQ80C_PageProgram(log_write_addr, log_page_buf, LOG_PAGE_SIZE);
             log_write_addr += LOG_PAGE_SIZE;
+            // Persist pointer to Backup Domain register
+            backup_write_log_addr(log_write_addr);
         }
         log_page_idx = 0;
     }
@@ -115,28 +120,36 @@ void kernel_logger_write_custom(const char *json_str) {
     append_to_log("\n");
 }
 
+static void backup_write_log_addr(uint32_t addr) {
+    RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
+    PWR->CR1 |= PWR_CR1_DBP;
+    RTC->BKP0R = addr;
+    RTC->BKP1R = 0x12345678U;
+}
+
+static void backup_invalidate_log(void) {
+    RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
+    PWR->CR1 |= PWR_CR1_DBP;
+    RTC->BKP1R = 0;
+}
+
+static uint32_t backup_read_log_addr(void) {
+    // Enable PWR clock and disable backup domain write protection
+    RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
+    PWR->CR1 |= PWR_CR1_DBP;
+    if (RTC->BKP1R == 0x12345678U) {
+        return RTC->BKP0R;
+    }
+    return LOGGER_PARTITION_START;
+}
+
 void kernel_logger_init(void) {
     if (!flash.initialized) {
         initZD25WQ80C();
     }
     
-    // Scan the flash partition to find where the previous log ended (to recover from resets)
-    uint32_t addr = LOGGER_PARTITION_START;
-    uint8_t first_char = 0;
-    while (addr < LOGGER_PARTITION_MAX) {
-        if (ZD25WQ80C_Read(addr, &first_char, 1) == HAL_OK) {
-            // An empty/erased flash page starts with 0xFF. 
-            // If we find 0xFF, it means this page is unused, so the log ended in the previous page.
-            if (first_char == 0xFF) {
-                break;
-            }
-        } else {
-            break;
-        }
-        addr += LOG_PAGE_SIZE;
-    }
-    
-    log_write_addr = addr;
+    // Read recovered pointer from STM32 Backup Domain registers
+    log_write_addr = backup_read_log_addr();
     log_page_idx = 0;
     header_written = (log_write_addr > LOGGER_PARTITION_START);
     logging_active = false;
@@ -152,6 +165,7 @@ void kernel_logger_tick(void) {
             log_write_addr = LOGGER_PARTITION_START;
             log_page_idx = 0;
             header_written = false;
+            backup_write_log_addr(log_write_addr);
         } else {
             return; // Stay idle
         }
@@ -296,6 +310,6 @@ void kernel_logger_dump(void) {
     }
     
     raw_logger_uart_print("\r\n--- END LOG DUMP ---\r\n");
-    
+    backup_invalidate_log();
     __enable_irq();
 }
