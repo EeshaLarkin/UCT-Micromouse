@@ -2,7 +2,9 @@
 	path = external/MicroMouseTemplate
 	url = https://github.com/JesseJabezArendse/MicroMouseTemplate.git
 	branch = main
+	shallow = true
 [submodule "external/micropython"]
 	path = external/micropython
 	url = https://github.com/micropython/micropython.git
 	branch = master
+	shallow = true
