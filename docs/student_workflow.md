@@ -126,11 +126,28 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 - **The Semihosting File I/O Lockup:** PikaScript runs bare-metal without an operating system or file system.
   - **Warning:** Executing file operations in Python (like `open()`, `with open(...)`, etc.) calls C standard library filesystem hooks. These hooks trigger **Semihosting** by issuing an ARM breakpoint instruction (`BKPT 0xAB`), which halts the MCU immediately if no active debugger is listening. The serial interface will go completely silent (0 bytes transmitted).
   - **Rule:** Never use `open()` or file operations in Python scripts compiled for PikaScript deployment. All configuration constants (like polarity multipliers) must be hardcoded in Python code.
+- **PikaScript Compiler Ceilings & Syntax Quirks:** The on-chip PikaScript compiler (`obj_run`) is a lightweight interpreter with strict memory and parsing limitations. If your script violates these, the board will freeze silently on boot:
+
+  * **4 KB Script Size Limit:** Dynamic uploads flashed via the `--script-only` flag (Page 240) must be under **4.0 KB (4000 bytes)**. Exceeding this size overflows the dynamic compiler's static memory buffer, causing a silent crash during boot. If your code is larger, you must compile it directly into the C firmware binary using `python tools/deploy.py --engine pikascript` (omit `--script-only`), which compiles the code in your PC's memory space instead.
+  * **No Inline Colons:** One-liner conditionals like `if cond: stmt` are not supported. Always write blocks with the body indented on a new line.
+  * **Type Promotion:** PikaScript does not perform implicit type promotion (e.g. multiplying an `int` by a `float`). Mixed math operations like `step * dt` will hang the VM. Cast integers explicitly using `float(step)` or keep operations single-type.
+  * **Lists & Memory Heap:** Allocating list literals (`my_list = [...]`) and modifying them dynamically consumes significant heap memory. Keep lists small or use individual flat variables.
+  * **No Nested Loops:** Avoid nested iterators (loops inside loops) as they can corrupt the bytecode jump tables. Use simple, flat `while` loops instead.
 - **Timing and Loops:** When using Python, try to group your `set_motors()` calls to occur once per logical control loop. Placing multiple blocking calls or combining `set_motors()` and `delay_ms()` improperly can cause timing mismatches between simulation time steps and physical time.
 - **Motor Polarity:** If the mouse drives in reverse, verify that your software variables aren't flipped before assuming a hardware flaw.
 
 ### Debugging & Telemetry over ST-Link VCP
 When running the PikaScript or Simulink firmware on the silicon, the board uses its Virtual COM Port (VCP) over the USB cable for print statements and telemetry data.
+
+#### How to Debug PikaScript Silent Freezes (With or Without OLED)
+If the mouse seems dead, pressing **SW1** does nothing, or you do not have an OLED display, use the serial console to capture the boot initialization:
+
+1. Connect to the board's Virtual COM Port using a serial terminal client (like `screen`, PuTTY, or the serial monitor) at 115200 baud (or COM port at 103680 baud for 72 MHz clock variants).
+2. Physically press the black **RESET** button on the STM32 board.
+3. Observe the print messages starting from the absolute first millisecond:
+   * **Healthy Boot:** You will see the hardware initializer prints followed by `=== Booting PikaScript ===` and then `Starting obj_run...` followed by your script's first prints (e.g. `Run`).
+   * **Compiler Crash/Overflow:** If it prints `Starting obj_run...` and then hangs in total silence without printing your script's first lines, your script has hit a syntax crash or exceeded the 4 KB buffer. Double-check your script size, remove inline colons, cast your math variables, and redeploy.
+   * **Runtime Errors:** If your code has syntax/runtime bugs, the interpreter will print tracebacks (e.g. `NameError: name 'x' is not defined`) directly to the serial console.
 1. **Telemetry Stream:** By default, the board streams sensor telemetry (ToF values, Gyro, Battery voltage) as JSON-lite text frames (e.g. `{"tof_c":706,"gyro":0.004,"v_batt":4.07}`) at 115200 baud.
 2. **Standard Output (stdout):** Any Python `print(...)` statements are multiplexed directly into this stream.
 3. **Serial Terminal Monitor:** You can monitor the raw output using any serial terminal tool (e.g. Serial, PuTTY, or a simple python script) set to 115200 baud. For example, to read output from macOS terminal:

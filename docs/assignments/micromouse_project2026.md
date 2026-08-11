@@ -72,8 +72,10 @@ You will need code from both of the following repositories to develop the requir
 To clone this repository with all required submodules, execute:
 
 ```bash
-git clone --recursive https://github.com/nicollsf/UCT-Micromouse.git
+git clone --depth=1 --recursive https://github.com/nicollsf/UCT-Micromouse.git
 ```
+*(Note: Using a shallow clone with `--depth=1` is highly recommended to speed up download times and avoid fetching massive historical commit histories for submodules.)*
+
 
 If you have already cloned the repository without the submodules, initialize them using:
 

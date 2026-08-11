@@ -214,8 +214,10 @@ int main(void) {
     // Check if a dynamically flashed student script exists at 0x08078000 (Page 240)
     const char* python_code = (const char*)0x08078000;
     if ((uint8_t)python_code[0] == 0xFF) {
-        // Fallback to the compiled-in script if the flash sector is empty (erased)
+        pika_platform_printf("Flash empty (0xFF). Falling back to compiled-in code...\r\n");
         python_code = student_python_code;
+    } else {
+        pika_platform_printf("Dynamic flash found! First char: 0x%02X\r\n", (uint8_t)python_code[0]);
     }
     
     // Turn off boot diagnostic LEDs to start the python application with a clean slate
@@ -223,11 +225,13 @@ int main(void) {
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
+    pika_platform_printf("Starting obj_run...\r\n");
     // Execute the Python script natively!
     obj_run(pikaMain, (char*)python_code);
+    pika_platform_printf("obj_run completed.\r\n");
     
     // If PikaScript exits or crashes, revert the title so the user knows!
-    kernel_set_title("   UCT MOUSE      ");
+    kernel_set_title("   KERNEL BIOS    ");
 #endif
 
 #ifdef COMPILING_FOR_SIMULINK

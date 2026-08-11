@@ -1,94 +1,42 @@
 import uct_mouse
+import sys
 
-print("Initializing Micromouse API...")
-uct_mouse.init()
-
-# Ensure motors and LEDs are stopped initially
-uct_mouse.set_motors(0, 0)
-uct_mouse.set_led(0, 0)
-uct_mouse.set_led(1, 0)
-uct_mouse.set_led(2, 0)
-
-print("Running Milestone 0 LED range test. Press SW1 (User Button) to start wall-following.")
-
-is_wall_following = 0
-side = 0
-target_dist = 0
-
-while True:
-    # Read TOF sensors
-    tof = uct_mouse.get_tof()
-    tof_l = tof[0]
-    tof_c = tof[2]
-    tof_r = tof[4]
+def main():
+    # Initialize the connection to PC Simulator or Physical Hardware
+    # This also re-initializes the SSD1306 OLED and VL53L0X ToF sensors on physical boot.
+    uct_mouse.init()
+    uct_mouse.set_polarity(1, 1)
     
-    # Always run LED Range Test
-    val0 = 0
-    if tof_l < 200:
-        val0 = 1
-    uct_mouse.set_led(0, val0)
-
-    val1 = 0
-    if tof_c < 200:
-        val1 = 1
-    uct_mouse.set_led(1, val1)
-
-    val2 = 0
-    if tof_r < 200:
-        val2 = 1
-    uct_mouse.set_led(2, val2)
+    print("--- UCT Mouse Idle Telemetry Test ---")
     
-    # Check if button is pressed (SW1 returns 1 when pressed)
-    if is_wall_following == 0:
-        btn_pressed = uct_mouse.get_button()
-        if btn_pressed == 1:
-            print("SW1 Pressed! Initiating wall-following...")
-            # Decide side to follow based on closer wall
-            if tof_l < tof_r:
-                side = 1
-                target_dist = tof_l
-                print("Following LEFT wall")
-            else:
-                side = 2
-                target_dist = tof_r
-                print("Following RIGHT wall")
-            is_wall_following = 1
-            # Debounce delay
-            uct_mouse.delay_ms(200)
+    while True:
+        # Read sensor values
+        tof_l, tof_al, tof_c, tof_ar, tof_r = uct_mouse.get_tof()
+        gyro = uct_mouse.get_gyro()
+        vbatt = uct_mouse.get_vbatt()
+        lenc, renc = uct_mouse.get_encoders()
+        
+        # Print telemetry frames to standard output (readable via serial VCP)
+        print("ToF: L={:<4} C={:<4} R={:<4} | Gyro: {:<6.3f} | Batt: {:<4.2f}V | Enc: L={:<5} R={:<5}".format(
+            tof_l, tof_c, tof_r, gyro, vbatt, lenc, renc
+        ))
+        
+        # update display and wait 100ms (sensor registers refresh inside delay_ms)
+        uct_mouse.delay_ms(100)
 
-    if is_wall_following == 1:
-        # Check for collision front wall
-        if tof_c < 150:
-            print("Front obstacle detected! Stopping wall-following.")
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        try:
             uct_mouse.set_motors(0, 0)
-            is_wall_following = 0
-            # Debounce delay to prevent immediate re-trigger
-            uct_mouse.delay_ms(500)
-            
-        # Drive straight, correcting distance to side wall
-        if is_wall_following == 1:
-            if side == 1:
-                error = target_dist - tof_l
-                corr = error * 0.4
-                l_pwm = int(85 + corr)
-                r_pwm = int(85 - corr)
-            else:
-                error = target_dist - tof_r
-                corr = error * 0.4
-                l_pwm = int(85 - corr)
-                r_pwm = int(85 + corr)
-                
-            # Clamp PWM values to safe limits
-            if l_pwm < 75:
-                l_pwm = 75
-            if l_pwm > 100:
-                l_pwm = 100
-            if r_pwm < 75:
-                r_pwm = 75
-            if r_pwm > 100:
-                r_pwm = 100
-            
-            uct_mouse.set_motors(l_pwm, r_pwm)
-
-    # Call delay_ms to keep C kernel tick active and allow background VCP commands to process
-    uct_mouse.delay_ms(50)
+        except:
+            pass
+        
+        # Avoid semihosting lockup trap
+        # try:
+        #     with open('error_log.txt', 'w') as f:
+        #         sys.print_exception(e, f)
+        # except:
+        #     pass
+        raise e

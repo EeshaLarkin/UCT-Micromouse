@@ -299,8 +299,11 @@ void kernel_logger_dump(void) {
     uint32_t current_addr = LOGGER_PARTITION_START;
     
     UART_HandleTypeDef* huart = serial_interface_get_huart();
-    while (current_addr < log_write_addr && current_addr < LOGGER_PARTITION_MAX) {
+    while (current_addr < LOGGER_PARTITION_MAX) {
         if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
+            if (dump_buf[0] == 0xFF) {
+                break;
+            }
             // Stream raw data over UART to host console
             if (huart != NULL) {
                 HAL_UART_Transmit(huart, dump_buf, LOG_PAGE_SIZE, 1000);

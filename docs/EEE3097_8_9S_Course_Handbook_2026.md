@@ -80,8 +80,10 @@ To facilitate updates to the core repository without overwriting your progress, 
 
 * **Cloning the Workspace:** To clone this repository with all required microcontroller submodules, run this command in your terminal:
   ```bash
-  git clone --recursive https://github.com/nicollsf/UCT-Micromouse.git
+  git clone --depth=1 --recursive https://github.com/nicollsf/UCT-Micromouse.git
   ```
+*(Note: Using a shallow clone with `--depth=1` is highly recommended to speed up download times and avoid fetching massive historical commit histories for submodules.)*
+
   If you have already cloned the repository without the submodules, initialize them using:
   ```bash
   git submodule update --init --recursive
