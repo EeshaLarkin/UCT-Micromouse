@@ -98,6 +98,10 @@ class PikaLintVisitor(ast.NodeVisitor):
             self.add_warning(node, "List item assignment ('list[idx] = val') detected. PikaScript has high heap allocation overhead for list mutations, which can cause silent memory exhaustion. Use individual flat variables for logging parameters.")
         self.generic_visit(node)
 
+    def visit_JoinedStr(self, node):
+        self.add_error(node, "Python f-strings ('f\"...\"') are not supported in PikaScript. Use standard string formatting (e.g. 'Encoder target: %d' % target) instead.")
+        self.generic_visit(node)
+
 def lint_file(file_path, script_only=True):
     if not os.path.exists(file_path):
         print(print_colored(f"[Error] File not found: {file_path}", "red"))

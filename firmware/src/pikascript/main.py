@@ -36,8 +36,7 @@ VERBOSE         = True          # print debug info during run
 def _sensors():
     """Returns (lenc, renc, gyro_dps) from the current shadow state."""
     lenc, renc = uct_mouse.get_encoders()
-    raw = uct_mouse._mouse.get_sensors()
-    gyro = raw.get('gyro', 0.0)   # gyro Z-axis in degrees/second
+    gyro = uct_mouse.get_gyro()   # gyro Z-axis in degrees/second
     return lenc, renc, gyro
 
 # ---------------------------------------------------------------------------
@@ -54,7 +53,7 @@ def drive_straight(distance_m: float):
     heading_drift = 0.0     # accumulated heading error in degrees (+ = drifting CCW/left)
 
     if VERBOSE:
-        print(f"Driving {distance_m} m  (target {target} ticks)...")
+        print("Driving %f m  (target %d ticks)..." % (distance_m, target))
 
     while True:
         lenc, renc, gyro_dps = _sensors()
@@ -91,8 +90,8 @@ def drive_straight(distance_m: float):
     if VERBOSE:
         dl_f = lenc_f - lenc0
         dr_f = renc_f - renc0
-        print(f"Done. Ticks L={dl_f}  R={dr_f}  "
-              f"imbalance={abs(dl_f-dr_f)} ticks  heading_drift={heading_drift:.1f}°")
+        print("Done. Ticks L=%d  R=%d  imbalance=%d ticks  heading_drift=%.1f°" %
+              (dl_f, dr_f, abs(dl_f-dr_f), heading_drift))
 
     uct_mouse.delay_ms(120)
 
@@ -109,7 +108,7 @@ def run_straight():
     uct_mouse.set_polarity(1, 1)
 
     print("=== Milestone 0: Run Straight ===")
-    print(f"  Encoder target : {TARGET_TICKS} ticks  ({TICKS_PER_M} ticks/m)")
+    print("  Encoder target : %d ticks  (%d ticks/m)" % (TARGET_TICKS, TICKS_PER_M))
     print()
 
     drive_straight(DISTANCE_M)
