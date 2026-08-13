@@ -21,10 +21,30 @@
 #include "main.h"
 
 // LED pin/port defines (Overridden locally for diagnostic LEDs on PA4/PA5)
+#ifdef LED0_Pin
+#undef LED0_Pin
+#endif
+#ifdef LED0_GPIO_Port
+#undef LED0_GPIO_Port
+#endif
 #define LED0_Pin            GPIO_PIN_13
 #define LED0_GPIO_Port      GPIOC
+
+#ifdef LED1_Pin
+#undef LED1_Pin
+#endif
+#ifdef LED1_GPIO_Port
+#undef LED1_GPIO_Port
+#endif
 #define LED1_Pin            GPIO_PIN_4
 #define LED1_GPIO_Port      GPIOA
+
+#ifdef LED2_Pin
+#undef LED2_Pin
+#endif
+#ifdef LED2_GPIO_Port
+#undef LED2_GPIO_Port
+#endif
 #define LED2_Pin            GPIO_PIN_5
 #define LED2_GPIO_Port      GPIOA
 

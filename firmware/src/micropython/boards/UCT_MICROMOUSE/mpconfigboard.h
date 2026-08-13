@@ -2,8 +2,6 @@
 #define MICROPY_HW_MCU_NAME         "STM32L476VE"
 #define MICROPY_HW_FLASH_FS_LABEL   "UCT_MMOUSE"
 
-// Increase maximum path allocation length to support macOS Spotlight indexing paths
-#define MICROPY_ALLOC_PATH_MAX      (256)
 
 #define MICROPY_HW_HAS_SWITCH       (1)
 #define MICROPY_HW_HAS_FLASH        (1)
