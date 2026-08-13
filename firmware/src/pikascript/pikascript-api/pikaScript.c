@@ -89,6 +89,7 @@ PikaObj *pikaPythonInit(void){
             "        l_pwm = max(15, min(75, l_pwm))\n"
             "        r_pwm = max(15, min(75, r_pwm))\n"
             "        uct_mouse.set_motors(l_pwm, r_pwm)\n"
+            "        uct_mouse.delay_ms(50)  # Refresh sensors and update the OLED screen!\n"
             "    # Hard stop\n"
             "    uct_mouse.set_motors(0, 0)\n"
             "    lenc_f, renc_f, _ = _sensors()\n"

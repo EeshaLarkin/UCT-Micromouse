@@ -83,6 +83,7 @@ def drive_straight(distance_m: float):
         r_pwm = max(15, min(75, r_pwm))
 
         uct_mouse.set_motors(l_pwm, r_pwm)
+        uct_mouse.delay_ms(50)  # Refresh sensors and update the OLED screen!
 
     # Hard stop
     uct_mouse.set_motors(0, 0)
