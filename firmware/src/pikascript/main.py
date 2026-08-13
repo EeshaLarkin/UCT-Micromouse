@@ -119,5 +119,10 @@ def run_straight():
     print()
     print("=== Milestone 0 Complete! ===")
 
+try:
+    __name__
+except NameError:
+    __name__ = "__main__"
+
 if __name__ == "__main__":
     run_straight()

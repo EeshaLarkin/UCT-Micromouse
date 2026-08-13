@@ -122,6 +122,11 @@ const char* student_python_code =
 "    print()\n"
 "    print(\"=== Milestone 0 Complete! ===\")\n"
 "\n"
+"try:\n"
+"    __name__\n"
+"except NameError:\n"
+"    __name__ = \"__main__\"\n"
+"\n"
 "if __name__ == \"__main__\":\n"
 "    run_straight()\n"
 ;

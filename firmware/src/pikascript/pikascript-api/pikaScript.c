@@ -115,6 +115,10 @@ PikaObj *pikaPythonInit(void){
             "    uct_mouse.set_motors(0, 0)\n"
             "    print()\n"
             "    print(\"=== Milestone 0 Complete! ===\")\n"
+            "try:\n"
+            "    __name__\n"
+            "except NameError:\n"
+            "    __name__ = \"__main__\"\n"
             "if __name__ == \"__main__\":\n"
             "    run_straight()\n"
             "\n");
