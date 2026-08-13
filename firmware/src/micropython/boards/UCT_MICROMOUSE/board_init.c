@@ -224,6 +224,26 @@ void board_early_init(void) {
     SSD1306_Puts("Status: Idle", &Font_7x10, SSD1306_COLOR_WHITE);
     SSD1306_UpdateScreen();
 
+    // Configure PB3 (CTRL_LEDS) as GPIO Output Push-Pull and write it HIGH to enable the LED master gate
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct_LedGate = {0};
+    GPIO_InitStruct_LedGate.Pin = GPIO_PIN_3;
+    GPIO_InitStruct_LedGate.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct_LedGate.Pull = GPIO_NOPULL;
+    GPIO_InitStruct_LedGate.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct_LedGate);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+
+    // Configure PC13, PC14, PC15 (LED0, LED1, LED2) as Outputs and set them HIGH to turn LEDs ON at boot
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct_LEDs = {0};
+    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+    GPIO_InitStruct_LEDs.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct_LEDs.Pull = GPIO_NOPULL;
+    GPIO_InitStruct_LEDs.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct_LEDs);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_SET);
+
     uart_print("Boot sequence completed successfully.\n");
 }
 
