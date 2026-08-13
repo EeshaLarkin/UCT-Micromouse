@@ -172,6 +172,17 @@ if __name__ == "__main__":
             print(f"Error: PikaScript requires a single entry point script. Could not find {pika_target}")
             sys.exit(1)
             
+        # Run static compatibility check (PikaLint) before deploying
+        try:
+            sys.path.append(os.path.join(repo_root, "tools"))
+            from pikalint import lint_file
+            success, error_count = lint_file(pika_target, script_only=args.script_only)
+            if not success:
+                print("[Deploy Aborted] Please fix the compatibility errors above before flashing the board.")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Warning: Could not run PikaLint check: {e}")
+            
         if args.script_only:
             # === SCRIPT ONLY MODE ===
             print(f"=== Script-Only Flash Mode ===")
