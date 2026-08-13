@@ -40,6 +40,7 @@ if(CORE_SOURCES)
     list(FILTER CORE_SOURCES EXCLUDE REGEX "FlashWriter_main\\.c$")
     list(FILTER CORE_SOURCES EXCLUDE REGEX "Diagnostics_it\\.c$")
     list(FILTER CORE_SOURCES EXCLUDE REGEX "StandaloneFlash_it\\.c$")
+    list(FILTER CORE_SOURCES EXCLUDE REGEX "stm32l4xx_it\\.c$")
 endif()
 file(GLOB_RECURSE USB_SOURCES "${TEMPLATE_DIR}/USB_DEVICE/App/*.c" "${TEMPLATE_DIR}/USB_DEVICE/Target/*.c")
 file(GLOB_RECURSE MIDDLEWARE_SOURCES "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Core/Src/*.c" "${TEMPLATE_DIR}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/*.c")
@@ -68,6 +69,7 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_DIR}/Core/Src/VCP.c"
 # Common sources and include paths for both targets
 set(COMMON_SOURCES
     src/main.c
+    src/stm32l4xx_it.c
     ${HAL_SOURCES}
     ${CORE_SOURCES}
     ${USB_SOURCES}
