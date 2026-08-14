@@ -252,7 +252,7 @@ if __name__ == "__main__":
             sys.exit(1)
         
         bin_path = os.path.join(repo_root, "firmware", "build", "pikascript_firmware.bin")
-        untracked_bin_path = os.path.join(repo_root, "build", "firmware", "pikascript.bin")
+        untracked_bin_path = os.path.join(repo_root, "build", "bin", "pikascript.bin")
         tracked_bin_path = os.path.join(repo_root, "firmware", "binaries", "pikascript.bin")
         
         if not os.path.exists(bin_path):
@@ -271,7 +271,7 @@ if __name__ == "__main__":
         # === SIMULINK ENGINE FLOW ===
         # Re-route model build outputs to central build/ directory to keep repo clean
         simulink_build_dir = os.path.join(repo_root, "build", "UCT_KDeploy_ert_rtw")
-        untracked_bin_path = os.path.join(repo_root, "build", "firmware", "simulink.bin")
+        untracked_bin_path = os.path.join(repo_root, "build", "bin", "simulink.bin")
         tracked_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
         
         # Compile if not present or requested
@@ -318,7 +318,7 @@ if __name__ == "__main__":
                 repo_root, "external", "micropython", "ports", "stm32", 
                 "build-UCT_MICROMOUSE", "firmware.bin"
             )
-            untracked_bin_path = os.path.join(repo_root, "build", "firmware", "micropython.bin")
+            untracked_bin_path = os.path.join(repo_root, "build", "bin", "micropython.bin")
             tracked_bin_path = os.path.join(repo_root, "firmware", "binaries", "micropython.bin")
             
             # Try compiling the firmware
