@@ -1,128 +1,94 @@
-# =========================================================================
-# UCT Micromouse - Milestone 0: Run Straight (Reference)
-# =========================================================================
-# ALGORITHM:
-#   Drive forward for a fixed distance (e.g., 2.0 metres) using
-#   closed-loop feedback.
-#
-#   Straight phase  — Fused encoder + gyro control.
-#       Encoder balance (P-controller) compensates for motor speed asymmetry.
-#       Gyro heading integration corrects residual drift that encoder-only
-#       control cannot eliminate (steady-state P-error + wheel slip).
-#       Both corrections are summed into each motor PWM command.
-#
-# =========================================================================
-
 import uct_mouse
 
-# ---------------------------------------------------------------------------
-# Tuning constants
-# ---------------------------------------------------------------------------
-DISTANCE_M      = 1.00          # metres to drive straight
-TICKS_PER_M     = 41            # encoder ticks per metre — matches simulator
-TARGET_TICKS    = int(DISTANCE_M * TICKS_PER_M)
+print("Initializing Micromouse API...")
+uct_mouse.init()
 
-FWD_PWM         = 45            # base forward PWM (–100 … 100)
+# Ensure motors and LEDs are stopped initially
+uct_mouse.set_motors(0, 0)
+uct_mouse.set_led(0, 0)
+uct_mouse.set_led(1, 0)
+uct_mouse.set_led(2, 0)
 
-KP_BALANCE      = 0.5           # P-gain: corrects left/right encoder imbalance during straight
-KH_HEADING      = 1.5           # P-gain: corrects accumulated heading drift via gyro integration
+print("Running Milestone 0 LED range test. Press SW1 (User Button) to start wall-following.")
 
-VERBOSE         = True          # print debug info during run
+is_wall_following = 0
+side = 0
+target_dist = 0
 
-# ---------------------------------------------------------------------------
-# Helpers to read sensors cleanly
-# ---------------------------------------------------------------------------
+while True:
+    # Read TOF sensors
+    tof = uct_mouse.get_tof()
+    tof_l = tof[0]
+    tof_c = tof[2]
+    tof_r = tof[4]
+    
+    # Always run LED Range Test
+    val0 = 0
+    if tof_l < 200:
+        val0 = 1
+    uct_mouse.set_led(0, val0)
 
-def _sensors():
-    """Returns (lenc, renc, gyro_dps) from the current shadow state."""
-    lenc, renc = uct_mouse.get_encoders()
-    gyro = uct_mouse.get_gyro()   # gyro Z-axis in degrees/second
-    return lenc, renc, gyro
+    val1 = 0
+    if tof_c < 200:
+        val1 = 1
+    uct_mouse.set_led(1, val1)
 
-# ---------------------------------------------------------------------------
-# Movement primitive: drive straight
-# ---------------------------------------------------------------------------
+    val2 = 0
+    if tof_r < 200:
+        val2 = 1
+    uct_mouse.set_led(2, val2)
+    
+    # Check if button is pressed (SW1 returns 1 when pressed)
+    if is_wall_following == 0:
+        btn_pressed = uct_mouse.get_button()
+        if btn_pressed == 1:
+            print("SW1 Pressed! Initiating wall-following...")
+            # Decide side to follow based on closer wall
+            if tof_l < tof_r:
+                side = 1
+                target_dist = tof_l
+                print("Following LEFT wall")
+            else:
+                side = 2
+                target_dist = tof_r
+                print("Following RIGHT wall")
+            is_wall_following = 1
+            # Debounce delay
+            uct_mouse.delay_ms(200)
 
-def drive_straight(distance_m: float):
-    """
-    Drive forward exactly distance_m metres using fused encoder + gyro control.
-    """
-    lenc0, renc0, _ = _sensors()
-    target = int(distance_m * TICKS_PER_M)
-    dt_s   = 0.050          # physics step (20 Hz simulator)
-    heading_drift = 0.0     # accumulated heading error in degrees (+ = drifting CCW/left)
+    if is_wall_following == 1:
+        # Check for collision front wall
+        if tof_c < 150:
+            print("Front obstacle detected! Stopping wall-following.")
+            uct_mouse.set_motors(0, 0)
+            is_wall_following = 0
+            # Debounce delay to prevent immediate re-trigger
+            uct_mouse.delay_ms(500)
+            
+        # Drive straight, correcting distance to side wall
+        if is_wall_following == 1:
+            if side == 1:
+                error = target_dist - tof_l
+                corr = error * 0.4
+                l_pwm = int(85 + corr)
+                r_pwm = int(85 - corr)
+            else:
+                error = target_dist - tof_r
+                corr = error * 0.4
+                l_pwm = int(85 - corr)
+                r_pwm = int(85 + corr)
+                
+            # Clamp PWM values to safe limits
+            if l_pwm < 75:
+                l_pwm = 75
+            if l_pwm > 100:
+                l_pwm = 100
+            if r_pwm < 75:
+                r_pwm = 75
+            if r_pwm > 100:
+                r_pwm = 100
+            
+            uct_mouse.set_motors(l_pwm, r_pwm)
 
-    if VERBOSE:
-        print("Driving %f m  (target %d ticks)..." % (distance_m, target))
-
-    while True:
-        lenc, renc, gyro_dps = _sensors()
-        dl = lenc - lenc0
-        dr = renc - renc0
-        avg = (dl + dr) / 2.0
-
-        if avg >= target:
-            break
-
-        # Integrate heading drift (CCW = positive gyro = curving left)
-        heading_drift += gyro_dps * dt_s
-
-        # Term 1: encoder balance — keeps arc lengths equal
-        cross_error = dl - dr
-        enc_correction = KP_BALANCE * cross_error
-
-        # Term 2: gyro heading — drives heading drift back to zero
-        #   drift > 0 → curving left → increase right, decrease left
-        heading_correction = KH_HEADING * heading_drift
-
-        l_pwm = int(FWD_PWM - enc_correction + heading_correction)
-        r_pwm = int(FWD_PWM + enc_correction - heading_correction)
-
-        # Clamp to safe range
-        l_pwm = max(15, min(75, l_pwm))
-        r_pwm = max(15, min(75, r_pwm))
-
-        uct_mouse.set_motors(l_pwm, r_pwm)
-        uct_mouse.delay_ms(50)  # Refresh sensors and update the OLED screen!
-
-    # Hard stop
-    uct_mouse.set_motors(0, 0)
-    lenc_f, renc_f, _ = _sensors()
-    if VERBOSE:
-        dl_f = lenc_f - lenc0
-        dr_f = renc_f - renc0
-        print("Done. Ticks L=%d  R=%d  imbalance=%d ticks  heading_drift=%.1f°" %
-              (dl_f, dr_f, abs(dl_f-dr_f), heading_drift))
-
-    uct_mouse.delay_ms(120)
-
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
-
-def run_straight():
-    if not uct_mouse.init():
-        print("Initialization failed.")
-        return
-
-    # Default polarity configurations must be hardcoded in code rather than read from external files
-    uct_mouse.set_polarity(1, 1)
-
-    print("=== Milestone 0: Run Straight ===")
-    print("  Encoder target : %d ticks  (%d ticks/m)" % (TARGET_TICKS, TICKS_PER_M))
-    print()
-
-    drive_straight(DISTANCE_M)
-
-    # Final stop
-    uct_mouse.set_motors(0, 0)
-    print()
-    print("=== Milestone 0 Complete! ===")
-
-try:
-    __name__
-except NameError:
-    __name__ = "__main__"
-
-if __name__ == "__main__":
-    run_straight()
+    # Call delay_ms to keep C kernel tick active and allow background VCP commands to process
+    uct_mouse.delay_ms(50)

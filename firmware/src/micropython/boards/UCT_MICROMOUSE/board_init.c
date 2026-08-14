@@ -234,15 +234,23 @@ void board_early_init(void) {
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct_LedGate);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 
-    // Configure PC13, PC14, PC15 (LED0, LED1, LED2) as Outputs and set them HIGH to turn LEDs ON at boot
+    // Configure PC13 (LED0), PA4 (LED1), PA5 (LED2) as Outputs and set them HIGH to turn all three onboard LEDs ON at boot
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct_LEDs = {0};
-    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
     GPIO_InitStruct_LEDs.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct_LEDs.Pull = GPIO_NOPULL;
     GPIO_InitStruct_LEDs.Speed = GPIO_SPEED_FREQ_LOW;
+
+    // LED0 (PC13)
+    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_13;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct_LEDs);
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+
+    // LED1 (PA4) and LED2 (PA5)
+    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_4 | GPIO_PIN_5;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct_LEDs);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_SET);
 
     uart_print("Boot sequence completed successfully.\n");
 }

@@ -204,6 +204,34 @@ static mp_obj_t mpy_uct_mouse_get_ticks_ms(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_ticks_ms_obj, mpy_uct_mouse_get_ticks_ms);
 
+// 7g. uct_mouse.set_led(led_idx, state)
+static mp_obj_t mpy_uct_mouse_set_led(mp_obj_t led_idx_obj, mp_obj_t state_obj) {
+    int led_idx = mp_obj_get_int(led_idx_obj);
+    int state = mp_obj_get_int(state_obj);
+    
+    // PB3 (CTRL_LEDS) must be set high to enable LEDs
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
+    
+    GPIO_PinState pin_state = state ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    if (led_idx == 0) {
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, pin_state);
+    } else if (led_idx == 1) {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, pin_state);
+    } else if (led_idx == 2) {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, pin_state);
+    }
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(mpy_uct_mouse_set_led_obj, mpy_uct_mouse_set_led);
+
+// 7h. uct_mouse.get_button() -> int
+static mp_obj_t mpy_uct_mouse_get_button(void) {
+    // SW1 is on PE6, active low
+    int pressed = (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_6) == GPIO_PIN_RESET) ? 1 : 0;
+    return mp_obj_new_int(pressed);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_button_obj, mpy_uct_mouse_get_button);
+
 // Define module globals table
 static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_uct_mouse) },
@@ -220,6 +248,8 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_telemetry), MP_ROM_PTR(&mpy_uct_mouse_get_telemetry_obj) },
     { MP_ROM_QSTR(MP_QSTR_log_custom),   MP_ROM_PTR(&mpy_uct_mouse_log_custom_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_ticks_ms), MP_ROM_PTR(&mpy_uct_mouse_get_ticks_ms_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_led),      MP_ROM_PTR(&mpy_uct_mouse_set_led_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_button),   MP_ROM_PTR(&mpy_uct_mouse_get_button_obj) },
 };
 static MP_DEFINE_CONST_DICT(uct_mouse_module_globals, uct_mouse_module_globals_table);
 
@@ -232,10 +262,7 @@ MP_REGISTER_MODULE(MP_QSTR_uct_mouse, uct_mouse_module);
 
 // Linker wrapper to hijack TIM4 interrupt handler without editing stock MicroPython stm32_it.c
 #include "stm32l4xx_hal.h"
-void __real_TIM4_IRQHandler(void);
 void __wrap_TIM4_IRQHandler(void) {
-    __real_TIM4_IRQHandler(); // Call stock MicroPython handler
-    
     // Call our custom HAL encoder tick handler
     extern TIM_HandleTypeDef htim4;
     HAL_TIM_IRQHandler(&htim4);
