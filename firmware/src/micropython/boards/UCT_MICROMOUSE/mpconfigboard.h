@@ -27,8 +27,8 @@
 #define MICROPY_HW_UART1_RX         (pin_B7)
 
 // REPL is routed over USB Virtual COM Port (CDC VCP) by default
-#define MICROPY_HW_UART_REPL        PYB_UART_1
-#define MICROPY_HW_UART_REPL_BAUD   115200
+// #define MICROPY_HW_UART_REPL        PYB_UART_1
+// #define MICROPY_HW_UART_REPL_BAUD   115200
 #define MICROPY_HW_ENABLE_UART_DEBUG (1)
 
 // I2C buses (I2C1 for TOF/IMU, I2C2 for OLED/Sensors)

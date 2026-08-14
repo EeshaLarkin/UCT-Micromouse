@@ -112,7 +112,10 @@ class Micromouse:
                 except (ConnectionRefusedError, OSError):
                     time.sleep(0.5)
         elif self.method == 'serial':
-            port = self.find_serial_port()
+            if isinstance(self.port, str) and (self.port.startswith('/') or self.port.startswith('COM') or 'dev' in self.port):
+                port = self.port
+            else:
+                port = self.find_serial_port()
             if not port:
                 raise ConnectionError("No ST-Link VCP or MicroPython USB serial port found! Is the board plugged in?")
             

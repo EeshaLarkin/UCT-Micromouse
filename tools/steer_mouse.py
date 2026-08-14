@@ -60,7 +60,7 @@ def main(stdscr, method='tcp'):
 
     try:
         if method in ['tcp', 'serial']:
-            mouse = Micromouse(method=method, verbose=False)
+            mouse = Micromouse(method=method, port=args.port if args.port else 8000, verbose=False)
             mouse.connect()
             
             stdscr.addstr(1, 0, "Hardware connected! Syncing telemetry...       ")
