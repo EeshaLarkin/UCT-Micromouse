@@ -48,3 +48,6 @@ external/src/
 
 # Student sandbox workspace
 workspace/
+
+# Local telemetry / jsonl logs
+*.jsonl
