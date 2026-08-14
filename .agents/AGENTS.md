@@ -159,3 +159,64 @@ To prevent autograder scripts and simulation engines from leaking into student s
   - `matlab/attic/`: Deprecated or unused MATLAB models/tasks.
 * **`autograder/`**: **The Judge.** Root-level autograding suite containing assignments configuration (`assignments/`), package builder (`build_zip.py`), execution scripts (`grade_runner.py`), and setup scripts (`setup.sh`).
 * **`tools/`**: **Developer & Deployment Utilities.** Contains active support scripts (`deploy.py`, `physics_sim.py`, `steer_mouse.py`, `compile_simulink_pc.py`) and an `attic/` folder for inactive/developer-scratch files.
+
+---
+
+## 8. Main Tools & Quick-Reference Index
+Use this index to resolve common tasks instantly without additional user prompting:
+
+* **Compiling & Flashing Firmware (MicroPython / PikaScript / Simulink)**:
+
+  * To build and flash MicroPython:
+    ```bash
+    python tools/deploy.py --engine micropython --flash
+    ```
+
+  * To build and flash PikaScript:
+    ```bash
+    python tools/deploy.py --engine pikascript --flash
+    ```
+
+  * To build and flash Simulink:
+    ```bash
+    python tools/deploy.py --engine simulink --flash
+    ```
+
+  * *Note: Local builds are compiled into the untracked directory `build/bin/`. Flashing automatically falls back to `firmware/binaries/` if a local compiler is missing.*
+
+* **Deploying Python Scripts (via VCP / mpremote)**:
+
+  * To deploy a specific script:
+    ```bash
+    python tools/deploy.py --engine micropython --script python/main.py
+    ```
+
+* **Dumping Runtime/Telemetry Logs from VCP**:
+
+  * To extract telemetry data to `run_log.jsonl`:
+    ```bash
+    python tools/dump_logs.py
+    ```
+
+* **Manually Resetting the Board over SWD**:
+
+  * Because the physical target `NRST` pin is not wired to the ST-Link programmer on this chassis, software resets from the host must be triggered manually to boot/start execution after a flash operation:
+    ```bash
+    st-flash reset
+    ```
+
+* **Checking VCP REPL Status / Alive Test**:
+
+  * To test if the board is alive, run a one-line command to open `/dev/cu.usbmodem2103`, send Ctrl+C (`\x03`), and wait to see if the REPL prompt `>>>` is returned:
+    ```bash
+    python -c "import serial, time; s = serial.Serial('/dev/cu.usbmodem2103', 115200, timeout=1.0); s.write(b'\x03'); time.sleep(0.1); print(s.read(1024).decode('utf-8'))"
+    ```
+
+* **Publishing a Release version of Binaries**:
+
+  * 1. Compile the verified engine locally (e.g. `python tools/deploy.py --engine micropython --flash`).
+  * 2. Copy the binary from untracked `build/bin/` to tracked `firmware/binaries/`:
+     ```bash
+     cp build/bin/micropython.bin firmware/binaries/
+     ```
+  * 3. Stage, commit, and push `firmware/binaries/micropython.bin` to main.
