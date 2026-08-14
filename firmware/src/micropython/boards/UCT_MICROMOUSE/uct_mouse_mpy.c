@@ -267,3 +267,46 @@ void __wrap_TIM4_IRQHandler(void) {
     extern TIM_HandleTypeDef htim4;
     HAL_TIM_IRQHandler(&htim4);
 }
+
+// EXTI wrappers to prevent infinite interrupt loops under MicroPython when unhandled EXTI lines (like PB5/IMU) trigger
+void __real_EXTI0_IRQHandler(void);
+void __wrap_EXTI0_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF0;
+    __real_EXTI0_IRQHandler();
+}
+
+void __real_EXTI1_IRQHandler(void);
+void __wrap_EXTI1_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF1;
+    __real_EXTI1_IRQHandler();
+}
+
+void __real_EXTI2_IRQHandler(void);
+void __wrap_EXTI2_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF2;
+    __real_EXTI2_IRQHandler();
+}
+
+void __real_EXTI3_IRQHandler(void);
+void __wrap_EXTI3_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF3;
+    __real_EXTI3_IRQHandler();
+}
+
+void __real_EXTI4_IRQHandler(void);
+void __wrap_EXTI4_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF4;
+    __real_EXTI4_IRQHandler();
+}
+
+void __real_EXTI9_5_IRQHandler(void);
+void __wrap_EXTI9_5_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF5 | EXTI_PR1_PIF6 | EXTI_PR1_PIF7 | EXTI_PR1_PIF8 | EXTI_PR1_PIF9;
+    __real_EXTI9_5_IRQHandler();
+}
+
+void __real_EXTI15_10_IRQHandler(void);
+void __wrap_EXTI15_10_IRQHandler(void) {
+    EXTI->PR1 = EXTI_PR1_PIF10 | EXTI_PR1_PIF11 | EXTI_PR1_PIF12 | EXTI_PR1_PIF13 | EXTI_PR1_PIF14 | EXTI_PR1_PIF15;
+    __real_EXTI15_10_IRQHandler();
+}

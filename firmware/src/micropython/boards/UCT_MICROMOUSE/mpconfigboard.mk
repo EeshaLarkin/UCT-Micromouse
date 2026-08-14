@@ -39,5 +39,12 @@ SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_dma.c
 SRC_C += lib/stm32lib/STM32L4xx_HAL_Driver/Src/stm32l4xx_ll_rcc.c
 
 LDFLAGS_EXTRA += -Wl,--wrap=TIM4_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI0_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI1_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI2_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI3_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI4_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI9_5_IRQHandler
+LDFLAGS_EXTRA += -Wl,--wrap=EXTI15_10_IRQHandler
 
 
