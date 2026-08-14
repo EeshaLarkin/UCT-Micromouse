@@ -260,53 +260,64 @@ const mp_obj_module_t uct_mouse_module = {
 };
 MP_REGISTER_MODULE(MP_QSTR_uct_mouse, uct_mouse_module);
 
-// Linker wrapper to hijack TIM4 interrupt handler without editing stock MicroPython stm32_it.c
+// Undefine preprocessor overrides so we can declare the actual hardware interrupt vectors in this file.
+#undef TIM4_IRQHandler
+#undef EXTI0_IRQHandler
+#undef EXTI1_IRQHandler
+#undef EXTI2_IRQHandler
+#undef EXTI3_IRQHandler
+#undef EXTI4_IRQHandler
+#undef EXTI9_5_IRQHandler
+#undef EXTI15_10_IRQHandler
+
 #include "stm32l4xx_hal.h"
-void __wrap_TIM4_IRQHandler(void) {
+
+// Actual hardware interrupt vector definitions
+
+void TIM4_IRQHandler(void) {
     // Call our custom HAL encoder tick handler
     extern TIM_HandleTypeDef htim4;
     HAL_TIM_IRQHandler(&htim4);
 }
 
-// EXTI wrappers to prevent infinite interrupt loops under MicroPython when unhandled EXTI lines (like PB5/IMU) trigger
-void __real_EXTI0_IRQHandler(void);
-void __wrap_EXTI0_IRQHandler(void) {
+void EXTI0_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF0;
+    extern void __real_EXTI0_IRQHandler(void);
     __real_EXTI0_IRQHandler();
 }
 
-void __real_EXTI1_IRQHandler(void);
-void __wrap_EXTI1_IRQHandler(void) {
+void EXTI1_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF1;
+    extern void __real_EXTI1_IRQHandler(void);
     __real_EXTI1_IRQHandler();
 }
 
-void __real_EXTI2_IRQHandler(void);
-void __wrap_EXTI2_IRQHandler(void) {
+void EXTI2_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF2;
+    extern void __real_EXTI2_IRQHandler(void);
     __real_EXTI2_IRQHandler();
 }
 
-void __real_EXTI3_IRQHandler(void);
-void __wrap_EXTI3_IRQHandler(void) {
+void EXTI3_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF3;
+    extern void __real_EXTI3_IRQHandler(void);
     __real_EXTI3_IRQHandler();
 }
 
-void __real_EXTI4_IRQHandler(void);
-void __wrap_EXTI4_IRQHandler(void) {
+void EXTI4_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF4;
+    extern void __real_EXTI4_IRQHandler(void);
     __real_EXTI4_IRQHandler();
 }
 
-void __real_EXTI9_5_IRQHandler(void);
-void __wrap_EXTI9_5_IRQHandler(void) {
+void EXTI9_5_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF5 | EXTI_PR1_PIF6 | EXTI_PR1_PIF7 | EXTI_PR1_PIF8 | EXTI_PR1_PIF9;
+    extern void __real_EXTI9_5_IRQHandler(void);
     __real_EXTI9_5_IRQHandler();
 }
 
-void __real_EXTI15_10_IRQHandler(void);
-void __wrap_EXTI15_10_IRQHandler(void) {
+void EXTI15_10_IRQHandler(void) {
     EXTI->PR1 = EXTI_PR1_PIF10 | EXTI_PR1_PIF11 | EXTI_PR1_PIF12 | EXTI_PR1_PIF13 | EXTI_PR1_PIF14 | EXTI_PR1_PIF15;
+    extern void __real_EXTI15_10_IRQHandler(void);
     __real_EXTI15_10_IRQHandler();
 }

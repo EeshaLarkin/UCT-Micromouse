@@ -80,4 +80,16 @@ int uct_bdev_ioctl(uint32_t op, uint32_t arg);
 int uct_bdev_readblocks(uint8_t *dest, uint32_t block_num, uint32_t num_blocks);
 int uct_bdev_writeblocks(const uint8_t *src, uint32_t block_num, uint32_t num_blocks);
 
+// Preprocessor overrides to rename core MicroPython interrupt handlers.
+// This allows us to define the actual hardware vectors in our custom board code.
+#define TIM4_IRQHandler             __real_TIM4_IRQHandler
+#define EXTI0_IRQHandler            __real_EXTI0_IRQHandler
+#define EXTI1_IRQHandler            __real_EXTI1_IRQHandler
+#define EXTI2_IRQHandler            __real_EXTI2_IRQHandler
+#define EXTI3_IRQHandler            __real_EXTI3_IRQHandler
+#define EXTI4_IRQHandler            __real_EXTI4_IRQHandler
+#define EXTI9_5_IRQHandler          __real_EXTI9_5_IRQHandler
+#define EXTI15_10_IRQHandler        __real_EXTI15_10_IRQHandler
+
+
 
