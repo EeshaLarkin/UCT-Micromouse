@@ -1,4 +1,5 @@
 # Build Artifacts
+build/
 firmware/build/*
 *.elf
 *.map
