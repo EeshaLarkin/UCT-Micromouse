@@ -116,8 +116,9 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 *   **Assessment & Grading Metric:** The milestone mark is split as **60% Autograded Trajectory**, **30% Tutor Physical Run Evaluation**, and **10% Submission Compliance** (proper files and student card shown). 
     *   *Autograder Score (100 pts max):* Checked in co-simulation. Completes automatically when the mouse stops for 3.0s:
         *   **Progression (60 pts max):** 20 pts per corner reached sequentially clockwise (Corner 1, 2, and 3).
-        *   **Return Bonus (20 pts):** Stops within 30 cm of start.
+        *   **Return Bonus (20 pts):** Completes the 4th turn and stops within 30 cm of start.
         *   **Return Accuracy (20 pts max):** Scales continuously down to 0 pts at 30 cm error.
+        *   *Completion Requirement:* The mouse must execute exactly **4 forward drives and 4 turns** to end on the starting tile facing the original heading, and then remain stopped for **at least 3.0s** to trigger autograding evaluation.
         *   *Penalties:* -10 pts for timeout (45s limit); Wall contact immediately halts the simulation, naturally capping the score based on progress before contact. No additional numerical collision penalties are subtracted.
     *   *Physical Run (30%):* Tutor evaluation of video run performance, turning accuracy, and floor stability.
     *   *Compliance (10%):* Legible 3s student card close-up (5%) and code-telemetry log zip formatting (5%).

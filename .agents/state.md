@@ -71,3 +71,6 @@ Register-level diagnostic dumps verified that the microcontroller peripheral sta
    * **Next Step:** Flash the board using `python tools/deploy.py --engine micropython --flash` once charging is complete, and verify that the dump logs contain `"ax"`, `"ay"`, and `"az"` keys.
 2. **Physical LED Check:** Confirm why the center and right LEDs are physically non-responsive even though the MCU is successfully driving PC14 and PC15 registers.
 3. **Remove Trace Prints:** If the board boots successfully, the raw UART trace prints in `main.c` and `VL53L0X.c` can be cleaned up/removed to keep the output tidy.
+4. **Mine Milestone 0 Telemetry Logs for Simulator Perturbations:**
+   * **Detail:** Parse the 150+ student Milestone 0 telemetry logs to extract statistical distributions for motor dead bands, asymmetry imbalance, and gyroscope scaling factors.
+   * **Next Step:** Implement a randomized perturbation system in `physics_sim.py` using these real-world bounds to test student feedback controllers in co-simulation.

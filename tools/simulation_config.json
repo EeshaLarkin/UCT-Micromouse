@@ -11,7 +11,9 @@
     "max_speed": 0.40,
     "tau": 0.15,
     "imbalance": 0.08,
-    "slip": 0.08
+    "slip": 0.08,
+    "dead_band_l": 58.0,
+    "dead_band_r": 62.0
   },
   "tof_sensors": [
     {

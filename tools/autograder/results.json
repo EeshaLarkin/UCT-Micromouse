@@ -1,1 +1,15 @@
-{}
+{
+  "score": 0.0,
+  "max_score": 100.0,
+  "output": "Submission Error: Neither a Simulink code generation folder (*_ert_rtw), a Python entry point (milestone1_square.py), nor a standard 'main.py' was found in your submission.",
+  "visibility": "visible",
+  "tests": [
+    {
+      "name": "Autograder Evaluation",
+      "score": 0.0,
+      "max_score": 100.0,
+      "output": "Submission Error: Neither a Simulink code generation folder (*_ert_rtw), a Python entry point (milestone1_square.py), nor a standard 'main.py' was found in your submission.",
+      "visibility": "visible"
+    }
+  ]
+}

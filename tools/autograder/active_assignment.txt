@@ -1,1 +1,1 @@
-milestone2_maze
+milestone1_square

@@ -181,6 +181,8 @@ class PhysicsSimulator:
         self.tau = 0.15
         self.imbalance = imbalance
         self.slip_coeff = slip
+        self.dead_band_l = 60.0  # Default dead-band left motor
+        self.dead_band_r = 60.0  # Default dead-band right motor
         
         self.sensor_offsets = [
             (0.045, 0.02, math.pi/2),   # Left ToF
@@ -204,6 +206,10 @@ class PhysicsSimulator:
                 mc = config["motor"]
                 self.max_speed = mc.get("max_speed", self.max_speed)
                 self.tau = mc.get("tau", self.tau)
+                # Load independent dead_bands if specified, falling back to a shared 'dead_band' value
+                shared_db = mc.get("dead_band", 60.0)
+                self.dead_band_l = mc.get("dead_band_l", shared_db)
+                self.dead_band_r = mc.get("dead_band_r", shared_db)
                 # If command line arguments were default, use config values
                 if imbalance == 0.08:
                     self.imbalance = mc.get("imbalance", imbalance)
@@ -279,13 +285,26 @@ class PhysicsSimulator:
     def step(self, pwm_l, pwm_r, dt):
         self.last_actuation = [pwm_l, pwm_r]
         
-        # Calculate target velocities based on PWM and motor imbalance
-        gain_l = 1.0 - max(0.0, self.imbalance)
-        gain_r = 1.0 - max(0.0, -self.imbalance)
-        
-        target_v_l = (pwm_l / 100.0) * self.max_speed * gain_l
-        target_v_r = (pwm_r / 100.0) * self.max_speed * gain_r
-        
+        # Calculate target velocities based on PWM, motor imbalance, and dead-band / static friction
+        # Left motor:
+        if abs(pwm_l) < self.dead_band_l:
+            target_v_l = 0.0
+        else:
+            # Shift the command past the deadband to start the velocity ramp from zero (static friction model)
+            sign_l = 1.0 if pwm_l >= 0 else -1.0
+            active_pwm_l = (abs(pwm_l) - self.dead_band_l) / (100.0 - self.dead_band_l) * 100.0 * sign_l
+            gain_l = 1.0 - max(0.0, self.imbalance)
+            target_v_l = (active_pwm_l / 100.0) * self.max_speed * gain_l
+            
+        # Right motor:
+        if abs(pwm_r) < self.dead_band_r:
+            target_v_r = 0.0
+        else:
+            sign_r = 1.0 if pwm_r >= 0 else -1.0
+            active_pwm_r = (abs(pwm_r) - self.dead_band_r) / (100.0 - self.dead_band_r) * 100.0 * sign_r
+            gain_r = 1.0 - max(0.0, -self.imbalance)
+            target_v_r = (active_pwm_r / 100.0) * self.max_speed * gain_r
+            
         # Motor dynamics (lag)
         self.v_l += (target_v_l - self.v_l) / self.tau * dt
         self.v_r += (target_v_r - self.v_r) / self.tau * dt
@@ -374,7 +393,9 @@ def main():
     parser.add_argument("--slip", type=float, default=0.08, help="Wheel traction slip coefficient (0.0 to 0.3)")
     parser.add_argument("--video", type=str, default="", help="Output path to record MP4 video file")
     parser.add_argument("--headless", action="store_true", help="Run in headless cloud mode (no window display)")
-    parser.add_argument("--json-log", type=str, default="", help="Path to save simulation telemetry log as JSON")
+    parser.add_argument("--json-log", type=str, default="", help="Path to save simulation metrics summary as JSON")
+    parser.add_argument("--telemetry-log", type=str, default="", help="Path to save C-Kernel matching hardware JSONL log")
+    parser.add_argument("--trajectory-log", type=str, default="", help="Path to save detailed simulation trajectory state JSONL log")
     parser.add_argument("--max-time", type=float, default=None, help="Maximum simulation time limit in seconds")
     parser.add_argument("--config", type=str, default="", help="Path to simulation JSON config file")
     args = parser.parse_args()
@@ -447,6 +468,23 @@ def main():
     crashed = False
     rate_hz = 20 # Default sync rate
     dt = 1.0 / rate_hz
+    
+    # 1-to-1 parallel telemetry and trajectory logger state
+    telemetry_records = []
+    trajectory_records = []
+    logging_started = False
+    
+    # Track physical log shadow states for sparse comparison checks
+    last_log_left_pwm = 0
+    last_log_right_pwm = 0
+    last_log_tof_l = 0
+    last_log_tof_al = 0
+    last_log_tof_c = 0
+    last_log_tof_ar = 0
+    last_log_tof_r = 0
+    last_log_lenc = 0
+    last_log_renc = 0
+    last_log_gyro = 0.0
     
     # Main simulation tick loop
     try:
@@ -605,7 +643,7 @@ def main():
                 frame = np.frombuffer(frame_data, dtype=np.uint8).reshape(height, width, 3)
                 video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
                 
-            # 4. Stream Telemetry back to student
+            # 4. Stream Telemetry back to student and Record Logs in Lock-step
             gyro_val = sim.read_gyro()
             # Send encoder as true per-frame DELTA (not cumulative total)
             delta_enc_l = int(sim.enc_l) - int(sim.last_enc_l)
@@ -613,6 +651,75 @@ def main():
             sim.last_enc_l = sim.enc_l
             sim.last_enc_r = sim.enc_r
             tx_str = f'{{"tof_l":{tofs[0]}, "tof_c":{tofs[1]}, "tof_r":{tofs[2]}, "+lenc":{delta_enc_l}, "+renc":{delta_enc_r}, "gyro":{gyro_val:.4f}, "v_batt":6.0}}\r\n'
+            
+            # Logger triggers on first motor command
+            if not logging_started:
+                if sim.last_actuation[0] != 0 or sim.last_actuation[1] != 0:
+                    logging_started = True
+                    # Record log header as the first line of the telemetry log
+                    header_rec = {"log_header": 1, "uid": "066AFF514885864967083830", "hash": 4017325881}
+                    telemetry_records.append(header_rec)
+                    # Parallel trajectory log gets an identical dummy header line to keep line numbers aligned 1-to-1
+                    trajectory_records.append(header_rec)
+                    
+                    # Initialize last logged parameters
+                    last_log_left_pwm = sim.last_actuation[0]
+                    last_log_right_pwm = sim.last_actuation[1]
+                    last_log_tof_l = tofs[0]
+                    last_log_tof_c = tofs[1]
+                    last_log_tof_r = tofs[2]
+                    last_log_lenc = int(sim.enc_l)
+                    last_log_renc = int(sim.enc_r)
+                    last_log_gyro = gyro_val
+            
+            if logging_started:
+                # Build hardware-matching sparse log entry
+                sparse_entry = {}
+                if sim.last_actuation[0] != last_log_left_pwm:
+                    sparse_entry["l"] = sim.last_actuation[0]
+                    last_log_left_pwm = sim.last_actuation[0]
+                if sim.last_actuation[1] != last_log_right_pwm:
+                    sparse_entry["r"] = sim.last_actuation[1]
+                    last_log_right_pwm = sim.last_actuation[1]
+                if tofs[0] != last_log_tof_l:
+                    sparse_entry["tl"] = tofs[0]
+                    last_log_tof_l = tofs[0]
+                if tofs[1] != last_log_tof_c:
+                    sparse_entry["tc"] = tofs[1]
+                    last_log_tof_c = tofs[1]
+                if tofs[2] != last_log_tof_r:
+                    sparse_entry["tr"] = tofs[2]
+                    last_log_tof_r = tofs[2]
+                if int(sim.enc_l) != last_log_lenc:
+                    sparse_entry["le"] = int(sim.enc_l)
+                    last_log_lenc = int(sim.enc_l)
+                if int(sim.enc_r) != last_log_renc:
+                    sparse_entry["re"] = int(sim.enc_r)
+                    last_log_renc = int(sim.enc_r)
+                if abs(gyro_val - last_log_gyro) > 0.01:
+                    sparse_entry["g"] = round(gyro_val, 2)
+                    last_log_gyro = gyro_val
+                sparse_entry["v"] = 6.0 # v_batt constant
+                
+                # Write to telemetry log list
+                telemetry_records.append(sparse_entry)
+                
+                # Write matching full pose entry to detailed trajectory log list
+                # Line N of trajectory log maps exactly to Line N of telemetry log
+                traj_entry = {
+                    "time": round(sim.time, 4),
+                    "x": round(sim.x, 6),
+                    "y": round(sim.y, 6),
+                    "theta": round(sim.theta, 6),
+                    "v_l": round(sim.v_l, 4),
+                    "v_r": round(sim.v_r, 4),
+                    "enc_l": int(sim.enc_l),
+                    "enc_r": int(sim.enc_r),
+                    "pwm_l": sim.last_actuation[0],
+                    "pwm_r": sim.last_actuation[1]
+                }
+                trajectory_records.append(traj_entry)
+            
             try:
                 conn.sendall(tx_str.encode('utf-8'))
             except (BrokenPipeError, ConnectionResetError):
@@ -690,6 +797,26 @@ def main():
                 print(f"[Simulator] Simulation metrics logged to: {args.json_log}")
             except Exception as ex:
                 print(f"[Simulator] Failed to write JSON log: {ex}")
+                
+        # Save hardware-matching sparse telemetry log (.jsonl format)
+        if args.telemetry_log and telemetry_records:
+            try:
+                with open(args.telemetry_log, "w") as f:
+                    for rec in telemetry_records:
+                        f.write(json.dumps(rec, separators=(',', ':')) + "\n")
+                print(f"[Simulator] Telemetry JSONL log saved to: {args.telemetry_log}")
+            except Exception as ex:
+                print(f"[Simulator] Failed to write telemetry JSONL log: {ex}")
+                
+        # Save detailed simulation trajectory log (.jsonl format, 1-to-1 mapped lines)
+        if args.trajectory_log and trajectory_records:
+            try:
+                with open(args.trajectory_log, "w") as f:
+                    for rec in trajectory_records:
+                        f.write(json.dumps(rec, separators=(',', ':')) + "\n")
+                print(f"[Simulator] Trajectory state JSONL log saved to: {args.trajectory_log}")
+            except Exception as ex:
+                print(f"[Simulator] Failed to write trajectory JSONL log: {ex}")
                 
         print("[Simulator] Closed successfully.")
         

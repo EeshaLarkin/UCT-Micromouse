@@ -39,12 +39,12 @@ def evaluate_run(trajectory_file):
     
     # Define expected corners in sequential order for a right-turning 1.0m square:
     # Corner 1: (start_x + 1.0, start_y)
-    # Corner 2: (start_x + 1.0, start_y - 1.0)
-    # Corner 3: (start_x, start_y - 1.0)
+    # Corner 2: (start_x + 1.0, start_y + 1.0)
+    # Corner 3: (start_x, start_y + 1.0)
     expected_corners = [
         (start_x + 1.0, start_y),
-        (start_x + 1.0, start_y - 1.0),
-        (start_x, start_y - 1.0)
+        (start_x + 1.0, start_y + 1.0),
+        (start_x, start_y + 1.0)
     ]
     
     current_corner_idx = 0

@@ -37,8 +37,9 @@ Design and implement a closed-loop controller that guides your Micromouse robot 
 
 #### **Step 5: Finite State Machine Integration**
 * Combine these states into a sequential state machine:
-  $$\text{DRIVE\_FORWARD\_1 (1.0m)} \rightarrow \text{TURN\_RIGHT\_1 (90}^\circ\text{)} \rightarrow \dots \rightarrow \text{STOP}$$
-* The mouse must come to a complete, autonomous stop at the end of the 4th turn.
+  $$\text{DRIVE\_FORWARD\_1 (1.0m)} \rightarrow \text{TURN\_RIGHT\_1 (90}^\circ\text{)} \rightarrow \dots \rightarrow \text{TURN\_RIGHT\_4 (90}^\circ\text{)} \rightarrow \text{STOP}$$
+* The mouse must execute **4 forward drives and 4 turns**, coming to a complete, autonomous stop at the end of the 4th turn. This ensures the robot ends its run at the **exact same position and orientation** ($0^\circ$) as it started.
+* Once the square is completed, the mouse must remain completely stopped for **at least 3 seconds** to clearly indicate the completion of the task on video and in the telemetry log.
 
 ---
 
