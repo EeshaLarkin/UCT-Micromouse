@@ -13,7 +13,10 @@
     "imbalance": 0.08,
     "slip": 0.08,
     "dead_band_l": 58.0,
-    "dead_band_r": 62.0
+    "dead_band_r": 62.0,
+    "perturb_dead_band_std": 3.0,
+    "perturb_imbalance_std": 0.02,
+    "perturb_slip_std": 0.015
   },
   "tof_sensors": [
     {
@@ -39,5 +42,11 @@
     "grid_size": 10,
     "block_dim": 0.20,
     "wall_thickness": 0.006
+  },
+  "imu": {
+    "gyro_bias_std": 0.15,
+    "gyro_noise_std": 0.50,
+    "accel_bias_std": 1.35,
+    "accel_noise_std": 0.20
   }
 }

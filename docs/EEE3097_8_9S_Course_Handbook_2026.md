@@ -114,12 +114,13 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 ### **Submission 1: Milestone 1 Code & Demo (25%)**
 *   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
 *   **Assessment & Grading Metric:** The milestone mark is split as **60% Autograded Trajectory**, **30% Tutor Physical Run Evaluation**, and **10% Submission Compliance** (proper files and student card shown). 
-    *   *Autograder Score (100 pts max):* Checked in co-simulation. Completes automatically when the mouse stops for 3.0s:
-        *   **Progression (60 pts max):** 20 pts per corner reached sequentially clockwise (Corner 1, 2, and 3).
-        *   **Return Bonus (20 pts):** Completes the 4th turn and stops within 30 cm of start.
-        *   **Return Accuracy (20 pts max):** Scales continuously down to 0 pts at 30 cm error.
+    *   *Autograder Score (100 pts max):* Checked in co-simulation across multiple test cases (public baseline and hidden stress tests). Completes automatically when the mouse stops for 3.0s:
+        *   **Leg Segments (30 pts max):** 7.5 pts per leg (East, North, West, South). Split equally between length accuracy ($\pm 5\text{ cm}$ tolerance) and straightness ($2\text{ cm}$ lateral deviation margin).
+        *   **Corner Turn Angles (30 pts max):** 7.5 pts per corner. Evaluates orientation change accuracy relative to $90.0^\circ$ ($\pm 3^\circ$ tolerance).
+        *   **Parking Accuracy (20 pts max):** Distance between final resting spot and start point. Full points if $\le 3\text{ cm}$, scaling to 0 at $\ge 25\text{ cm}$.
+        *   **Run Speed Efficiency (10 pts max):** Full points if time $\le 20\text{s}$, scaling to 0 at $\ge 40\text{s}$.
+        *   **Safety Bonus (10 pts):** Flat bonus if the run completes without colliding with virtual walls.
         *   *Completion Requirement:* The mouse must execute exactly **4 forward drives and 4 turns** to end on the starting tile facing the original heading, and then remain stopped for **at least 3.0s** to trigger autograding evaluation.
-        *   *Penalties:* -10 pts for timeout (45s limit); Wall contact immediately halts the simulation, naturally capping the score based on progress before contact. No additional numerical collision penalties are subtracted.
     *   *Physical Run (30%):* Tutor evaluation of video run performance, turning accuracy, and floor stability.
     *   *Compliance (10%):* Legible 3s student card close-up (5%) and code-telemetry log zip formatting (5%).
 

@@ -54,6 +54,15 @@ This script will perform dynamic diagnostic checks:
 
 Upload this ZIP file directly to Gradescope. The autograder will immediately compile and run your submission in co-simulation, printing a detailed test result feedback log (detailing syntax, compilation, runtime errors, or file mismatches) directly to your Gradescope portal in real-time.
 
+#### **Testing the Autograder Offline (Locally)**
+You are highly encouraged to test your algorithm against the grading suite locally on your laptop before uploading to Gradescope.
+
+To run the full multi-test evaluation suite locally, run this command from the repository root:
+```bash
+python tools/autograder/grade_runner.py
+```
+This script runs the local simulator backend, executes your current code inside the `python/` folder through all 3 test scenarios (including the hidden runs), and outputs the resulting score sheet directly to your terminal.
+
 The ZIP package will automatically contain:
 1. **Your Controller Code:**
    * **Python track:** All `.py` scripts and sub-folders recursively from your workspace.
@@ -92,7 +101,32 @@ Your submission will be graded on two parts:
 * **Log Check:** Telemetry variables must show active adjustments (motor speed matching and heading corrections).
 
 #### B. Co-Simulation Stress Test (Automated Check)
-The autograder will execute your controller code in the visual simulation testbed under two perturbations:
-1. **Motor Asymmetry ($\pm 10\%$ gain offset):** Simulates one motor being weaker than the other.
-2. **Wheel Slip & Traction Loss:** Simulates low friction on the floor.
-*To pass the simulation test, your controller must dynamically adjust to these disturbances to complete the square trajectory.*
+The autograder executes your controller script/binary in the visual simulation testbed across **three separate runs** featuring static perturbations (motor imbalances, slip coefficients, and IMU calibration offsets) alongside dynamic transient noise (starting wheel slips and turn deceleration overshoots). 
+
+The runs are configured as follows:
+
+1. **Test 1: Public Baseline Run (40% Weight - Score visible immediately)**
+   * *Perturbations:* Moderate motor imbalance (`0.05`) and moderate running slip (`0.04`).
+   * *Purpose:* Verifies basic controller trajectory execution and provides quick feedback.
+   * *Local Replication Command:*
+     ```bash
+     python tools/physics_sim.py --imbalance 0.05 --slip 0.04 --seed 42
+     ```
+
+2. **Test 2: Hidden Asymmetry Stress-Test (30% Weight - Score hidden until after due date)**
+   * *Perturbations:* Heavy motor imbalance (`0.12`), representing a chassis where one motor has significantly lower gain/torque.
+   * *Purpose:* Verifies that your controller actively corrects steer-heading using closed-loop gyro feedback, rather than relying on hardcoded motor matching constants.
+   * *Local Replication Command:*
+     ```bash
+     python tools/physics_sim.py --imbalance 0.12 --slip 0.02 --seed 43
+     ```
+
+3. **Test 3: Hidden Starting/Turning Slip Run (30% Weight - Score hidden until after due date)**
+   * *Perturbations:* High slip coefficient (`0.10`) combined with active starting wheel-spin slip and turn deceleration settling slip.
+   * *Purpose:* Verifies that your FSM transitions and steering controller do not drift or miss turn target angles due to transient traction losses.
+   * *Local Replication Command:*
+     ```bash
+     python tools/physics_sim.py --imbalance 0.04 --slip 0.10 --seed 44
+     ```
+
+*To score full marks, your controller code must remain robust against all three environments to maintain straight trajectories and precise 90° turn angles without colliding with virtual walls.*

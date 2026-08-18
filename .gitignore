@@ -51,3 +51,6 @@ workspace/
 
 # Local telemetry / jsonl logs
 *.jsonl
+
+# Gradescope exports
+assignment_8326280_export/

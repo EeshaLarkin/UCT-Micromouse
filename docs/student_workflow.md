@@ -27,6 +27,19 @@ Before risking physical hardware, verify your algorithm in the virtual maze.
 - Example: `python tools/physics_sim.py` (which launches the virtual testbed on `localhost:8000`).
 - Run your script (e.g., `python python/milestone1_square.py`). The script will automatically connect to the local socket and actuate the virtual mouse.
 
+#### Running the Autograder Locally (Offline Verification)
+You can evaluate your script or Simulink compilation folder using the exact same grading test suite that runs on Gradescope before submitting.
+
+Run the following command from your repository root:
+```bash
+python tools/autograder/grade_runner.py
+```
+This script will:
+1. Automatically run the simulator headlessly.
+2. Launch your local student script/binary from the `python/` directory.
+3. Grade your performance against the 3 baseline and stress-test runs.
+4. Output the results and score breakdown to `tools/autograder/results.json`.
+
 #### High-Speed Offline Testing (Fast Simulation Mode)
 For tasks requiring massive numbers of runs (e.g. batch testing or training reinforcement learning agents), you can bypass standard wall-clock sleep delays and run the simulation at maximum CPU speed. Fast Simulation Mode automatically intercepts and replaces ordinary `time.sleep` calls with simulator physics steps.
 

@@ -258,231 +258,219 @@ def main():
             write_results(0.0, f"Compilation Error: Failed to invoke compiler: {e}", "Compilation Check")
             return
 
-    # 5. Run Simulator
-    # Ensure any old simulator or client processes are cleared
-    # (Not strictly necessary in sandboxed Docker, but good practice)
+    # 5. Execute Multi-Run Simulation Tests
+    test_runs = getattr(test_suite, "TEST_RUNS", [("Standard Run", 1.0, 0.08, 0.08, False)])
     
-    sim_script = os.path.join(SOURCE_DIR, "physics_sim.py")
-    # Local fallback
-    if not os.path.exists(sim_script):
-        sim_script = os.path.join(repo_root, "tools", "physics_sim.py")
-        
-    sim_cmd = [
-        sys.executable,
-        "-u",
-        sim_script,
-        "--headless",
-        "--map", getattr(test_suite, "MAP", "empty"),
-        "--imbalance", str(getattr(test_suite, "IMBALANCE", 0.08)),
-        "--slip", str(getattr(test_suite, "SLIP", 0.08)),
-        "--json-log", TRAJECTORY_JSON,
-        "--video", VIDEO_PATH,
-        "--max-time", str(getattr(test_suite, "TIME_LIMIT", 45.0))
-    ]
-    if hasattr(test_suite, "SEED") and test_suite.SEED is not None:
-        sim_cmd += ["--seed", str(test_suite.SEED)]
-        
-    print(f"[Grader] Spawning simulator process: {' '.join(sim_cmd)}")
+    total_score = 0.0
+    gradescope_tests = []
     
-    # Clean up old trajectory file and log file
-    if os.path.exists(TRAJECTORY_JSON):
-        try:
-            os.remove(TRAJECTORY_JSON)
-        except Exception:
-            pass
-            
-    sim_log_path = "/tmp/simulator_backend.log"
-    if os.path.exists(sim_log_path):
-        try:
-            os.remove(sim_log_path)
-        except Exception:
-            pass
-
-    try:
-        # Redirect stdout and stderr to a file to prevent pipe buffer blocks
-        sim_log_file = open(sim_log_path, "w")
-        sim_proc = subprocess.Popen(
-            sim_cmd,
-            stdout=sim_log_file,
-            stderr=sim_log_file,
-            text=True
-        )
-        sim_log_file.close()
-    except Exception as e:
-        write_results(0.0, f"System Error: Failed to start simulation backend: {e}")
-        return
+    for idx, (run_name, weight, imb_val, slip_val, is_hidden) in enumerate(test_runs):
+        print(f"\n[Grader] === Executing {run_name} (Weight: {weight*100:.0f}%, Imbalance: {imb_val}, Slip: {slip_val}) ===")
         
-    # Wait for simulator to bind socket and show readiness in the logs
-    print("[Grader] Waiting for simulator to start listening on port 8000...")
-    simulator_ready = False
-    start_wait = time.time()
-    while time.time() - start_wait < 8.0:
-        # Check if process has exited
-        if sim_proc.poll() is not None:
-            break
-            
-        # Check log file contents
-        if os.path.exists(sim_log_path):
+        sim_cmd = [
+            sys.executable,
+            "-u",
+            sim_script,
+            "--headless",
+            "--map", getattr(test_suite, "MAP", "empty"),
+            "--imbalance", str(imb_val),
+            "--slip", str(slip_val),
+            "--json-log", TRAJECTORY_JSON,
+            "--video", VIDEO_PATH if idx == 0 else "", # only record video for first run
+            "--max-time", str(getattr(test_suite, "TIME_LIMIT", 45.0)),
+            "--seed", str(getattr(test_suite, "SEED", 42) + idx)
+        ]
+        
+        # Clean up old trajectory file
+        if os.path.exists(TRAJECTORY_JSON):
             try:
-                with open(sim_log_path, "r") as f:
-                    log_content = f.read()
-                    if "Waiting for student script to connect" in log_content:
-                        simulator_ready = True
-                        break
+                os.remove(TRAJECTORY_JSON)
             except Exception:
                 pass
-        time.sleep(0.1)
-        
-    if not simulator_ready:
-        sim_proc.terminate()
-        try:
-            sim_proc.wait(timeout=2.0)
-        except Exception:
-            sim_proc.kill()
-        
-        log_content = ""
+                
+        sim_log_path = "/tmp/simulator_backend.log"
         if os.path.exists(sim_log_path):
             try:
-                with open(sim_log_path, "r") as f:
-                    log_content = f.read()
+                os.remove(sim_log_path)
             except Exception:
                 pass
-        write_results(0.0, f"System Error: Simulator failed to start or bind to port 8000 within timeout.\nLog Content:\n{log_content}")
-        return
-
-    print("[Grader] Simulator is ready and listening.")
-
-    # 6. Run Student Client
-    client_env = os.environ.copy()
-    client_env["GRADESCOPE_AUTOGRADER"] = "1"
-    
-    if track == "python":
-        client_cmd = [sys.executable, main_file]
-        # Override PYTHONPATH to prioritize our bundled mock uct_mouse library
-        # (Fallbacks to SOURCE_DIR first)
-        python_paths = [SOURCE_DIR, os.path.dirname(main_file)]
-        if "PYTHONPATH" in os.environ:
-            python_paths.append(os.environ["PYTHONPATH"])
-        client_env["PYTHONPATH"] = os.path.pathsep.join(python_paths)
-        client_cwd = os.path.dirname(main_file)
-    else:
-        client_cmd = [client_bin]
-        client_cwd = "/tmp"
-        
-    print(f"[Grader] Launching student client: {' '.join(client_cmd)}")
-    try:
-        client_proc = subprocess.Popen(
-            client_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=client_env,
-            cwd=client_cwd,
-            text=True
-        )
-    except Exception as e:
-        # Shutdown simulator
-        sim_proc.send_signal(signal.SIGINT)
+                
         try:
-            sim_proc.wait(timeout=2.0)
-        except Exception:
-            sim_proc.kill()
-        write_results(0.0, f"Execution Error: Failed to start student script/binary: {e}")
-        return
-
-    # 7. Monitor both processes
-    time_limit = getattr(test_suite, "TIME_LIMIT", 45.0)
-    max_duration = time_limit + 10.0 # wall-clock safety buffer
-    start_time = time.time()
-    
-    client_exited = False
-    timed_out = False
-    
-    while time.time() - start_time < max_duration:
-        # Check client
-        if not client_exited and client_proc.poll() is not None:
-            client_exited = True
-            print("[Grader] Student client exited. Waiting for simulator to clean up...")
-            time.sleep(1.5)
-            
-        # Check simulator
-        if sim_proc.poll() is not None:
-            print("[Grader] Simulator backend exited.")
-            break
-            
-        time.sleep(0.5)
-    else:
-        print("[Grader] Safety wall-clock timeout exceeded.")
-        timed_out = True
-
-    # 8. Cleanup and retrieve logs
-    # Terminate student client
-    if client_proc.poll() is None:
-        print("[Grader] Terminating student client process...")
-        client_proc.terminate()
-        try:
-            client_proc.wait(timeout=2.0)
-        except subprocess.TimeoutExpired:
-            client_proc.kill()
-            
-    # Send SIGINT to simulator so it runs its `finally:` block and dumps the JSON telemetry log
-    if sim_proc.poll() is None:
-        print("[Grader] Sending SIGINT to simulator for graceful telemetry dump...")
-        sim_proc.send_signal(signal.SIGINT)
-        try:
-            sim_proc.wait(timeout=3.0)
-        except subprocess.TimeoutExpired:
-            print("[Grader] Simulator did not exit. Force killing...")
-            sim_proc.kill()
-            
-    # Gather logs
-    client_stdout, client_stderr = client_proc.communicate()
-    
-    sim_stdout = ""
-    sim_stderr = ""
-    if os.path.exists(sim_log_path):
-        try:
-            with open(sim_log_path, "r") as f:
-                sim_stdout = f.read()
+            sim_log_file = open(sim_log_path, "w")
+            sim_proc = subprocess.Popen(
+                sim_cmd,
+                stdout=sim_log_file,
+                stderr=sim_log_file,
+                text=True
+            )
+            sim_log_file.close()
         except Exception as e:
-            sim_stdout = f"Error reading simulator log file: {e}"
+            write_results(0.0, f"System Error: Failed to start simulation backend: {e}")
+            return
+            
+        # Wait for simulator readiness
+        simulator_ready = False
+        start_wait = time.time()
+        while time.time() - start_wait < 8.0:
+            if sim_proc.poll() is not None:
+                break
+            if os.path.exists(sim_log_path):
+                try:
+                    with open(sim_log_path, "r") as f:
+                        log_content = f.read()
+                        if "Waiting for student script to connect" in log_content:
+                            simulator_ready = True
+                            break
+                except Exception:
+                    pass
+            time.sleep(0.1)
+            
+        if not simulator_ready:
+            sim_proc.terminate()
+            try:
+                sim_proc.wait(timeout=2.0)
+            except Exception:
+                sim_proc.kill()
+            write_results(0.0, f"System Error: Simulator failed to start or bind to port 8000 within timeout.")
+            return
+            
+        # Run Student Client
+        client_env = os.environ.copy()
+        client_env["GRADESCOPE_AUTOGRADER"] = "1"
+        
+        if track == "python":
+            client_cmd = [sys.executable, main_file]
+            python_paths = [SOURCE_DIR, os.path.dirname(main_file)]
+            if "PYTHONPATH" in os.environ:
+                python_paths.append(os.environ["PYTHONPATH"])
+            client_env["PYTHONPATH"] = os.path.pathsep.join(python_paths)
+            client_cwd = os.path.dirname(main_file)
+        else:
+            client_cmd = [client_bin]
+            client_cwd = "/tmp"
+            
+        try:
+            client_proc = subprocess.Popen(
+                client_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=client_env,
+                cwd=client_cwd,
+                text=True
+            )
+        except Exception as e:
+            sim_proc.send_signal(signal.SIGINT)
+            try: sim_proc.wait(timeout=2.0)
+            except Exception: sim_proc.kill()
+            write_results(0.0, f"Execution Error: Failed to start student script/binary: {e}")
+            return
+            
+        # Monitor
+        time_limit = getattr(test_suite, "TIME_LIMIT", 45.0)
+        max_duration = time_limit + 10.0
+        start_time = time.time()
+        client_exited = False
+        timed_out = False
+        
+        while time.time() - start_time < max_duration:
+            if not client_exited and client_proc.poll() is not None:
+                client_exited = True
+                time.sleep(1.5)
+            if sim_proc.poll() is not None:
+                break
+            time.sleep(0.5)
+        else:
+            timed_out = True
+            
+        # Cleanup
+        if client_proc.poll() is None:
+            client_proc.terminate()
+            try: client_proc.wait(timeout=2.0)
+            except Exception: client_proc.kill()
+            
+        if sim_proc.poll() is None:
+            sim_proc.send_signal(signal.SIGINT)
+            try: sim_proc.wait(timeout=3.0)
+            except Exception: sim_proc.kill()
+            
+        client_stdout, client_stderr = client_proc.communicate()
+        
+        sim_stdout = ""
+        if os.path.exists(sim_log_path):
+            try:
+                with open(sim_log_path, "r") as f:
+                    sim_stdout = f.read()
+            except Exception:
+                pass
+                
+        # Evaluate
+        run_score = 0.0
+        run_feedback = ""
+        
+        if not os.path.exists(TRAJECTORY_JSON) or os.path.getsize(TRAJECTORY_JSON) == 0:
+            run_feedback = (
+                f"Execution Error: No simulation trajectory was recorded.\n"
+                f"Your script or binary did not connect to the simulator on port 8000.\n\n"
+                f"--- Console Output (stdout) ---\n{client_stdout}\n\n"
+                f"--- Error Output (stderr) ---\n{client_stderr}\n"
+            )
+        else:
+            try:
+                raw_score, run_feedback = test_suite.evaluate_run(TRAJECTORY_JSON)
+                run_score = raw_score
+            except Exception as e:
+                run_feedback = f"System Error: Failed to evaluate simulation results: {e}"
+                
+        weighted_score = run_score * weight
+        total_score += weighted_score
+        
+        run_visibility = "after_due_date" if is_hidden else "visible"
+        
+        run_report = [
+            f"=== {run_name} ===",
+            f"Weight: {weight*100:.0f}%",
+            f"Raw Score: {run_score:.1f} / 100.0 pts",
+            f"Weighted Score Contribution: {weighted_score:.1f} pts",
+            f"Visibility: {run_visibility.replace('_', ' ').capitalize()}",
+            "-" * 50,
+            run_feedback,
+            ""
+        ]
+        if client_stdout:
+            run_report.append(f"--- Student Output (stdout) ---\n{client_stdout}\n")
+        if client_stderr:
+            run_report.append(f"--- Student Errors (stderr) ---\n{client_stderr}\n")
+        if sim_stdout:
+            run_report.append(f"--- Simulator Output ---\n{sim_stdout}\n")
+            
+        joined_run_report = "\n".join(run_report)
+        
+        gradescope_tests.append({
+            "name": run_name,
+            "score": round(weighted_score, 2),
+            "max_score": round(weight * 100.0, 2),
+            "output": joined_run_report,
+            "visibility": run_visibility
+        })
+        
+        print(f"[Grader] Completed {run_name}: Score {run_score}/100 (Weighted: {weighted_score})")
+
+    # 6. Write Consolidated Results JSON File
+    os.makedirs(os.path.dirname(RESULTS_FILE), exist_ok=True)
+    final_score = round(total_score, 2)
     
-    # 9. Evaluate
-    if not os.path.exists(TRAJECTORY_JSON) or os.path.getsize(TRAJECTORY_JSON) == 0:
-        feedback = (
-            f"Execution Error: No simulation trajectory was recorded.\n"
-            f"Your script or binary did not connect to the simulator on port 8000.\n\n"
-            f"--- Student Console Output (stdout) ---\n{client_stdout}\n\n"
-            f"--- Student Error Output (stderr) ---\n{client_stderr}\n\n"
-            f"--- Simulator Output ---\n{sim_stdout}\n{sim_stderr}"
-        )
-        write_results(0.0, feedback, f"{assignment_name.upper()} Grading")
-        return
+    results = {
+        "score": final_score,
+        "max_score": 100.0,
+        "output": f"=== Final Grade Summary ===\n  Milestone 1 Combined Score: {final_score:.2f} / 100.0 pts\n==========================",
+        "visibility": "visible",
+        "tests": gradescope_tests
+    }
+    
+    with open(RESULTS_FILE, "w") as f:
+        json.dump(results, f, indent=2)
         
-    try:
-        score, run_feedback = test_suite.evaluate_run(TRAJECTORY_JSON)
-    except Exception as e:
-        feedback = (
-            f"System Error: Failed to evaluate simulation results: {e}\n\n"
-            f"--- Student Console Output (stdout) ---\n{client_stdout}\n\n"
-            f"--- Student Error Output (stderr) ---\n{client_stderr}"
-        )
-        write_results(0.0, feedback, f"{assignment_name.upper()} Grading")
-        return
-
-    # 10. Compile final feedback reports
-    full_report = [run_feedback, ""]
-    if timed_out:
-        full_report.append("[Warning] The student program was terminated because it exceeded the max wall-clock duration limit.")
-        
-    if client_stdout:
-        full_report.append(f"--- Student Output (stdout) ---\n{client_stdout}")
-    if client_stderr:
-        full_report.append(f"--- Student Errors (stderr) ---\n{client_stderr}")
-    if sim_stdout or sim_stderr:
-        full_report.append(f"--- Simulator Logs ---\n{sim_stdout}\n{sim_stderr}")
-
-    final_feedback = "\n".join(full_report)
-    write_results(score, final_feedback, f"{assignment_name.upper()} Evaluation")
+    print(f"\n[Grader] All test runs finished. Final combined score: {final_score}% written to {RESULTS_FILE}")
 
 if __name__ == "__main__":
     main()

@@ -215,6 +215,23 @@ class PhysicsSimulator:
                     self.imbalance = mc.get("imbalance", imbalance)
                 if slip == 0.08:
                     self.slip_coeff = mc.get("slip", slip)
+                
+                # Apply seed-based Gaussian perturbations if a seed is active
+                if seed is not None:
+                    import random
+                    rng = random.Random(seed)
+                    
+                    db_std = mc.get("perturb_dead_band_std", 0.0)
+                    imb_std = mc.get("perturb_imbalance_std", 0.0)
+                    slip_std = mc.get("perturb_slip_std", 0.0)
+                    
+                    if db_std > 0.0:
+                        self.dead_band_l = max(0.0, self.dead_band_l + rng.gauss(0, db_std))
+                        self.dead_band_r = max(0.0, self.dead_band_r + rng.gauss(0, db_std))
+                    if imb_std > 0.0:
+                        self.imbalance = max(-0.5, min(0.5, self.imbalance + rng.gauss(0, imb_std)))
+                    if slip_std > 0.0:
+                        self.slip_coeff = max(0.0, min(0.9, self.slip_coeff + rng.gauss(0, slip_std)))
             if "tof_sensors" in config:
                 self.sensor_offsets = []
                 for s in config["tof_sensors"]:
@@ -224,6 +241,34 @@ class PhysicsSimulator:
                 self.grid_size = mz.get("grid_size", self.grid_size)
                 self.block_dim = mz.get("block_dim", self.block_dim)
                 self.wall_thickness = mz.get("wall_thickness", self.wall_thickness)
+            
+            # Initialize default IMU variables
+            self.gyro_bias = 0.0
+            self.gyro_noise_std = 0.0
+            self.accel_bias_x = 0.0
+            self.accel_bias_y = 0.0
+            self.accel_bias_z = 0.0
+            self.accel_noise_std = 0.0
+            
+            if "imu" in config:
+                ic = config["imu"]
+                self.gyro_noise_std = ic.get("gyro_noise_std", 0.0)
+                self.accel_noise_std = ic.get("accel_noise_std", 0.0)
+                
+                # Apply seed-based static IMU bias errors
+                if seed is not None:
+                    import random
+                    rng = random.Random(seed + 999) # unique offset to avoid correlation with motor seed
+                    
+                    g_bias_std = ic.get("gyro_bias_std", 0.0)
+                    a_bias_std = ic.get("accel_bias_std", 0.0)
+                    
+                    if g_bias_std > 0.0:
+                        self.gyro_bias = rng.gauss(0, g_bias_std)
+                    if a_bias_std > 0.0:
+                        self.accel_bias_x = rng.gauss(0, a_bias_std)
+                        self.accel_bias_y = rng.gauss(0, a_bias_std)
+                        self.accel_bias_z = rng.gauss(0, a_bias_std)
 
         # State: x, y, theta, actual wheel speeds, encoders
         self.reset_state()
@@ -252,6 +297,13 @@ class PhysicsSimulator:
         self.time = 0.0
         self.trajectory = [(self.x, self.y)]
         self.last_actuation = [0, 0]
+        
+        # Transient slip simulation state variables
+        self.was_stationary = True
+        self.start_slip_timer = 0.0
+        self.start_slip_wheel = 0     # 0 = none, 1 = left, 2 = right
+        self.start_slip_factor = 0.0
+        self.is_turning = False
         
     def build_maze(self):
         self.maze_width = self.grid_size * self.block_dim
@@ -309,9 +361,43 @@ class PhysicsSimulator:
         self.v_l += (target_v_l - self.v_l) / self.tau * dt
         self.v_r += (target_v_r - self.v_r) / self.tau * dt
         
-        # Apply traction wheel slip (reducing effective movement randomly)
+        # 1. Starting Slip Simulation
+        # If transitioning from a complete stop to forward drive, trigger a temporary starting slip
+        is_stationary_now = (abs(self.v_l) < 1e-3 and abs(self.v_r) < 1e-3)
+        if self.was_stationary and not is_stationary_now and (pwm_l > 0 and pwm_r > 0):
+            # Select random wheel to slip (1 = left, 2 = right)
+            self.start_slip_wheel = np.random.choice([1, 2])
+            # Slip coefficient scales: reduces effective speed by 35% to 65% on starting
+            self.start_slip_factor = np.random.uniform(0.35, 0.65)
+            self.start_slip_timer = 0.200 # lasts for 200ms
+            self.was_stationary = False
+        elif is_stationary_now:
+            self.was_stationary = True
+            self.start_slip_timer = 0.0
+            
         eff_v_l = self.v_l
         eff_v_r = self.v_r
+        
+        if self.start_slip_timer > 0.0:
+            self.start_slip_timer -= dt
+            if self.start_slip_wheel == 1:
+                eff_v_l *= (1.0 - self.start_slip_factor)
+            elif self.start_slip_wheel == 2:
+                eff_v_r *= (1.0 - self.start_slip_factor)
+                
+        # 2. Turn Settle Slip Simulation
+        # Detect if mouse was performing an in-place turn (left/right wheels running in opposite directions)
+        is_turning_now = (pwm_l * pwm_r < 0)
+        if is_turning_now:
+            self.is_turning = True
+        elif self.is_turning and (pwm_l == 0 and pwm_r == 0):
+            # Just stopped turning! Inject a small settling slip offset to the theta angle (yaw slide)
+            # Standard deviation of 1.0 degree around zero (approx +- 2.0 degrees max)
+            settle_slip_yaw = math.radians(np.random.normal(0.0, 1.0))
+            self.theta += settle_slip_yaw
+            self.is_turning = False
+            
+        # Apply standard running baseline wheel slip
         if self.slip_coeff > 0:
             eff_v_l *= (1.0 - np.random.uniform(0.0, self.slip_coeff))
             eff_v_r *= (1.0 - np.random.uniform(0.0, self.slip_coeff))
@@ -338,9 +424,34 @@ class PhysicsSimulator:
         self.time += dt
         
     def read_gyro(self):
-        """Converts angular velocity to degrees/s and injects minor white noise (dps)."""
-        gyro_dps = (self.omega * 180.0 / math.pi) + np.random.normal(0.0, 0.05)
+        """Converts angular velocity to degrees/s and injects active sensor bias and white noise (dps)."""
+        noise = np.random.normal(0.0, self.gyro_noise_std) if self.gyro_noise_std > 0.0 else 0.0
+        gyro_dps = (self.omega * 180.0 / math.pi) + self.gyro_bias + noise
         return gyro_dps
+        
+    def read_accel(self):
+        """Simulates accelerometer readings (ax, ay, az in m/s^2) with active biases and noise."""
+        noise_std = self.accel_noise_std if self.accel_noise_std > 0.0 else 0.0
+        
+        # Calculate dynamic acceleration (simple numerical differentiation of velocity)
+        # Note: on a physical flat surface, the accelerometer measures local body frame accelerations.
+        # For simplicity in this kinematics model, we assume a small velocity step difference.
+        if not hasattr(self, 'last_v'):
+            self.last_v = 0.0
+        v_current = (self.v_l + self.v_r) / 2.0
+        a_forward = (v_current - self.last_v) / 0.05 # 50ms timestep
+        self.last_v = v_current
+        
+        # Accelerometer measures (linear acceleration - gravity vector projection)
+        # Assuming flat floor, gravity vector points straight down relative to the mouse frame:
+        # ax (forward) = forward acceleration + noise + bias
+        # ay (lateral) = centripetal acceleration (v * omega) + noise + bias
+        # az (vertical) = gravity (9.81) + noise + bias
+        ax = a_forward + self.accel_bias_x + np.random.normal(0.0, noise_std)
+        ay = (v_current * self.omega) + self.accel_bias_y + np.random.normal(0.0, noise_std)
+        az = 9.81 + self.accel_bias_z + np.random.normal(0.0, noise_std)
+        
+        return ax, ay, az
         
     def read_tofs(self):
         distances = []
@@ -412,7 +523,12 @@ def main():
         except Exception as e:
             print(f"[Simulator] Error loading config {config_path}: {e}")
             
-    sim = PhysicsSimulator(maze_type=args.map, imbalance=args.imbalance, slip=args.slip, headless=args.headless, seed=args.seed, config=config_data)
+    # Use the user-provided seed or generate a random one to enable default run-to-run parameter variations
+    import random
+    active_seed = args.seed if args.seed is not None else random.randint(1, 100000)
+    print(f"[Simulator] Active Simulation Seed: {active_seed}")
+            
+    sim = PhysicsSimulator(maze_type=args.map, imbalance=args.imbalance, slip=args.slip, headless=args.headless, seed=active_seed, config=config_data)
     
     # Initialize Pygame in dummy mode if headless
     if args.headless:
@@ -460,6 +576,15 @@ def main():
     try:
         conn, addr = server_sock.accept()
         print(f"[Simulator] Student connected from {addr[0]}:{addr[1]}")
+        print("\n" + "=" * 50)
+        print("=== ACTIVE SIMULATED MOUSE PARAMETERS ===")
+        print(f"  Seed                  : {active_seed}")
+        print(f"  Dead Band (Left/Right): {sim.dead_band_l:.2f} / {sim.dead_band_r:.2f} PWM")
+        print(f"  Motor Gain Imbalance  : {sim.imbalance * 100:+.2f}%")
+        print(f"  Traction Slip Coeff   : {sim.slip_coeff * 100:.2f}%")
+        print(f"  Gyroscope Bias Offset : {sim.gyro_bias:+.4f} dps")
+        print(f"  Accelerometer Biases  : X={sim.accel_bias_x:+.2f}, Y={sim.accel_bias_y:+.2f}, Z={sim.accel_bias_z:+.2f} m/s^2")
+        print("=" * 50 + "\n")
     except KeyboardInterrupt:
         server_sock.close()
         sys.exit(0)
@@ -645,6 +770,7 @@ def main():
                 
             # 4. Stream Telemetry back to student and Record Logs in Lock-step
             gyro_val = sim.read_gyro()
+            ax_val, ay_val, az_val = sim.read_accel()
             # Send encoder as true per-frame DELTA (not cumulative total)
             delta_enc_l = int(sim.enc_l) - int(sim.last_enc_l)
             delta_enc_r = int(sim.enc_r) - int(sim.last_enc_r)
@@ -659,8 +785,23 @@ def main():
                     # Record log header as the first line of the telemetry log
                     header_rec = {"log_header": 1, "uid": "066AFF514885864967083830", "hash": 4017325881}
                     telemetry_records.append(header_rec)
-                    # Parallel trajectory log gets an identical dummy header line to keep line numbers aligned 1-to-1
-                    trajectory_records.append(header_rec)
+                    
+                    # Parallel trajectory log gets a detailed header detailing the active perturbed values
+                    header_rec_traj = {
+                        "log_header": 1,
+                        "uid": "066AFF514885864967083830",
+                        "hash": 4017325881,
+                        "simulation_seed": active_seed,
+                        "perturbed_dead_band_l": round(sim.dead_band_l, 2),
+                        "perturbed_dead_band_r": round(sim.dead_band_r, 2),
+                        "perturbed_imbalance": round(sim.imbalance, 4),
+                        "perturbed_slip": round(sim.slip_coeff, 4),
+                        "perturbed_gyro_bias": round(sim.gyro_bias, 4),
+                        "perturbed_accel_bias_x": round(sim.accel_bias_x, 4),
+                        "perturbed_accel_bias_y": round(sim.accel_bias_y, 4),
+                        "perturbed_accel_bias_z": round(sim.accel_bias_z, 4)
+                    }
+                    trajectory_records.append(header_rec_traj)
                     
                     # Initialize last logged parameters
                     last_log_left_pwm = sim.last_actuation[0]
@@ -671,6 +812,9 @@ def main():
                     last_log_lenc = int(sim.enc_l)
                     last_log_renc = int(sim.enc_r)
                     last_log_gyro = gyro_val
+                    last_log_ax = ax_val
+                    last_log_ay = ay_val
+                    last_log_az = az_val
             
             if logging_started:
                 # Build hardware-matching sparse log entry
@@ -699,6 +843,15 @@ def main():
                 if abs(gyro_val - last_log_gyro) > 0.01:
                     sparse_entry["g"] = round(gyro_val, 2)
                     last_log_gyro = gyro_val
+                if abs(ax_val - last_log_ax) > 0.1:
+                    sparse_entry["ax"] = round(ax_val, 2)
+                    last_log_ax = ax_val
+                if abs(ay_val - last_log_ay) > 0.1:
+                    sparse_entry["ay"] = round(ay_val, 2)
+                    last_log_ay = ay_val
+                if abs(az_val - last_log_az) > 0.1:
+                    sparse_entry["az"] = round(az_val, 2)
+                    last_log_az = az_val
                 sparse_entry["v"] = 6.0 # v_batt constant
                 
                 # Write to telemetry log list
@@ -716,7 +869,10 @@ def main():
                     "enc_l": int(sim.enc_l),
                     "enc_r": int(sim.enc_r),
                     "pwm_l": sim.last_actuation[0],
-                    "pwm_r": sim.last_actuation[1]
+                    "pwm_r": sim.last_actuation[1],
+                    "ax": round(ax_val, 4),
+                    "ay": round(ay_val, 4),
+                    "az": round(az_val, 4)
                 }
                 trajectory_records.append(traj_entry)
             
