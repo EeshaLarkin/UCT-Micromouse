@@ -13,13 +13,13 @@ This project supports dual-path programming using **Python (MicroPython)** or **
 
 Select the guide below matching your role and development toolchain:
 
-### 🐍 [Track A: Python (MicroPython) Quickstart](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_python.md)
+### 🐍 [Track A: Python (MicroPython) Quickstart](docs/getting_started_python.md)
 *For students writing algorithms in Python. Learn how to flash the interpreter, write to the USB drive, open the REPL, and write your first motor-spinning script.*
 
-### 📐 [Track B: Simulink Quickstart](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_simulink.md)
+### 📐 [Track B: Simulink Quickstart](docs/getting_started_simulink.md)
 *For students building block-based control algorithms in Simulink. Learn how to initialize your workspace, run the Pygame desktop simulator, and cross-compile/flash your model to the microcontroller.*
 
-### 👩‍🏫 [Track C: Staff & TA Reference Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_staff.md)
+### 👩‍🏫 [Track C: Staff & TA Reference Guide](docs/getting_started_staff.md)
 *For convenors, tutors, and TAs managing the lab. Learn how to run automated board factory resets, inspect raw flash hardware, and execute Gradescope autograder test suites locally.*
 
 ---
@@ -40,7 +40,7 @@ To prevent permanent damage, component failure, or destroying your Micromouse ha
 ## 📂 Repository Sitemap & Resources
 
 If you need deeper reference documents, explore these guides:
-*   **[Course Handbook](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_Course_Handbook_2026.md):** The primary master document containing milestone descriptions, grading criteria, and ECSA compliance rubrics.
-*   **[Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md):** Peripheral details and motor polarity calibration.
-*   **[Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md):** Reference documentation detailing the underlying C-Kernel telemetry structure and Python API.
-*   **[Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md):** Details on code generation settings and compiler paths.
+*   **[Course Handbook](docs/EEE3097_8_9S_Course_Handbook_2026.md):** The primary master document containing milestone descriptions, grading criteria, and ECSA compliance rubrics.
+*   **[Hardware Setup & Calibration Guide](docs/hardware_setup.md):** Peripheral details and motor polarity calibration.
+*   **[Kernel & API Developer Guide](docs/kernel_api_guide.md):** Reference documentation detailing the underlying C-Kernel telemetry structure and Python API.
+*   **[Simulink Development & Autograding Guide](docs/simulink_guide.md):** Details on code generation settings and compiler paths.

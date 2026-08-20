@@ -8,11 +8,11 @@ To ensure absolute reliability, this verification process uses the **PikaScript 
 
 ## **1. Construction Resources & Assembly Guides**
 
-Before you begin assembling and soldering your Micromouse chassis, consult the reference documents and media located in the [docs/assembly/](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assembly) folder:
+Before you begin assembling and soldering your Micromouse chassis, consult the reference documents and media located in the [docs/assembly/](../assembly) folder:
 
-*   **Step-by-Step Assembly Guide (PDF):** [micro-mouse_assembly.pdf](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assembly/micro-mouse_assembly.pdf) — Contains detailed diagrams and soldering instructions.
-*   **Comprehensive Construction Video:** [mmassembly.mp4](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assembly/mmassembly.mp4) — A visual walkthrough showing soldering, chassis assembly, and component installation.
-*   **Electrical Schematics (PDF):** [mm_schematics.pdf](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assembly/mm_schematics.pdf) — Schematic diagrams of the main power board and sensor connections.
+*   **Step-by-Step Assembly Guide (PDF):** [micro-mouse_assembly.pdf](../assembly/micro-mouse_assembly.pdf) — Contains detailed diagrams and soldering instructions.
+*   **Comprehensive Construction Video:** [mmassembly.mp4](../assembly/mmassembly.mp4) — A visual walkthrough showing soldering, chassis assembly, and component installation.
+*   **Electrical Schematics (PDF):** [mm_schematics.pdf](../assembly/mm_schematics.pdf) — Schematic diagrams of the main power board and sensor connections.
 
 ---
 
@@ -49,7 +49,7 @@ pip install -r python/requirements.txt
 
 You must load the default verification firmware onto the microcontroller. This firmware is a combined test sketch that executes both a **ToF-to-LED visualization** and a **wall-following safety routine**.
 
-*   **Target Binary:** [pikascript_milestone0.bin](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/binaries/pikascript_milestone0.bin)
+*   **Target Binary:** [pikascript_milestone0.bin](../../firmware/binaries/pikascript_milestone0.bin)
 
 ### **Flashing Method A: Using `st-flash` Command Line (Recommended)**
 Direct SWD flashing via the `st-flash` utility bypasses the ST-Link virtual drive filesystem entirely, preventing any "not enough space" or metadata copy errors.
@@ -70,7 +70,7 @@ Direct SWD flashing via the `st-flash` utility bypasses the ST-Link virtual driv
 2.  Connect the micro-USB cable to the ST-Link board.
 3.  Open the program, select the **ST-LINK** connection interface on the right panel, and click **Connect**.
 4.  Navigate to the **Erase & Programming** tab (green checkmark icon).
-5.  Browse to select [pikascript_milestone0.bin](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/binaries/pikascript_milestone0.bin) for the **File path**.
+5.  Browse to select [pikascript_milestone0.bin](../../firmware/binaries/pikascript_milestone0.bin) for the **File path**.
 6.  Ensure **Start address** is set to `0x08000000` and check **Run after programming**.
 7.  Click **Start Programming**.
 
@@ -143,7 +143,7 @@ Once your hardware is verified and Milestone 0 is submitted, you are ready to tr
 
 Choose your development track and refer to the specific guides for detailed "getting started" and setup instructions:
 
-*   **If you choose the Python (MicroPython) Track:** Refer to the **[Python Track Quickstart Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_python.md)** to flash MicroPython and write scripts.
-*   **If you choose the Simulink Track:** Refer to the **[Simulink Track Quickstart Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_simulink.md)** to setup MATLAB paths and run co-simulations.
-*   **Documentation Index:** A complete sitemap is available in the **[Documentation Index (docs/README.md)](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/README.md)**.
+*   **If you choose the Python (MicroPython) Track:** Refer to the **[Python Track Quickstart Guide](../getting_started_python.md)** to flash MicroPython and write scripts.
+*   **If you choose the Simulink Track:** Refer to the **[Simulink Track Quickstart Guide](../getting_started_simulink.md)** to setup MATLAB paths and run co-simulations.
+*   **Documentation Index:** A complete sitemap is available in the **[Documentation Index (docs/README.md)](../README.md)**.
 

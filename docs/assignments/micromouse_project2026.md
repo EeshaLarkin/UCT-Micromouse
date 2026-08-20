@@ -35,26 +35,26 @@ Depending on your chosen development path, complete the following onramps before
 
 To navigate the codebase, understand the primary directories of this repository and their roles:
 
-*   **[`docs/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs)**: Reference guides, hardware specifications, calibration procedures, and project briefs.
-*   **[`python/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python)**: Target directory for the Python development track. Contains milestone templates and the student-facing `uct_mouse` wrapper module.
-*   **[`matlab/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/matlab)**: Target directory for the Simulink development track. Contains visual models, workspace setups, and helper scripts.
-*   **[`firmware/src/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/src)**: The core microcontroller codebase. Includes the low-level C Kernel (`firmware/src/kernel/`), MicroPython board wrappers (`firmware/src/micropython/`), and PikaScript engines (`firmware/src/pikascript/`).
-*   **[`tools/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/tools)**: Diagnostic and testing utilities, including the local virtual physics simulator testbed.
-*   **[`external/`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/external)**: Git submodules for embedded engines (e.g., MicroPython) and hardware templates.
+*   **[`docs/`](..)**: Reference guides, hardware specifications, calibration procedures, and project briefs.
+*   **[`python/`](../../python)**: Target directory for the Python development track. Contains milestone templates and the student-facing `uct_mouse` wrapper module.
+*   **[`matlab/`](../../matlab)**: Target directory for the Simulink development track. Contains visual models, workspace setups, and helper scripts.
+*   **[`firmware/src/`](../../firmware/src)**: The core microcontroller codebase. Includes the low-level C Kernel (`firmware/src/kernel/`), MicroPython board wrappers (`firmware/src/micropython/`), and PikaScript engines (`firmware/src/pikascript/`).
+*   **[`tools/`](../../tools)**: Diagnostic and testing utilities, including the local virtual physics simulator testbed.
+*   **[`external/`](../../external)**: Git submodules for embedded engines (e.g., MicroPython) and hardware templates.
 
 #### Key Markdown Guides
 
 For detailed guidance when performing specific tasks, refer to these guides in the `docs/` folder:
 
-*   **Python Track Quickstart:** [getting_started_python.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_python.md)
+*   **Python Track Quickstart:** [getting_started_python.md](../getting_started_python.md)
     *   *Purpose:* Start here if writing Python. Explains how to flash MicroPython, write scripts, and interact with the serial REPL.
-*   **Simulink Track Quickstart:** [getting_started_simulink.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_simulink.md)
+*   **Simulink Track Quickstart:** [getting_started_simulink.md](../getting_started_simulink.md)
     *   *Purpose:* Start here if using Simulink. Explains how to setup MATLAB paths, run Pygame co-simulation, and compile/deploy.
-*   **Simulink Development:** [Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md)
+*   **Simulink Development:** [Simulink Development & Autograding Guide](../simulink_guide.md)
     *   *Purpose:* Guides you through configuring the MATLAB search path, utilizing C-Caller blocks, running interactive desktop simulations, and code compilation via Embedded Coder.
-*   **Kernel & API Reference:** [Micromouse Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md)
+*   **Kernel & API Reference:** [Micromouse Kernel & API Developer Guide](../kernel_api_guide.md)
     *   *Purpose:* Explains the polymorphic architecture, Python API function definitions, and the telemetry protocol schemas.
-*   **Hardware Setup & Calibration:** [Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md)
+*   **Hardware Setup & Calibration:** [Hardware Setup & Calibration Guide](../hardware_setup.md)
     *   *Purpose:* Covers physical motor polarity correction, Watchdog safety limits, and resolving clock rate/baud serial synchronization errors.
 
 ### Core References
@@ -89,11 +89,11 @@ git submodule update --init --recursive
 
 ## 4. Development Architecture (Dual-Path)
 
-The 2026 platform implements a polymorphic three-tier architecture (detailed in [Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md)). This allows you to run the exact same algorithm code in virtual co-simulation and on the actual STM32 physical mouse without modifying your code.
+The 2026 platform implements a polymorphic three-tier architecture (detailed in [Kernel & API Developer Guide](../kernel_api_guide.md)). This allows you to run the exact same algorithm code in virtual co-simulation and on the actual STM32 physical mouse without modifying your code.
 
 You may choose to develop your solution using either:
 
-* **Option A: Python (MicroPython / PikaScript):** Write high-level scripts targeting the [uct_mouse](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/python/uct_mouse.py) wrapper API.
+* **Option A: Python (MicroPython / PikaScript):** Write high-level scripts targeting the [uct_mouse](../../python/uct_mouse.py) wrapper API.
 * **Option B: MATLAB / Simulink / Stateflow:** Model control systems visually using the `StudentTemplate.slx` workspace and use the Embedded Coder to compile it to the STM32 microcontroller.
 
 ---
@@ -111,14 +111,14 @@ To pass the course, students are required to make **five primary submissions** t
             2. The physical mouse traversing the 1.0m x 1.0m square trajectory and stopping autonomously.
     *   **Log-Code Verification (Anti-Cheat):** The autograder compiles/hashes your submitted code to verify it matches the FNV-1a `"hash"` field in your telemetry header. Mismatches will reject the submission. The `"uid"` field is monitored retrospectively across all submissions; logs containing identical UIDs under different student accounts are flagged for shared hardware/files plagiarism review.
 2.  **Submission 2: Graduate Attribute (GA3) Design Report 1**
-    *   **Deliverables:** A formal engineering design report (in PDF format) documenting your closed-loop feedback controller design and testing from Milestone 1. Follow the guidelines in [gareport1_instructions.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport1_instructions.md) and the template in [EEE3097_8_9S_designreport_template.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport_template.md).
+    *   **Deliverables:** A formal engineering design report (in PDF format) documenting your closed-loop feedback controller design and testing from Milestone 1. Follow the guidelines in [gareport1_instructions.md](gareport1_instructions.md) and the template in [EEE3097_8_9S_designreport_template.md](EEE3097_8_9S_designreport_template.md).
 3.  **Submission 3: Milestone 2 (Maze Exploration) Code & Physical Evidence**
     *   **Deliverables:** Run `python tools/package_submission.py --task milestone2 --src workspace/task2_maze/` to package your files into **`submission_milestone2.zip`**.
         *   **Exploration Code:** Your Python maze navigation modules OR your compiled Simulink generated C code.
         *   **Physical Run Telemetry Log:** Exported JSON telemetry lines (`run_log.jsonl`).
         *   **Validation Video:** An `.mp4` video showing a 3-second student card close-up followed by your physical mouse autonomously exploring and mapping a maze layout.
 4.  **Submission 4: Graduate Attribute (GA3) Design Report 2**
-    *   **Deliverables:** A second formal engineering design report (in PDF format) documenting your sensor fusion, mapping state flows, or routing pathfinder designs from Milestone 2. Follow the guidelines in [gareport2_instructions.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport2_instructions.md) and the template in [EEE3097_8_9S_designreport_template.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport_template.md).
+    *   **Deliverables:** A second formal engineering design report (in PDF format) documenting your sensor fusion, mapping state flows, or routing pathfinder designs from Milestone 2. Follow the guidelines in [gareport2_instructions.md](gareport2_instructions.md) and the template in [EEE3097_8_9S_designreport_template.md](EEE3097_8_9S_designreport_template.md).
 5.  **Submission 5: Milestone 3 (Final Maze Solving) Code & Validation**
     *   **Deliverables:** Run `python tools/package_submission.py --task milestone3 --src workspace/task3_maze/` to package your files into **`submission_milestone3.zip`**.
         *   **Solving Code:** Your final high-speed path planning and navigation algorithm. Evaluated in simulation under randomized maze layouts, and validated via a final live physical demonstration of the mouse mapping and traversing the maze as fast as possible.

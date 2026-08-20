@@ -38,12 +38,12 @@ To pass the course and meet ECSA Graduate Attribute 3 (Design) requirements, you
 ### **Project Reference Documentation:**
 If you need assistance or technical reference details at any stage of the project, refer to the following developer and setup guides located in the `/docs/` directory:
 
-*   **[Milestone 0: Hardware Verification Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/submission0_milestone0_verification.md):** A step-by-step guide to confirm your physical build is functional, test sensors, and verify telemetry connections.
-*   **[Python Track Quickstart](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_python.md):** Walks you through setting up Python environment, flashing MicroPython, and writing scripts.
-*   **[Simulink Track Quickstart](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_simulink.md):** Walks you through MATLAB paths, visual co-simulation, and code generation.
-*   **[Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md):** The primary reference for the high-level Python API (`uct_mouse` module) methods, OLED display configurations, and line sensor bindings.
-*   **[Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md):** Covers Simulink template path setups, C-Coder compilation hooks, and automatic Pygame co-simulation socket mappings.
-*   **[Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md):** Contains DC motor wiring diagrams, battery switch details, sensor alternate-function pins, and processor clock-speed Sweeping diagnostics.
+*   **[Milestone 0: Hardware Verification Guide](assignments/submission0_milestone0_verification.md):** A step-by-step guide to confirm your physical build is functional, test sensors, and verify telemetry connections.
+*   **[Python Track Quickstart](getting_started_python.md):** Walks you through setting up Python environment, flashing MicroPython, and writing scripts.
+*   **[Simulink Track Quickstart](getting_started_simulink.md):** Walks you through MATLAB paths, visual co-simulation, and code generation.
+*   **[Kernel & API Developer Guide](kernel_api_guide.md):** The primary reference for the high-level Python API (`uct_mouse` module) methods, OLED display configurations, and line sensor bindings.
+*   **[Simulink Development & Autograding Guide](simulink_guide.md):** Covers Simulink template path setups, C-Coder compilation hooks, and automatic Pygame co-simulation socket mappings.
+*   **[Hardware Setup & Calibration Guide](hardware_setup.md):** Contains DC motor wiring diagrams, battery switch details, sensor alternate-function pins, and processor clock-speed Sweeping diagnostics.
 
 ---
 
@@ -110,7 +110,7 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 
 ### **Prerequisite: Milestone 0 Build Verification (0%)**
 *   **Task:** Complete the physical assembly of your mouse, power on the board, and verify that the sensors, motors, encoders, and live telemetry are fully functioning.
-*   **Verification:** Run the telemetry extraction utility (`python tools/dump_logs.py`) and confirm telemetry logs can be retrieved over the serial interface. Refer to the [Milestone 0: Hardware Verification Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/submission0_milestone0_verification.md) for detailed instructions.
+*   **Verification:** Run the telemetry extraction utility (`python tools/dump_logs.py`) and confirm telemetry logs can be retrieved over the serial interface. Refer to the [Milestone 0: Hardware Verification Guide](assignments/submission0_milestone0_verification.md) for detailed instructions.
 
 ### **Submission 1: Milestone 1 Code & Demo (25%)**
 *   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
@@ -127,7 +127,7 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 
 ### **Submission 2: GA3 Design Report 1 (20%)**
 *   **Task:** Submit a formal engineering design report (in PDF format) documenting your closed-loop feedback controller, velocity synchronization, or heading alignment designs from Milestone 1.
-*   **Template:** Follow the formatting rules and character limits in [gareport_guidelines.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport_guidelines.md) and the template in [EEE3097_8_9S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport.docx).
+*   **Template:** Follow the formatting rules and character limits in [gareport_guidelines.md](assignments/gareport_guidelines.md) and the template in [EEE3097_8_9S_designreport.docx](assignments/EEE3097_8_9S_designreport.docx).
 *   **Assessment & Passing Criteria:** Evaluated against the ECSA GA3 Design rubric. Must demonstrate a structured design brief (3.1), alternative evaluations (3.2), and first-principles modeling (3.3).
 
 ### **Submission 3: GA3 Design Report 2 (30%)**

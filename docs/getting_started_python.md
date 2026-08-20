@@ -20,7 +20,7 @@ To run Python code, the microcontroller needs the MicroPython firmware engine.
 1. Plug the ST-LINK USB cable into your laptop.
 2. A virtual flash drive (usually named **NODE_L476RG** or **DIS_L476VG**) will appear on your desktop.
 3. Locate the precompiled binary in your repository:
-   * **[firmware/binaries/micropython.bin](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/firmware/binaries/micropython.bin)**
+   * **[firmware/binaries/micropython.bin](../firmware/binaries/micropython.bin)**
 4. **Drag and drop** `micropython.bin` directly onto that virtual flash drive.
 5. The LED on the programmer will blink rapidly for a few seconds and then turn solid. The MicroPython engine is now flashed!
 
