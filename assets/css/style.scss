@@ -1,0 +1,8 @@
+---
+---
+@import "{{ site.theme }}";
+
+// Override the default GitHub Primer container width to make it fill D2L iframe views nicely
+.container-lg {
+  max-width: 90% !important;
+}
