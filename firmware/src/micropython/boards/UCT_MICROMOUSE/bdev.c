@@ -45,7 +45,7 @@ static int ext_flash_init(void) {
 }
 
 // Flush the cache
-static int ext_flash_flush(void) {
+int ext_flash_flush(void) {
     if (cache_dirty && cached_sector_addr != 0xFFFFFFFFU) {
         // Erase the physical sector
         if (ZD25WQ80C_SectorErase(cached_sector_addr) != HAL_OK) {
@@ -161,6 +161,8 @@ int uct_bdev_ioctl(uint32_t op, uint32_t arg) {
 
 // Systematically de-initialize custom peripherals and clear/disable NVIC interrupts before soft-reboot
 void board_start_soft_reset(void) {
+    extern int ext_flash_flush(void);
+    ext_flash_flush();
     extern volatile bool mouse_initialized;
     mouse_initialized = false;
     

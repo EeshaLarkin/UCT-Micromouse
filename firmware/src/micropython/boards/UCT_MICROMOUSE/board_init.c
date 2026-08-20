@@ -364,4 +364,6 @@ void factory_reset_make_files(FATFS *fatfs) {
             f_close(&fp);
         }
     }
+    extern int ext_flash_flush(void);
+    ext_flash_flush();
 }
