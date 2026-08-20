@@ -33,15 +33,29 @@ Depending on where the code is executing, the wrapper behaves polymorphically:
 
 Students can co-simulate their Simulink algorithms against the virtual testbed environment automatically with full GUI integration:
 
-1.  **Run Simulink Model:** Open `StudentTemplate.slx` and click **Run**.
-2.  **Automatic Launch:** The model's `StartFcn` callback will automatically launch the Python-based virtual maze engine (`physics_sim.py`) in the background. The Pygame visual simulator window will appear automatically.
-3.  **Automatic Stop & Cleanup:** 
+1.  **Open the Top-Level Model:** Open `UCT_KDeploy.slx` in Simulink.
+2.  **Access the Controller:** Locate the referenced `StudentTemplate` Model Reference block inside it. Double-click it to open, view, and edit your controller logic (which edits the underlying `StudentTemplate.slx` file). If you are working on a specific milestone, you can also change the model file pointed to by this Model Reference block (e.g. to `milestone1_square.slx`).
+3.  **Run Simulation:** Click **Run** on either `UCT_KDeploy.slx` or `StudentTemplate.slx`.
+4.  **Automatic Launch:** The model's `StartFcn` callback will automatically launch the Python-based virtual maze engine (`physics_sim.py`) in the background. The Pygame visual simulator window will appear automatically.
+5.  **Automatic Stop & Cleanup:** 
     - Clicking **Stop** in the Simulink GUI will automatically close the Pygame window and stop the simulation.
     - If the virtual mouse crashes or you manually close the Pygame window, the background socket disconnection will immediately trigger Simulink to stop running the model.
 
 ---
 
-## 4. Hardware Compilation (`Cmd+B`)
+## 4. Calibrating Motor and Encoder Polarities
+
+Because physical wiring and motor soldering directions vary across robot chassis, students must ensure motor actuation and encoder tracking values are mathematically aligned (e.g., forward PWM drives the mouse forward, and forward travel yields positive encoder counts).
+
+In Simulink, this polarity correction is handled graphically in your model:
+1.  **Motor Polarity:** If a motor rotates backwards under positive command, place a **Gain block** (set to `-1`) on that motor's command line immediately before passing the signal to the `simulink_ext_set_motors` block.
+2.  **Encoder Polarity:** If an encoder counts down when the wheel rotates forward, place a **Gain block** (set to `-1`) on that encoder's feedback line immediately after the output of the `simulink_ext_get_encoders` block.
+
+This visual mapping isolates your algorithm from physical chassis differences and ensures perfect parity when your model is compiled and executed in the autograder (where the virtual environment assumes standard positive polarities).
+
+---
+
+## 5. Hardware Compilation (`Cmd+B`)
 
 When ready to deploy to the physical mouse:
 1.  Open `UCT_KDeploy.slx`.
@@ -51,7 +65,7 @@ When ready to deploy to the physical mouse:
 
 ---
 
-## 5. Autograding Submission & PC Build Compilation
+## 6. Autograding Submission & PC Build Compilation
 
 When a student submits their Simulink project for grading, the hosted Gradescope autograder:
 1.  Detects the presence of the code-generation directory under `firmware/build/UCT_KDeploy_ert_rtw/`.

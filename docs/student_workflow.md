@@ -69,7 +69,9 @@ You can configure Fast Simulation Mode using any of the following mechanisms (ev
    * `UCT_OFFLINE_MODE=1`
 
 ### For Simulink:
-- Open `StudentTemplate.slx` and click **Run**.
+- Open the top-level model `UCT_KDeploy.slx` (which references `StudentTemplate.slx` via a Model Reference block).
+- To edit your controller, double-click the `StudentTemplate` Model Reference block to open and edit your logic.
+- Click **Run** on either `UCT_KDeploy.slx` or `StudentTemplate.slx` to start the simulation.
 - The model will automatically launch the Pygame virtual physics simulator window in the background and connect to it.
 - Letting the mouse crash or manually closing the Pygame window will automatically stop the Simulink simulation.
 - Clicking **Stop** in the Simulink GUI will automatically stop the simulation and close the Pygame window.
@@ -125,7 +127,7 @@ Once your code works perfectly in simulation, it's time to flash it to the physi
 4. The mouse will reboot and immediately begin executing your code.
 
 ### Flashing Simulink / C Code
-1. In your `StudentTemplate.slx` model, click **Build** or hit `Cmd+B` (`Ctrl+B`).
+1. Open the top-level model `UCT_KDeploy.slx` and click **Build** or hit `Cmd+B` (`Ctrl+B`).
 2. Simulink Embedded Coder will generate the C equivalents of your block model.
 3. The automated deployment hook will compile the Tier-1 kernel together with your logic and flash the `simulink.bin` directly to the STM32 over USB.
 4. The physical mouse will run the hardware control loop identically to your desktop simulation.

@@ -109,6 +109,8 @@ class MazeSolver:
             with open("polarity.txt", "r") as f:
                 lines = f.read().strip().split(",")
                 uct_mouse.set_polarity(int(lines[0]), int(lines[1]))
+                if len(lines) >= 4:
+                    uct_mouse.set_encoder_polarity(int(lines[2]), int(lines[3]))
         except Exception:
             uct_mouse.set_polarity(1, 1)
 

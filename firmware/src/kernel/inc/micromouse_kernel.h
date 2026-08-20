@@ -46,6 +46,7 @@ void kernel_snapshot_state(void);
 void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm);
 const KernelState_t* kernel_get_state(void);
 void kernel_set_polarity(int16_t left, int16_t right);
+void kernel_set_encoder_polarity(int16_t left, int16_t right);
 
 void kernel_watchdog_tick(void);
 uint32_t kernel_get_stream_rate_hz(void);

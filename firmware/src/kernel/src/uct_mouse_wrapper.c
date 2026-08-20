@@ -72,6 +72,10 @@ void uct_mouse_set_polarity(PikaObj *self, int left, int right) {
     kernel_set_polarity(left, right);
 }
 
+void uct_mouse_set_encoder_polarity(PikaObj *self, int left, int right) {
+    kernel_set_encoder_polarity(left, right);
+}
+
 PikaObj* uct_mouse_get_line_sensors(PikaObj *self) {
     const KernelState_t* s = kernel_get_state();
     PikaObj* tuple = New_pikaTuple();

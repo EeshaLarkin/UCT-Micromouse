@@ -58,6 +58,8 @@ static char kernel_title[20] = "   Simulink       ";
 // Standard differential drive usually requires one to be -1. Adjust as needed per physical board.
 static volatile int16_t polarity_l = -1;
 static volatile int16_t polarity_r = -1;
+static volatile int16_t enc_polarity_l = 1;
+static volatile int16_t enc_polarity_r = 1;
 
 // -------------------------------------------------------------
 // Telemetry Configuration Table
@@ -213,8 +215,8 @@ void kernel_snapshot_state(void) {
     current_state.ir_fr = 0; 
     current_state.ir_sl = 0;
     current_state.ir_sr = 0;
-    current_state.lenc = leftEncoderCount;
-    current_state.renc = rightEncoderCount;
+    current_state.lenc = leftEncoderCount * enc_polarity_l;
+    current_state.renc = rightEncoderCount * enc_polarity_r;
     current_state.gyro   = IMU_Gyro[2];          // Assuming Z is the yaw axis
     current_state.v_batt = (float)Vbattery / 1000.0f; 
     current_state.btn1 = SW1.state;
@@ -427,4 +429,9 @@ void kernel_update_display(void) {
 void kernel_set_polarity(int16_t left, int16_t right) {
     polarity_l = left;
     polarity_r = right;
+}
+
+void kernel_set_encoder_polarity(int16_t left, int16_t right) {
+    enc_polarity_l = left;
+    enc_polarity_r = right;
 }

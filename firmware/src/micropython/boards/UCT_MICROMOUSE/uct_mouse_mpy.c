@@ -144,6 +144,15 @@ static mp_obj_t mpy_uct_mouse_set_polarity(mp_obj_t left, mp_obj_t right) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mpy_uct_mouse_set_polarity_obj, mpy_uct_mouse_set_polarity);
 
+// 7_2. uct_mouse.set_encoder_polarity(left, right)
+static mp_obj_t mpy_uct_mouse_set_encoder_polarity(mp_obj_t left, mp_obj_t right) {
+    int l = mp_obj_get_int(left);
+    int r = mp_obj_get_int(right);
+    kernel_set_encoder_polarity((int16_t)l, (int16_t)r);
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_2(mpy_uct_mouse_set_encoder_polarity_obj, mpy_uct_mouse_set_encoder_polarity);
+
 // 7b. uct_mouse.get_line_sensors() -> tuple (fl, fr, sl, sr)
 static mp_obj_t mpy_uct_mouse_get_line_sensors(void) {
     const KernelState_t* state = kernel_get_state();
@@ -243,6 +252,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_vbatt),   MP_ROM_PTR(&mpy_uct_mouse_get_vbatt_obj) },
     { MP_ROM_QSTR(MP_QSTR_delay_ms),    MP_ROM_PTR(&mpy_uct_mouse_delay_ms_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_polarity),MP_ROM_PTR(&mpy_uct_mouse_set_polarity_obj) },
+    { MP_ROM_QSTR(MP_QSTR_set_encoder_polarity),MP_ROM_PTR(&mpy_uct_mouse_set_encoder_polarity_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_line_sensors), MP_ROM_PTR(&mpy_uct_mouse_get_line_sensors_obj) },
     { MP_ROM_QSTR(MP_QSTR_dump_logs),    MP_ROM_PTR(&mpy_uct_mouse_dump_logs_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_telemetry), MP_ROM_PTR(&mpy_uct_mouse_get_telemetry_obj) },

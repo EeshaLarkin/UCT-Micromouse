@@ -264,10 +264,13 @@ def get_gyro():
     s = _mouse.get_sensors()
     return s.get('gyro', 0.0)
 
+_left_enc_polarity = 1
+_right_enc_polarity = 1
+
 def get_encoders():
     """Returns (left, right) virtual encoder ticks."""
     s = _mouse.get_sensors()
-    return s.get('lenc', 0), s.get('renc', 0)
+    return s.get('lenc', 0) * _left_enc_polarity, s.get('renc', 0) * _right_enc_polarity
 
 def get_vbatt():
     """Returns virtual battery voltage."""
@@ -307,6 +310,12 @@ def delay_ms(ms):
 def set_polarity(left_polarity, right_polarity):
     """Sets motor polarity multipliers on the physical mouse (ignored on PC)."""
     pass
+
+def set_encoder_polarity(left_polarity, right_polarity):
+    """Sets encoder polarity multipliers on PC mock or physical mouse."""
+    global _left_enc_polarity, _right_enc_polarity
+    _left_enc_polarity = left_polarity
+    _right_enc_polarity = right_polarity
 
 def get_line_sensors():
     """Returns (front_left, front_right, side_left, side_right) downward facing line sensors."""
