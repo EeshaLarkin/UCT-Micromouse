@@ -66,7 +66,12 @@ You are highly encouraged to test your algorithm against the grading suite local
 ```bash
 python tools/autograder/grade_runner.py
 ```
-This script runs the local simulator backend, executes your current code through all 3 test scenarios (including the hidden runs), and outputs the resulting score sheet directly to your terminal.
+This script runs the local simulator backend, automatically detects and executes your code from **`workspace/task1_square/`**, runs it through all 3 test scenarios (including the hidden runs), and outputs the resulting score sheet directly to your terminal.
+
+*Note: If you want to run the autograder on a different folder (e.g. a solutions or test directory), you can override the source folder using the `--submission` flag:*
+```bash
+python tools/autograder/grade_runner.py --submission path/to/your/folder
+```
 
 ---
 

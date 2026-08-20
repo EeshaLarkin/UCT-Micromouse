@@ -49,6 +49,18 @@ The submission consists of:
 2. **Your Physical Run Video (`run_video.mp4`):**
    * Uploaded as a **separate file** alongside your ZIP. The video must start with a **3-second close-up of your Student Card** followed by the uncut mapping and high-speed solving runs.
 
+#### **Testing the Autograder Offline (Locally)**
+You are highly encouraged to test your algorithm against the grading suite locally on your laptop before uploading to Gradescope. To run the full multi-test evaluation suite locally, run this command from the repository root:
+```bash
+python tools/autograder/grade_runner.py
+```
+This script runs the local simulator backend, automatically detects and executes your code from **`workspace/final_task/`**, runs it through the test scenarios, and outputs the resulting score sheet directly to your terminal.
+
+*Note: If you want to run the autograder on a different folder (e.g. a solutions or test directory), you can override the source folder using the `--submission` flag:*
+```bash
+python tools/autograder/grade_runner.py --submission path/to/your/folder
+```
+
 ---
 
 ### 4. Video Requirements & Academic Honesty Declaration
