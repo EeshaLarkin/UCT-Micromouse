@@ -12,7 +12,7 @@ The primary purpose is to provide evidence of proficiency in the **ECSA Design G
 
 ### 2. Format & Submission Rules
 To ensure standardization for external ECSA audits, you must adhere to these formatting rules:
-*   **Template:** Populate the Microsoft Word form template located at **[docs/assignments/EEE3097_8_9S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/EEE3097_8_9S_designreport.docx)**.
+*   **Template:** Populate the Microsoft Word form template located at **[docs/assignments/EEE3097_8_9S_designreport.docx](EEE3097_8_9S_designreport.docx)**.
 *   **Form Protection:** **Do not disable the "Protect Form" functionality in MS Word**. The template enforces strict layout limits and character constraints for each section.
 *   **Output:** Save the completed form as a **PDF** and upload it to Gradescope (named `Design_Report_1_[StudentNumber].pdf`).
 

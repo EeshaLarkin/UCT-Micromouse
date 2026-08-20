@@ -15,7 +15,7 @@ The main purpose of these submissions is to demonstrate proficiency in the **ECS
 
 ### 2. Format & Submission Rules
 To ensure standardization for external accreditation audits, you must adhere to the following formatting constraints:
-* **Template:** You must use the Microsoft Word form template provided at [EEE3097_8_9S_designreport.docx](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/EEE3097_8_9S_designreport.docx).
+* **Template:** You must use the Microsoft Word form template provided at [EEE3097_8_9S_designreport.docx](EEE3097_8_9S_designreport.docx).
 * **Form Protection:** **Do not disable the "Protect Form" functionality in MS Word**. The template enforces strict layout limits and character constraints for each section.
 * **Output:** Convert the finalized document to **PDF** for submission to Gradescope (named `Design_Report_[1/2]_[StudentNumber].pdf`).
 
