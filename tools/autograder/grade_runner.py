@@ -74,6 +74,7 @@ def main():
     if args.submission:
         SUBMISSION_DIR = os.path.abspath(args.submission)
         print(f"[Grader] Overridden SUBMISSION_DIR: {SUBMISSION_DIR}")
+    
     if args.results:
         RESULTS_FILE = os.path.abspath(args.results)
         print(f"[Grader] Overridden RESULTS_FILE: {RESULTS_FILE}")
@@ -91,6 +92,20 @@ def main():
         assignment_name = "milestone1" # default fallback
         
     print(f"[Grader] Active assignment: {assignment_name}")
+
+    # Dynamically resolve default submission folder to workspace folders if not overridden
+    if not args.submission:
+        assignment_workspaces = {
+            "milestone1_square": os.path.join(repo_root, "workspace", "task1_square"),
+            "milestone2_maze": os.path.join(repo_root, "workspace", "task2_maze"),
+            "final_demo": os.path.join(repo_root, "workspace", "final_task")
+        }
+        fallback_dir = assignment_workspaces.get(assignment_name)
+        if fallback_dir and os.path.exists(fallback_dir):
+            SUBMISSION_DIR = fallback_dir
+            print(f"[Grader] Default SUBMISSION_DIR resolved to active workspace: {SUBMISSION_DIR}")
+        else:
+            print(f"[Grader] Default SUBMISSION_DIR resolved to: {SUBMISSION_DIR}")
     
     try:
         test_suite = load_test_suite(assignment_name)
@@ -261,6 +276,10 @@ def main():
     # 5. Execute Multi-Run Simulation Tests
     test_runs = getattr(test_suite, "TEST_RUNS", [("Standard Run", 1.0, 0.08, 0.08, False)])
     
+    sim_script = os.path.join(repo_root, "tools", "physics_sim.py")
+    if not os.path.exists(sim_script):
+        sim_script = os.path.join(os.path.dirname(__file__), "..", "physics_sim.py")
+        
     total_score = 0.0
     gradescope_tests = []
     

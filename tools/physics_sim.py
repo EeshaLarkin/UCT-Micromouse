@@ -295,7 +295,7 @@ class PhysicsSimulator:
         self.last_enc_l = 0.0  # tracks last-sent value to compute per-frame delta
         self.last_enc_r = 0.0
         self.time = 0.0
-        self.trajectory = [(self.x, self.y)]
+        self.trajectory = [(self.x, self.y, self.theta)]
         self.last_actuation = [0, 0]
         
         # Transient slip simulation state variables
@@ -415,7 +415,7 @@ class PhysicsSimulator:
         
         # Log path
         if not self.trajectory or math.hypot(self.x - self.trajectory[-1][0], self.y - self.trajectory[-1][1]) > 0.01:
-            self.trajectory.append((self.x, self.y))
+            self.trajectory.append((self.x, self.y, self.theta))
             
         # Integrate Encoders (measures physical rotations, before slip)
         self.enc_l += (self.v_l * dt) / (2.0 * math.pi * self.R) * self.ticks_per_rot
