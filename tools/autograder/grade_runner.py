@@ -359,7 +359,7 @@ def main():
         
         if track == "python":
             client_cmd = [sys.executable, main_file]
-            python_paths = [SOURCE_DIR, os.path.dirname(main_file)]
+            python_paths = [SOURCE_DIR, os.path.dirname(main_file), os.path.join(repo_root, "python")]
             if "PYTHONPATH" in os.environ:
                 python_paths.append(os.environ["PYTHONPATH"])
             client_env["PYTHONPATH"] = os.path.pathsep.join(python_paths)
