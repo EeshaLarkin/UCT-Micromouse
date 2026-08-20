@@ -33,22 +33,7 @@ To prevent damage to the physical testbed, the C-Kernel implements a **1000 ms W
 
 ---
 
-## 3. The 72 MHz vs 80 MHz Silicon Lottery
-
-Due to component supply variance and factory calibration differences, some microcontroller boards run their internal PLL loop at `80 MHz` (the design target), while others only boot at `72 MHz`.
-
-### Impact on Serial Communication
-An incorrect clock rate changes the peripheral clock bus frequency, which throws off the UART baud rate calculation:
-*   A board running at `72 MHz` configured for `80 MHz` will suffer a ~11% baud rate mismatch, rendering serial communication completely garbled or unresponsive.
-
-### Diagnostic & Fix
-*   **Target Divider (`80 MHz`):** Uses register value `USART1->BRR = 694` for standard 115200 baud communication.
-*   **Outlier Divider (`72 MHz`):** Uses register value `USART1->BRR = 625` to achieve 115200 baud.
-*   **Action:** If a board fails to connect to the Python dashboard and shows timeouts or corrupt symbols, but works when the register divider in the firmware configuration is modified to `625`, the microcontroller is a 72 MHz outlier and should be labeled as such.
-
----
-
-## 4. Motor Polarity Calibration
+## 3. Motor Polarity Calibration
 
 Depending on student assembly and motor lead soldering, one or both motors may run in reverse relative to the command values.
 
@@ -59,7 +44,7 @@ To keep userland solver code unified, calibration must happen at the Kernel leve
 
 ---
 
-## 5. Signed 8-bit `abs()` Casting Workaround
+## 4. Signed 8-bit `abs()` Casting Workaround
 
 Older ARM GCC compiler versions sometimes miscompile signed 8-bit negative casts inside standard `<stdlib.h>` `abs()` operations. When reversing, the sign bit can get mangled, locking the motor. 
 *   **Kernel Fix:** The kernel bypasses `abs()` directly by checking motor direction checks explicitly, assigning the absolute values natively:

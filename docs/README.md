@@ -32,7 +32,7 @@ Below is the definitive index of all documentation files in this repository:
 *   **[Student Workflow Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md):** The developer setup guide for Python/Simulink, co-simulation execution, firmware deployment over VCP, and debugging strategies.
 *   **[Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md):** Reference documentation detailing the underlying C-Kernel telemetry structure, serial command packet format, and the user-facing Python API.
 *   **[Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md):** Simulink workspace configuration, C-Coder compilation hooks, and virtual testbed loopback socket mapping structures.
-*   **[Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md):** Peripheral details, motor polarity calibration, and 72 MHz vs 80 MHz clock sweeps.
+*   **[Hardware Setup & Calibration Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/hardware_setup.md):** Peripheral details and motor polarity calibration.
 
 ### **Assignment Submissions (in `/docs/assignments/`)**
 *   **[GA Report Guidelines](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/assignments/gareport_guidelines.md):** Formatting criteria, section-by-section checklists, character limit budgets, and submission rubrics for the two formal Design Reports.
