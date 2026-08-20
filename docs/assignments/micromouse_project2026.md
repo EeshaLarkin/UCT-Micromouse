@@ -46,8 +46,10 @@ To navigate the codebase, understand the primary directories of this repository 
 
 For detailed guidance when performing specific tasks, refer to these guides in the `docs/` folder:
 
-*   **Project Workflow & Setup:** [UCT Micromouse Student Workflow Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md)
-    *   *Purpose:* Start here. Explains how to install dependencies, run the virtual co-simulation, compile your code, and flash it to the physical Nucleo microcontroller.
+*   **Python Track Quickstart:** [getting_started_python.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_python.md)
+    *   *Purpose:* Start here if writing Python. Explains how to flash MicroPython, write scripts, and interact with the serial REPL.
+*   **Simulink Track Quickstart:** [getting_started_simulink.md](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_simulink.md)
+    *   *Purpose:* Start here if using Simulink. Explains how to setup MATLAB paths, run Pygame co-simulation, and compile/deploy.
 *   **Simulink Development:** [Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md)
     *   *Purpose:* Guides you through configuring the MATLAB search path, utilizing C-Caller blocks, running interactive desktop simulations, and code compilation via Embedded Coder.
 *   **Kernel & API Reference:** [Micromouse Kernel & API Developer Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/kernel_api_guide.md)

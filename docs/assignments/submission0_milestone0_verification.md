@@ -143,13 +143,7 @@ Once your hardware is verified and Milestone 0 is submitted, you are ready to tr
 
 Choose your development track and refer to the specific guides for detailed "getting started" and setup instructions:
 
-*   **The Master Guide:** Refer to the **[Student Workflow Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/student_workflow.md)** for detailed installation steps, workspace structure (`workspace/` directory), and compilation commands.
-*   **If you choose the MicroPython Track:** Follow the setup in the Student Workflow Guide to flash `micropython.bin` and deploy your scripts dynamically using the VCP CLI deployer:
-    ```bash
-    python tools/deploy.py --engine micropython --script workspace/task1_square/run_square.py
-    ```
-*   **If you choose the PikaScript Track:** Follow the workflow instructions to embed Python logic directly into the C-Kernel binaries.
-*   **If you choose the Simulink Track:** Open the model template `matlab/simulink/StudentTemplate.slx` and consult the **[Simulink Development & Autograding Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/simulink_guide.md)** to configure C-Coder wrappers and launch desktop Pygame loopback co-simulations.
-
-A complete directory of all project resources is available in the **[Documentation Index (docs/README.md)](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/README.md)**.
+*   **If you choose the Python (MicroPython) Track:** Refer to the **[Python Track Quickstart Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_python.md)** to flash MicroPython and write scripts.
+*   **If you choose the Simulink Track:** Refer to the **[Simulink Track Quickstart Guide](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/getting_started_simulink.md)** to setup MATLAB paths and run co-simulations.
+*   **Documentation Index:** A complete sitemap is available in the **[Documentation Index (docs/README.md)](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/docs/README.md)**.
 
