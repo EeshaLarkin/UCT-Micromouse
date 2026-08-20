@@ -163,3 +163,11 @@ Your grades are verified through physical run telemetry logs and video evidence:
   * **Device UID:** The log records your microcontroller's unique Device UID. The course convenors check the submitted logs retrospectively. Logs containing identical UIDs under different student accounts are flagged for plagiarism review.
   * **Code FNV-1a Checksum:** The log contains an FNV-1a checksum hash computed in hardware representing the code loaded onto the board. The autograder compiles your submitted script/model locally and verifies that the resulting hash matches the log header. Mismatched hashes will result in an immediate submission rejection.
 * **Student Card Video Declaration:** Every validation video must start with a **3-second close-up of your physical Student Card** to serve as your formal academic honesty declaration.
+
+---
+
+## **7. Project Licensing**
+
+This handbook is licensed under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**.
+To view a copy of this license, visit [http://creativecommons.org/licenses/by/4.0/](http://creativecommons.org/licenses/by/4.0/).
+
