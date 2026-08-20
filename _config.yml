@@ -1,0 +1,24 @@
+# Jekyll Configuration
+title: EEE3097S Micromouse Course Documentation
+description: Course materials and instructions for the UCT Micromouse Design Project.
+
+# Exclude non-documentation directories, especially those containing source code,
+# build artifacts, external libraries, and recursive/circular symbolic links.
+exclude:
+  - .agents
+  - .aider.tags.cache.v4
+  - .vscode
+  - ECSAbox_2025
+  - assignment_8326280_export
+  - build
+  - external
+  - firmware
+  - matlab
+  - python
+  - slprj
+  - solutions
+  - tools
+  - workspace
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
