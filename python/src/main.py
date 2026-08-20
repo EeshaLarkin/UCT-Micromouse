@@ -16,8 +16,10 @@ def main():
     uct_mouse.init()
 
     # Default to normal polarity (1, 1). If you need to reverse a motor's polarity,
-    # you can change the values here (e.g., uct_mouse.set_polarity(-1, 1))
+    # you can change the values here (e.g., uct_mouse.set_polarity(-1, 1)).
+    # If your encoders count backwards, you can also correct them (e.g., uct_mouse.set_encoder_polarity(1, -1)).
     uct_mouse.set_polarity(1, 1)
+    uct_mouse.set_encoder_polarity(1, 1)
 
     print("--- UCT Mouse is ALIVE! ---")
 
