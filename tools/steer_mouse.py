@@ -110,6 +110,30 @@ def main(stdscr, method='tcp'):
             if stderr:
                 raise RuntimeError(f"Initialization failed: {stderr}")
 
+            # Apply standard default polarities (1, 1) matching main.py template
+            send_raw_command(ser, "uct_mouse.set_polarity(1, 1)")
+            send_raw_command(ser, "uct_mouse.set_encoder_polarity(1, 1)")
+
+            # Override with physical chassis polarity from polarity.txt if present
+            proj_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            pol_paths = [
+                os.path.join(proj_root, "polarity.txt"),
+                os.path.join(proj_root, "python", "polarity.txt")
+            ]
+            for path in pol_paths:
+                if os.path.exists(path):
+                    try:
+                        with open(path, "r") as f:
+                            parts = f.read().strip().split(",")
+                            pol_l, pol_r = int(parts[0]), int(parts[1])
+                            send_raw_command(ser, f"uct_mouse.set_polarity({pol_l}, {pol_r})")
+                            if len(parts) >= 4:
+                                enc_l, enc_r = int(parts[2]), int(parts[3])
+                                send_raw_command(ser, f"uct_mouse.set_encoder_polarity({enc_l}, {enc_r})")
+                        break
+                    except Exception:
+                        pass
+
         while True:
             key = stdscr.getch()
             
