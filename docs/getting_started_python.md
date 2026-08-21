@@ -58,8 +58,8 @@ You can run Python code live on the board using the interactive REPL.
    ```python
    >>> import machine
    >>> led = machine.Pin('PC13', machine.Pin.OUT)
-   >>> led.value(0)  # Onboard LED turns ON
-   >>> led.value(1)  # Onboard LED turns OFF
+   >>> led.value(1)  # Onboard LED turns ON
+   >>> led.value(0)  # Onboard LED turns OFF
    ```
 
 ---
