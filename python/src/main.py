@@ -21,6 +21,15 @@ def main():
     uct_mouse.set_polarity(1, 1)
     uct_mouse.set_encoder_polarity(1, 1)
 
+    # OPTIONAL: On the physical microcontroller (not simulator), wait for the SW1 user button 
+    # press before starting so you have time to place the mouse on the floor:
+    # import sys
+    # if sys.platform in ('pyboard', 'stm32'):
+    #     print("Press SW1 (User button) on the board to start...")
+    #     while uct_mouse.get_button() == 0:
+    #         uct_mouse.delay_ms(50)
+    #     uct_mouse.delay_ms(1000)  # 1s delay to release your hand
+
     print("--- UCT Mouse is ALIVE! ---")
 
     while True:
