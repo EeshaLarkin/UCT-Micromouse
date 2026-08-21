@@ -14,7 +14,7 @@ def detect_port():
         if "ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid in (0x374b, 0x3752)) or "usbmodem" in p.device:
             stlink_port = p.device
         # Check for MicroPython VCP OTG port as fallback
-        elif p.vid == 0xf055 and p.pid == 0x9800:
+        elif p.vid == 0xf055 and p.pid in (0x9800, 0x9801, 0x9802):
             mpy_port = p.device
 
     if stlink_port:
@@ -99,13 +99,8 @@ def main():
     if not port:
         sys.exit(1)
 
-    # Try standard 115200 baud first
+    # Run log dump at 115200 baud
     lines = attempt_dump(port, 115200)
-    
-    # If 115200 fails, try the 72 MHz silicon outlier fallback at 103680 baud
-    if lines is None:
-        print("[Baud Sweep] 115200 baud timed out. Attempting 72 MHz silicon outlier fallback at 103680 baud...")
-        lines = attempt_dump(port, 103680)
 
     if lines is None:
         print("Error: Log dump failed. Make sure the mouse is powered on, flashed with the C-Kernel, and the correct port is selected.")
