@@ -292,7 +292,7 @@ void kernel_logger_dump_custom(void (*print_fn)(const uint8_t *buf, uint32_t len
     static uint8_t dump_buf[LOG_PAGE_SIZE];
     uint32_t current_addr = LOGGER_PARTITION_START;
     
-    while (current_addr < LOGGER_PARTITION_MAX) {
+    while (current_addr < log_write_addr) {
         if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
             if (dump_buf[0] == 0xFF) {
                 break;
