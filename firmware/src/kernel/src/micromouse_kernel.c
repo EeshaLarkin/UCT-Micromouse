@@ -218,7 +218,7 @@ void kernel_snapshot_state(void) {
     current_state.ir_sr = 0;
     current_state.lenc = leftEncoderCount * enc_polarity_l;
     current_state.renc = rightEncoderCount * enc_polarity_r;
-    current_state.gyro   = IMU_Gyro_DPS[2];          // Yaw axis in degrees per second (DPS)
+    current_state.gyro   = IMU_Gyro_DPS[2] * 2.0f;    // Yaw axis in degrees per second (DPS) with hardware scaling correction
     current_state.v_batt = (float)Vbattery / 1000.0f; 
     current_state.btn1 = SW1.state;
     current_state.btn2 = SW2.state;
