@@ -110,8 +110,8 @@ def main(stdscr, method='tcp'):
             if stderr:
                 raise RuntimeError(f"Initialization failed: {stderr}")
 
-            # Apply standard default polarities (1, 1) matching main.py template
-            send_raw_command(ser, "uct_mouse.set_polarity(1, 1)")
+            # Apply standard default polarities (-1, -1) matching standard C-Kernel defaults
+            send_raw_command(ser, "uct_mouse.set_polarity(-1, -1)")
             send_raw_command(ser, "uct_mouse.set_encoder_polarity(1, 1)")
 
             # Override with physical chassis polarity from polarity.txt if present
