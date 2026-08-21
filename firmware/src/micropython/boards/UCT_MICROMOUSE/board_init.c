@@ -293,6 +293,14 @@ void kernel_background_tick(void) {
             
             // Snapshot physical state to the C-Kernel state structure
             kernel_snapshot_state();
+
+            // Run C-Kernel telemetry logger at 25 Hz (every 40ms / 4 ticks)
+            static uint32_t logger_tick_count = 0;
+            if (++logger_tick_count >= 4) {
+                logger_tick_count = 0;
+                extern void kernel_logger_tick(void);
+                kernel_logger_tick();
+            }
             
             // Rate-limit OLED display updates to 10 Hz (every 100ms)
             static uint32_t last_display_update = 0;
