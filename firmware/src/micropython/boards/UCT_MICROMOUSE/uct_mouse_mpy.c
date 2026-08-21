@@ -174,6 +174,7 @@ static void mpy_stdout_print(const uint8_t *buf, uint32_t len) {
 // 7c. uct_mouse.dump_logs()
 static mp_obj_t mpy_uct_mouse_dump_logs(void) {
     #include "kernel_logger.h"
+    kernel_logger_init();
     kernel_logger_dump_custom(mpy_stdout_print);
     return mp_const_none;
 }

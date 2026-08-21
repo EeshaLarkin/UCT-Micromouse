@@ -184,6 +184,9 @@ void board_early_init(void) {
     extern void serial_interface_set_huart(UART_HandleTypeDef *huart);
     serial_interface_set_huart(&huart1);
 
+    extern void kernel_logger_init(void);
+    kernel_logger_init();
+
     // UART output - active immediately!
     uart_print("\n--- Boot Log Start ---\n");
     extern int pyb_hard_fault_debug;
