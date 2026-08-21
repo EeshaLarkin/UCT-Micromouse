@@ -69,8 +69,7 @@ GYRO_BIAS = 0.0
 def _sensors():
     """Returns (lenc, renc, gyro_dps) from the current shadow state, subtracting gyro bias."""
     lenc, renc = uct_mouse.get_encoders()
-    raw = uct_mouse._mouse.get_sensors()
-    gyro = raw.get('gyro', 0.0)   # gyro Z-axis in degrees/second
+    gyro = uct_mouse.get_gyro()
     return lenc, renc, gyro - GYRO_BIAS
 
 
@@ -88,12 +87,11 @@ def calibrate_gyro():
     for _ in range(20):
         uct_mouse.delay_ms(10)
         
+    GYRO_BIAS = 0.0  # Zero out bias during calibration run
     samples = []
     for _ in range(100):  # 100 samples at 10ms = 1.0 second
         uct_mouse.delay_ms(10)
-        # Read raw gyro Z-axis directly from get_sensors (bypassing _sensors() to get uncalibrated value)
-        raw = uct_mouse._mouse.get_sensors()
-        samples.append(raw.get('gyro', 0.0))
+        samples.append(uct_mouse.get_gyro())
         
     GYRO_BIAS = sum(samples) / len(samples)
     print(f"  [Calibrating Gyro] Complete. Estimated bias: {GYRO_BIAS:.4f} dps")
