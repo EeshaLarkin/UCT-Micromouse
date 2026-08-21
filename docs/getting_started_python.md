@@ -99,6 +99,13 @@ if __name__ == "__main__":
 5. Save the file.
 6. Press the black **RESET** button on the processor board. The motors will spin forward for 1.5 seconds and stop!
 
+> [!IMPORTANT]
+> **Do NOT copy the file `uct_mouse.py` onto the `UCT_MMOUSE` USB drive.**
+> 
+> * The `uct_mouse` module is **compiled directly into the MicroPython firmware** as a native, built-in C module.
+> * The file `uct_mouse.py` in the repository is a **PC-side mock wrapper** designed solely to run scripts on your computer (directing them to the Simulink simulator).
+> * If you copy `uct_mouse.py` to the USB drive, it will override the native C library and cause your scripts on the board to crash immediately because the microcontroller cannot run PC networking libraries (`socket`, `subprocess`).
+
 ---
 
 ## 🔍 Troubleshooting
