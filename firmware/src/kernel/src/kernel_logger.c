@@ -90,6 +90,12 @@ static void flush_log_page(void) {
             log_write_addr += LOG_PAGE_SIZE;
             // Persist pointer to Backup Domain register
             backup_write_log_addr(log_write_addr);
+            
+            // Program terminator byte (0x00) to first byte of the next page to mark EOF
+            if (log_write_addr + LOG_PAGE_SIZE <= LOGGER_PARTITION_MAX) {
+                uint8_t term = 0x00;
+                ZD25WQ80C_PageProgram(log_write_addr, &term, 1);
+            }
         }
         log_page_idx = 0;
     }
@@ -135,7 +141,20 @@ static uint32_t backup_read_log_addr(void) {
     if (RTC->BKP1R == 0x12345678U) {
         return RTC->BKP0R;
     }
-    return LOGGER_PARTITION_START;
+    
+    // Backup register was wiped. Recover address dynamically by scanning flash page-by-page.
+    uint32_t scan_addr = LOGGER_PARTITION_START;
+    uint8_t first_byte = 0;
+    while (scan_addr < LOGGER_PARTITION_MAX) {
+        if (ZD25WQ80C_Read(scan_addr, &first_byte, 1) != HAL_OK) {
+            break;
+        }
+        if (first_byte == 0xFF || first_byte == 0x00) {
+            break;
+        }
+        scan_addr += LOG_PAGE_SIZE;
+    }
+    return scan_addr;
 }
 
 void kernel_logger_init(void) {
@@ -294,7 +313,7 @@ void kernel_logger_dump_custom(void (*print_fn)(const uint8_t *buf, uint32_t len
     
     while (current_addr < log_write_addr) {
         if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
-            if (dump_buf[0] == 0xFF) {
+            if (dump_buf[0] == 0xFF || dump_buf[0] == 0x00) {
                 break;
             }
             print_fn(dump_buf, LOG_PAGE_SIZE);
