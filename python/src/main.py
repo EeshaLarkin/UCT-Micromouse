@@ -15,10 +15,10 @@ def main():
     # Initialize connection to either the PC Simulator or Physical Hardware
     uct_mouse.init()
 
-    # Default to normal polarity (1, 1). If you need to reverse a motor's polarity,
-    # you can change the values here (e.g., uct_mouse.set_polarity(-1, 1)).
+    # Default to normal polarity (-1, -1). If you need to reverse a motor's polarity,
+    # you can change the values here (e.g., uct_mouse.set_polarity(1, -1)).
     # If your encoders count backwards, you can also correct them (e.g., uct_mouse.set_encoder_polarity(1, -1)).
-    uct_mouse.set_polarity(1, 1)
+    uct_mouse.set_polarity(-1, -1)
     uct_mouse.set_encoder_polarity(1, 1)
 
     # OPTIONAL: On the physical microcontroller (not simulator), wait for the SW1 user button 
