@@ -90,12 +90,6 @@ static void flush_log_page(void) {
             log_write_addr += LOG_PAGE_SIZE;
             // Persist pointer to Backup Domain register
             backup_write_log_addr(log_write_addr);
-            
-            // Program terminator byte (0x00) to first byte of the next page to mark EOF
-            if (log_write_addr + LOG_PAGE_SIZE <= LOGGER_PARTITION_MAX) {
-                uint8_t term = 0x00;
-                ZD25WQ80C_PageProgram(log_write_addr, &term, 1);
-            }
         }
         log_page_idx = 0;
     }
@@ -124,22 +118,22 @@ void kernel_logger_write_custom(const char *json_str) {
 static void backup_write_log_addr(uint32_t addr) {
     RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
     PWR->CR1 |= PWR_CR1_DBP;
-    RTC->BKP0R = addr;
-    RTC->BKP1R = 0x12345678U;
+    RTC->BKP4R = addr;
+    RTC->BKP5R = 0x12345678U;
 }
 
 static void backup_invalidate_log(void) {
     RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
     PWR->CR1 |= PWR_CR1_DBP;
-    RTC->BKP1R = 0;
+    RTC->BKP5R = 0;
 }
 
 static uint32_t backup_read_log_addr(void) {
     // Enable PWR clock and disable backup domain write protection
     RCC->APB1ENR1 |= RCC_APB1ENR1_PWREN;
     PWR->CR1 |= PWR_CR1_DBP;
-    if (RTC->BKP1R == 0x12345678U) {
-        return RTC->BKP0R;
+    if (RTC->BKP5R == 0x12345678U) {
+        return RTC->BKP4R;
     }
     
     // Backup register was wiped. Recover address dynamically by scanning flash page-by-page.
@@ -149,7 +143,7 @@ static uint32_t backup_read_log_addr(void) {
         if (ZD25WQ80C_Read(scan_addr, &first_byte, 1) != HAL_OK) {
             break;
         }
-        if (first_byte == 0xFF || first_byte == 0x00) {
+        if (first_byte == 0xFF) {
             break;
         }
         scan_addr += LOG_PAGE_SIZE;
@@ -313,7 +307,7 @@ void kernel_logger_dump_custom(void (*print_fn)(const uint8_t *buf, uint32_t len
     
     while (current_addr < log_write_addr) {
         if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
-            if (dump_buf[0] == 0xFF || dump_buf[0] == 0x00) {
+            if (dump_buf[0] == 0xFF) {
                 break;
             }
             print_fn(dump_buf, LOG_PAGE_SIZE);
