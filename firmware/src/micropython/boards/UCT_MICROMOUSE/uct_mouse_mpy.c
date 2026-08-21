@@ -167,9 +167,14 @@ static mp_obj_t mpy_uct_mouse_get_line_sensors(void) {
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_line_sensors_obj, mpy_uct_mouse_get_line_sensors);
 
 // 7c. uct_mouse.dump_logs()
+static void mpy_stdout_print(const uint8_t *buf, uint32_t len) {
+    mp_hal_stdout_tx_strn((const char *)buf, len);
+}
+
+// 7c. uct_mouse.dump_logs()
 static mp_obj_t mpy_uct_mouse_dump_logs(void) {
-    extern void kernel_logger_dump(void);
-    kernel_logger_dump();
+    #include "kernel_logger.h"
+    kernel_logger_dump_custom(mpy_stdout_print);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_dump_logs_obj, mpy_uct_mouse_dump_logs);

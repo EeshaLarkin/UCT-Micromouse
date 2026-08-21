@@ -68,12 +68,7 @@ static uint32_t compute_code_hash(void) {
     return hash;
 }
 
-static void raw_logger_uart_print(const char *msg) {
-    UART_HandleTypeDef* huart = serial_interface_get_huart();
-    if (huart != NULL) {
-        HAL_UART_Transmit(huart, (uint8_t *)msg, (uint16_t)strlen(msg), 1000);
-    }
-}
+
 
 // Ensures current sector is erased before writing
 static void ensure_sector_erased(uint32_t addr) {
@@ -284,13 +279,12 @@ void kernel_logger_tick(void) {
     }
 }
 
-void kernel_logger_dump(void) {
-    __disable_irq();
-    
+void kernel_logger_dump_custom(void (*print_fn)(const uint8_t *buf, uint32_t len)) {
     // Stop motors for safety during dump
     kernel_set_pwm(0, 0);
     
-    raw_logger_uart_print("\r\n--- START LOG DUMP ---\r\n");
+    const char *start_msg = "\r\n--- START LOG DUMP ---\r\n";
+    print_fn((const uint8_t *)start_msg, (uint32_t)strlen(start_msg));
     
     // Flush any pending buffered log page before reading
     flush_log_page();
@@ -298,21 +292,31 @@ void kernel_logger_dump(void) {
     static uint8_t dump_buf[LOG_PAGE_SIZE];
     uint32_t current_addr = LOGGER_PARTITION_START;
     
-    UART_HandleTypeDef* huart = serial_interface_get_huart();
     while (current_addr < LOGGER_PARTITION_MAX) {
         if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
             if (dump_buf[0] == 0xFF) {
                 break;
             }
-            // Stream raw data over UART to host console
-            if (huart != NULL) {
-                HAL_UART_Transmit(huart, dump_buf, LOG_PAGE_SIZE, 1000);
-            }
+            print_fn(dump_buf, LOG_PAGE_SIZE);
         }
         current_addr += LOG_PAGE_SIZE;
     }
     
-    raw_logger_uart_print("\r\n--- END LOG DUMP ---\r\n");
+    const char *end_msg = "\r\n--- END LOG DUMP ---\r\n";
+    print_fn((const uint8_t *)end_msg, (uint32_t)strlen(end_msg));
+    
     backup_invalidate_log();
+}
+
+static void default_uart_print(const uint8_t *buf, uint32_t len) {
+    UART_HandleTypeDef* huart = serial_interface_get_huart();
+    if (huart != NULL) {
+        HAL_UART_Transmit(huart, (uint8_t *)buf, len, 1000);
+    }
+}
+
+void kernel_logger_dump(void) {
+    __disable_irq();
+    kernel_logger_dump_custom(default_uart_print);
     __enable_irq();
 }

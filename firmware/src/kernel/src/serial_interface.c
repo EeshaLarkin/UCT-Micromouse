@@ -69,3 +69,7 @@ void serial_interface_rx_callback(UART_HandleTypeDef *huart) {
 UART_HandleTypeDef* serial_interface_get_huart(void) {
     return kernel_huart;
 }
+
+void serial_interface_set_huart(UART_HandleTypeDef *huart) {
+    kernel_huart = huart;
+}

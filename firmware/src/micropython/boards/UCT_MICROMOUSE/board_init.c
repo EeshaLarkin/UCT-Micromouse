@@ -180,6 +180,10 @@ void board_early_init(void) {
     USART1->BRR = 694; 
     __HAL_UART_ENABLE(&huart1);
 
+    // Set C-Kernel logger UART reference
+    extern void serial_interface_set_huart(UART_HandleTypeDef *huart);
+    serial_interface_set_huart(&huart1);
+
     // UART output - active immediately!
     uart_print("\n--- Boot Log Start ---\n");
     extern int pyb_hard_fault_debug;
