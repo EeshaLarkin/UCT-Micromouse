@@ -31,13 +31,13 @@ Design and implement a closed-loop controller that guides your Micromouse robot 
 * Set your target yaw heading to 0°. If the mouse drifts or is physically bumped, your controller must adjust the wheel speeds differentially (steering) to return to 0°.
 
 #### **Step 4: Spin-in-Place Turning**
-* Implement a precise 90° right turn state.
-* The mouse should spin in place (left wheel forward, right wheel reverse) until the integrated gyroscope yaw angle matches exactly +90° relative to the heading before the turn.
+* Implement a precise 90° left (anticlockwise) turn state.
+* The mouse should spin in place (left wheel reverse, right wheel forward) until the integrated gyroscope yaw angle matches exactly +90° relative to the heading before the turn.
 * Ensure your turn controller includes a settling window to prevent overshoot and oscillations.
 
 #### **Step 5: Finite State Machine Integration**
 * Combine these states into a sequential state machine:
-  $$\text{DRIVE\_FORWARD\_1 (1.0m)} \rightarrow \text{TURN\_RIGHT\_1 (90}^\circ\text{)} \rightarrow \dots \rightarrow \text{TURN\_RIGHT\_4 (90}^\circ\text{)} \rightarrow \text{STOP}$$
+  $$\text{DRIVE\_FORWARD\_1 (1.0m)} \rightarrow \text{TURN\_LEFT\_1 (90}^\circ\text{)} \rightarrow \dots \rightarrow \text{TURN\_LEFT\_4 (90}^\circ\text{)} \rightarrow \text{STOP}$$
 * The mouse must execute **4 forward drives and 4 turns**, coming to a complete, autonomous stop at the end of the 4th turn. This ensures the robot ends its run at the **exact same position and orientation** ($0^\circ$) as it started.
 * Once the square is completed, the mouse must remain completely stopped for **at least 3 seconds** to clearly indicate the completion of the task on video and in the telemetry log.
 
@@ -79,7 +79,7 @@ python tools/autograder/grade_runner.py --submission path/to/your/folder
 To verify that your physical run is authentic and represents your own work, the video must strictly adhere to the following sequence:
 1. **Student Card Close-up:** The video **MUST start with a clear, readable close-up of your physical Student Card** for at least 3 seconds. In doing so, you declare that the submission represents your own work.
 2. **Setup:** Pan the camera to show the mouse positioned at the starting corner of the 1.0m x 1.0m grid.
-3. **Traversal:** Capture the complete run without cuts. The mouse must drive 1.0m straight, turn 90° right, and repeat this 4 times to form a square, coming to an autonomous stop.
+3. **Traversal:** Capture the complete run without cuts. The mouse must drive 1.0m straight, turn 90° left (anticlockwise), and repeat this 4 times to form a square, coming to an autonomous stop.
 
 ---
 
@@ -123,15 +123,11 @@ The runs are configured as follows:
      ```
 
 Each simulation run is scored out of **100 points** using the following breakdown:
-* **Progression Score (60 points max):** The mouse earns **20 points for each corner successfully reached** in sequential clockwise (right-turning) order:
-  * Corner 1 (1.0m straight): **20 pts**
-  * Corner 2 (first 90° turn and 1.0m leg): **40 pts**
-  * Corner 3 (second 90° turn and 1.0m leg): **60 pts**
-* **Return to Start Bonus (20 points):** Awarded if the mouse successfully completes all four legs and returns/stops within a **reasonable 30 cm radius** of the starting coordinates.
-* **Return Accuracy Points (20 points max):** If the return bonus is earned, the final return error ($d_e$) is graded on a continuous scale:
-  * $d_e \le 5\text{ cm}$: Full **20 pts** (Perfect feedback control)
-  * $5\text{ cm} < d_e \le 15\text{ cm}$: Scales linearly from **20 down to 10 pts**
-  * $15\text{ cm} < d_e \le 30\text{ cm}$: Scales linearly from **10 down to 0 pts**
+* **Leg Segments (30 points max):** 7.5 pts per leg (East, North, West, South). Split equally between length accuracy ($\pm 5\text{ cm}$ tolerance) and straightness ($2\text{ cm}$ lateral deviation margin).
+* **Corner Turn Angles (30 points max):** 7.5 pts per corner. Evaluates orientation change accuracy relative to $90.0^\circ$ ($\pm 3^\circ$ tolerance).
+* **Parking Accuracy (20 points max):** Distance between final resting spot and start point. Full points if $\le 3\text{ cm}$, scaling to 0 at $\ge 25\text{ cm}$.
+* **Run Speed Efficiency (10 points max):** Full points if time $\le 20\text{s}$, scaling to 0 at $\ge 40\text{s}$.
+* **Safety Bonus (10 points):** Flat bonus if the run completes without colliding with virtual walls.
 * **Applied Penalties:**
   * **Timeout ($-10$ points):** Applied if the controller fails to stop within the 45-second limit.
   * *Collision Note:* Contacting a wall halts the simulation immediately, naturally capping your score based only on the corners completed prior to the crash. No additional numerical collision penalties are subtracted.

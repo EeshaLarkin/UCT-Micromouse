@@ -113,7 +113,7 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 *   **Verification:** Run the telemetry extraction utility (`python tools/dump_logs.py`) and confirm telemetry logs can be retrieved over the serial interface. Refer to the [Milestone 0: Hardware Verification Guide](assignments/submission0_milestone0_verification.md) for detailed instructions.
 
 ### **Submission 1: Milestone 1 Code & Demo (25%)**
-*   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° right, and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
+*   **Task:** Drive a closed loop: drive 1.0m straight, turn 90° left (anticlockwise), and repeat this 4 times to form a 1.0m x 1.0m square, then stop autonomously.
 *   **Assessment & Grading Metric:** The milestone mark is split as **60% Autograded Trajectory**, **30% Tutor Physical Run Evaluation**, and **10% Submission Compliance** (proper files and student card shown). 
     *   *Autograder Score (100 pts max):* Checked in co-simulation across multiple test cases (public baseline and hidden stress tests). Completes automatically when the mouse stops for 3.0s:
         *   **Leg Segments (30 pts max):** 7.5 pts per leg (East, North, West, South). Split equally between length accuracy ($\pm 5\text{ cm}$ tolerance) and straightness ($2\text{ cm}$ lateral deviation margin).
