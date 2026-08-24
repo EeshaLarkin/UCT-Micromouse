@@ -560,9 +560,21 @@ def main():
     # Initialize Video Writer if requested
     video_writer = None
     if args.video:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        video_writer = cv2.VideoWriter(args.video, fourcc, 20.0, (width, height))
-        print(f"[Simulator] Video recording enabled. Saving to: {args.video}")
+        # Try modern highly-compressed H.264 codecs first, fall back to standard mp4v for headless environments
+        for codec in ['avc1', 'h264', 'mp4v']:
+            try:
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                video_writer = cv2.VideoWriter(args.video, fourcc, 20.0, (width, height))
+                if video_writer.isOpened():
+                    print(f"[Simulator] Video recording enabled using codec '{codec}'. Saving to: {args.video}")
+                    break
+                else:
+                    video_writer.release()
+            except Exception:
+                pass
+        else:
+            print("[Simulator] Warning: Could not initialize any video writer codec.")
+            video_writer = None
         
     # Start TCP Socket Server
     port = 8000
