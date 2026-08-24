@@ -8,6 +8,7 @@ import signal
 import glob
 import importlib.util
 import shutil
+import tempfile
 
 # 1. Path Resolution
 if os.path.exists("/autograder"):
@@ -15,7 +16,7 @@ if os.path.exists("/autograder"):
     RESULTS_FILE = "/autograder/results/results.json"
     SOURCE_DIR = "/autograder/source"
     VIDEO_PATH = "/autograder/results/run.mp4"
-    TRAJECTORY_JSON = "/tmp/trajectory.json"
+    TRAJECTORY_JSON = os.path.join(tempfile.gettempdir(), "trajectory.json")
 else:
     # Local mock mode
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -208,7 +209,7 @@ def main():
             return
 
     # 4. Compilation if Simulink track
-    client_bin = "/tmp/simulink_client"
+    client_bin = os.path.join(tempfile.gettempdir(), "simulink_client")
     if track == "simulink":
         print("[Grader] Compiling Simulink deployment code...")
         
@@ -307,7 +308,7 @@ def main():
             except Exception:
                 pass
                 
-        sim_log_path = "/tmp/simulator_backend.log"
+        sim_log_path = os.path.join(tempfile.gettempdir(), "simulator_backend.log")
         if os.path.exists(sim_log_path):
             try:
                 os.remove(sim_log_path)
@@ -366,7 +367,7 @@ def main():
             client_cwd = os.path.dirname(main_file)
         else:
             client_cmd = [client_bin]
-            client_cwd = "/tmp"
+            client_cwd = tempfile.gettempdir()
             
         try:
             client_proc = subprocess.Popen(
