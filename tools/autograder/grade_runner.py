@@ -133,6 +133,17 @@ def main():
     # 3. Detect submission track (Simulink vs Python)
     print(f"[Grader] Scanning submission directory: {SUBMISSION_DIR}")
     
+    # Clean up any student-submitted uct_mouse.py or micromouse.py files to prevent shadowing of the grader's corrected libraries
+    for root, dirs, files in os.walk(SUBMISSION_DIR):
+        for f in files:
+            if f in ["uct_mouse.py", "micromouse.py"]:
+                target_path = os.path.join(root, f)
+                print(f"[Grader] Cleaning up student-submitted framework override: {target_path}")
+                try:
+                    os.remove(target_path)
+                except Exception as e:
+                    print(f"[Grader] Warning: Failed to remove {target_path}: {e}")
+
     # Check for Simulink track by looking for any folder ending in _ert_rtw
     ert_dirs = []
     for root, dirs, files in os.walk(SUBMISSION_DIR):
