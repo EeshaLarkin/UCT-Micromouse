@@ -184,6 +184,14 @@ class PhysicsSimulator:
         self.dead_band_l = 60.0  # Default dead-band left motor
         self.dead_band_r = 60.0  # Default dead-band right motor
         
+        # Initialize default IMU variables
+        self.gyro_bias = 0.0
+        self.gyro_noise_std = 0.0
+        self.accel_bias_x = 0.0
+        self.accel_bias_y = 0.0
+        self.accel_bias_z = 0.0
+        self.accel_noise_std = 0.0
+        
         self.sensor_offsets = [
             (0.045, 0.02, math.pi/2),   # Left ToF
             (0.055, 0.0, 0.0),          # Center ToF
@@ -242,33 +250,25 @@ class PhysicsSimulator:
                 self.block_dim = mz.get("block_dim", self.block_dim)
                 self.wall_thickness = mz.get("wall_thickness", self.wall_thickness)
             
-            # Initialize default IMU variables
-            self.gyro_bias = 0.0
-            self.gyro_noise_std = 0.0
-            self.accel_bias_x = 0.0
-            self.accel_bias_y = 0.0
-            self.accel_bias_z = 0.0
-            self.accel_noise_std = 0.0
-            
-            if "imu" in config:
-                ic = config["imu"]
-                self.gyro_noise_std = ic.get("gyro_noise_std", 0.0)
-                self.accel_noise_std = ic.get("accel_noise_std", 0.0)
-                
-                # Apply seed-based static IMU bias errors
-                if seed is not None:
-                    import random
-                    rng = random.Random(seed + 999) # unique offset to avoid correlation with motor seed
-                    
-                    g_bias_std = ic.get("gyro_bias_std", 0.0)
-                    a_bias_std = ic.get("accel_bias_std", 0.0)
-                    
-                    if g_bias_std > 0.0:
-                        self.gyro_bias = rng.gauss(0, g_bias_std)
-                    if a_bias_std > 0.0:
-                        self.accel_bias_x = rng.gauss(0, a_bias_std)
-                        self.accel_bias_y = rng.gauss(0, a_bias_std)
-                        self.accel_bias_z = rng.gauss(0, a_bias_std)
+             if "imu" in config:
+                 ic = config["imu"]
+                 self.gyro_noise_std = ic.get("gyro_noise_std", 0.0)
+                 self.accel_noise_std = ic.get("accel_noise_std", 0.0)
+                 
+                 # Apply seed-based static IMU bias errors
+                 if seed is not None:
+                     import random
+                     rng = random.Random(seed + 999) # unique offset to avoid correlation with motor seed
+                     
+                     g_bias_std = ic.get("gyro_bias_std", 0.0)
+                     a_bias_std = ic.get("accel_bias_std", 0.0)
+                     
+                     if g_bias_std > 0.0:
+                         self.gyro_bias = rng.gauss(0, g_bias_std)
+                     if a_bias_std > 0.0:
+                         self.accel_bias_x = rng.gauss(0, a_bias_std)
+                         self.accel_bias_y = rng.gauss(0, a_bias_std)
+                         self.accel_bias_z = rng.gauss(0, a_bias_std)
 
         # State: x, y, theta, actual wheel speeds, encoders
         self.reset_state()
