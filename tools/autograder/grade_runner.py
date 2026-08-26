@@ -277,9 +277,14 @@ def main():
     # 5. Execute Multi-Run Simulation Tests
     test_runs = getattr(test_suite, "TEST_RUNS", [("Standard Run", 1.0, 0.08, 0.08, False)])
     
-    sim_script = os.path.join(repo_root, "tools", "physics_sim.py")
+    sim_script = os.path.join(SOURCE_DIR, "physics_sim.py")
+    if not os.path.exists(sim_script):
+        sim_script = os.path.join(repo_root, "tools", "physics_sim.py")
     if not os.path.exists(sim_script):
         sim_script = os.path.join(os.path.dirname(__file__), "..", "physics_sim.py")
+    if not os.path.exists(sim_script):
+        write_results(0.0, f"System Error: Simulator backend script 'physics_sim.py' not found (looked in {SOURCE_DIR}, {repo_root}/tools).")
+        return
         
     total_score = 0.0
     gradescope_tests = []
@@ -328,11 +333,14 @@ def main():
             write_results(0.0, f"System Error: Failed to start simulation backend: {e}")
             return
             
-        # Wait for simulator readiness
+        # Wait for simulator readiness (increased timeout to 20s for slow/cold container boot)
         simulator_ready = False
+        exited_early = False
         start_wait = time.time()
-        while time.time() - start_wait < 8.0:
-            if sim_proc.poll() is not None:
+        while time.time() - start_wait < 20.0:
+            poll_status = sim_proc.poll()
+            if poll_status is not None:
+                exited_early = True
                 break
             if os.path.exists(sim_log_path):
                 try:
@@ -351,7 +359,29 @@ def main():
                 sim_proc.wait(timeout=2.0)
             except Exception:
                 sim_proc.kill()
-            write_results(0.0, f"System Error: Simulator failed to start or bind to port 8000 within timeout.")
+                
+            # Fetch backend log output to show student/convenor what failed
+            log_tail = ""
+            if os.path.exists(sim_log_path):
+                try:
+                    with open(sim_log_path, "r") as f:
+                        lines = f.readlines()
+                        log_tail = "".join(lines[-15:])  # Grab last 15 lines of simulator logs
+                except Exception as log_err:
+                    log_tail = f"Could not read log file: {log_err}"
+            
+            if exited_early:
+                write_results(
+                    0.0,
+                    f"System Error: Simulator backend exited early with code {poll_status}.\n\n"
+                    f"--- Simulator Backend Log (Last 15 lines) ---\n{log_tail}"
+                )
+            else:
+                write_results(
+                    0.0,
+                    f"System Error: Simulator failed to start or bind to port 8000 within 20s timeout.\n\n"
+                    f"--- Simulator Backend Log (Last 15 lines) ---\n{log_tail}"
+                )
             return
             
         # Run Student Client
