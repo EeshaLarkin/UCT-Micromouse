@@ -38,7 +38,9 @@ function flash_micromouse(buildInfo)
         [status, cmdout] = system('cmake --build firmware/build --target simulink_firmware');
         disp(cmdout);
         if status ~= 0
-            error('Firmware compilation failed.');
+            warning('UCT_Micromouse:CompileFailed', 'Firmware compilation failed. Please check your C/C++ model code.');
+            cd(original_dir);
+            return;
         end
         
         disp('Flashing firmware to STM32 board via st-flash...');
@@ -53,12 +55,13 @@ function flash_micromouse(buildInfo)
         [status, cmdout] = system([st_flash ' --reset write firmware/binaries/simulink.bin 0x08000000']);
         disp(cmdout);
         if status ~= 0
-            error('Flashing failed. Ensure the STM32 board is connected.');
+            warning('UCT_Micromouse:FlashFailed', 'Flashing failed. Ensure the STM32 board is connected and powered ON.');
+        else
+            disp('Success! Simulink firmware deployed to hardware.');
         end
-        disp('Success! Simulink firmware deployed to hardware.');
     catch ME
         cd(original_dir);
-        rethrow(ME);
+        warning('UCT_Micromouse:BuildHookError', 'An unexpected error occurred during build hook: %s', ME.message);
     end
     
     cd(original_dir);
