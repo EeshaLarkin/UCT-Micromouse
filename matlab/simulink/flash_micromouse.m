@@ -12,6 +12,11 @@ function flash_micromouse(buildInfo)
     cd(repo_root);
     
     try
+        % Prepend standard Homebrew, MacPorts and local paths to PATH environment variable
+        % (needed because MATLAB launched from Finder/Dock does not inherit terminal profile PATH)
+        sys_path = getenv('PATH');
+        setenv('PATH', ['/opt/homebrew/bin:/usr/local/bin:/opt/local/bin:' sys_path]);
+        
         disp('Compiling firmware target with CMake...');
         [status, cmdout] = system('cmake --build firmware/build --target simulink_firmware');
         disp(cmdout);
