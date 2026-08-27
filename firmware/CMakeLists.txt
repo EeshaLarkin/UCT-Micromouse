@@ -108,8 +108,11 @@ target_link_libraries(pikascript_firmware PRIVATE uct_kernel m)
 # Post-build bin generation for PikaScript
 add_custom_command(TARGET pikascript_firmware POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O binary pikascript_firmware pikascript_firmware.bin
+    COMMAND ${CMAKE_COMMAND} -E copy pikascript_firmware.bin ${CMAKE_CURRENT_SOURCE_DIR}/binaries/pikascript.bin
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/../build/bin
+    COMMAND ${CMAKE_COMMAND} -E copy pikascript_firmware.bin ${CMAKE_CURRENT_SOURCE_DIR}/../build/bin/pikascript.bin
     COMMAND ${CMAKE_SIZE} pikascript_firmware
-    COMMENT "Building pikascript_firmware.bin and printing footprint..."
+    COMMENT "Building pikascript_firmware.bin, updating release binary, and printing footprint..."
 )
 
 # --- TARGET 2: Simulink Firmware ---
@@ -122,8 +125,11 @@ target_link_libraries(simulink_firmware PRIVATE uct_kernel m)
 # Post-build bin generation for Simulink
 add_custom_command(TARGET simulink_firmware POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O binary simulink_firmware simulink_firmware.bin
+    COMMAND ${CMAKE_COMMAND} -E copy simulink_firmware.bin ${CMAKE_CURRENT_SOURCE_DIR}/binaries/simulink.bin
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/../build/bin
+    COMMAND ${CMAKE_COMMAND} -E copy simulink_firmware.bin ${CMAKE_CURRENT_SOURCE_DIR}/../build/bin/simulink.bin
     COMMAND ${CMAKE_SIZE} simulink_firmware
-    COMMENT "Building simulink_firmware.bin and printing footprint..."
+    COMMENT "Building simulink_firmware.bin, updating release binary, and printing footprint..."
 )
 
 # --- Custom Flash Targets ---
