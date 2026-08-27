@@ -32,6 +32,8 @@ def find_micropython_drive():
             glob.glob('/Volumes/UCT-MICROMO*') +
             glob.glob('/Volumes/UCT_MICROMO*') +
             glob.glob('/Volumes/UCT-MICROMOUSE*') +
+            glob.glob('/Volumes/UCT_MMOUSE*') +
+            glob.glob('/Volumes/UCT-MMOUSE*') +
             glob.glob('/Volumes/PYB*')
         )
     elif sys.platform == 'win32':
