@@ -34,7 +34,9 @@ def find_micropython_drive():
             glob.glob('/Volumes/UCT-MICROMOUSE*') +
             glob.glob('/Volumes/UCT_MMOUSE*') +
             glob.glob('/Volumes/UCT-MMOUSE*') +
-            glob.glob('/Volumes/PYB*')
+            glob.glob('/Volumes/PYB*') +
+            glob.glob('/Volumes/NO NAME*') +
+            glob.glob('/Volumes/NO_NAME*')
         )
     elif sys.platform == 'win32':
         import string
@@ -52,7 +54,7 @@ def find_micropython_drive():
                 )
                 if res:
                     label = volumeNameBuffer.value.upper()
-                    if "UCT-MICRO" in label or "UCT_MICRO" in label or "PYB" in label:
+                    if "UCT-MICRO" in label or "UCT_MICRO" in label or "PYB" in label or "NO NAME" in label or "NO_NAME" in label:
                         drives.append(drive_path)
             bitmask >>= 1
     else:
@@ -62,7 +64,11 @@ def find_micropython_drive():
             glob.glob('/media/*/*UCT_MICROMO*') +
             glob.glob('/run/media/*/*UCT_MICROMO*') +
             glob.glob('/media/*/*PYB*') +
-            glob.glob('/run/media/*/*PYB*')
+            glob.glob('/run/media/*/*PYB*') +
+            glob.glob('/media/*/*NO NAME*') +
+            glob.glob('/media/*/*NO_NAME*') +
+            glob.glob('/run/media/*/*NO NAME*') +
+            glob.glob('/run/media/*/*NO_NAME*')
         )
     return drives[0] if drives else None
 
