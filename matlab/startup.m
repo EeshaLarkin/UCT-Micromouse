@@ -24,26 +24,46 @@ function startup()
         warning('Could not configure Simulink build folders. Ensure Simulink is installed.');
     end
     
-    % If running on Windows, configure models to link Winsock2 (ws2_32.lib)
-    % to prevent simulation target link errors (unresolved __imp_socket, etc.)
-    if ispc
-        disp('Windows detected. Ensuring Winsock2 (ws2_32.lib) is configured in project models...');
-        models = {'StudentTemplate', 'StudentTemplate_matlabfunc', 'UCT_KDeploy', 'milestone1_square', 'milestone2_maze'};
-        for i = 1:length(models)
-            model = models{i};
-            try
-                if exist(which([model '.slx']), 'file')
-                    load_system(model);
+    % Configure project models configuration settings for compilation compatibility
+    disp('Configuring model build parameters for compilation compatibility...');
+    models = {'StudentTemplate', 'StudentTemplate_matlabfunc', 'UCT_KDeploy', 'milestone1_square', 'milestone2_maze'};
+    for i = 1:length(models)
+        model = models{i};
+        try
+            if exist(which([model '.slx']), 'file')
+                load_system(model);
+                changed = false;
+                
+                % 1. Set GenCodeOnly to 'on' so students don't need MATLAB ARM toolchain registered
+                gco = get_param(model, 'GenCodeOnly');
+                if ~strcmp(gco, 'on')
+                    set_param(model, 'GenCodeOnly', 'on');
+                    changed = true;
+                end
+                
+                % 2. Set CodeProfilingInstrumentation to 'off' to prevent parallel loop profiling errors
+                cpi = get_param(model, 'CodeProfilingInstrumentation');
+                if ~strcmp(cpi, 'off')
+                    set_param(model, 'CodeProfilingInstrumentation', 'off');
+                    changed = true;
+                end
+                
+                % 3. Set SimUserLibraries to link Winsock2 on Windows simulation target
+                if ispc
                     libs = get_param(model, 'SimUserLibraries');
                     if isempty(libs) || ~contains(libs, 'ws2_32')
                         set_param(model, 'SimUserLibraries', 'ws2_32.lib');
-                        save_system(model);
-                        fprintf('  Configured %s.slx SimUserLibraries -> ws2_32.lib\n', model);
+                        changed = true;
                     end
                 end
-            catch ME
-                warning('Failed to configure library link settings for %s: %s', model, ME.message);
+                
+                if changed
+                    save_system(model);
+                    fprintf('  Configured and saved build settings for %s.slx\n', model);
+                end
             end
+        catch ME
+            warning('Failed to configure build settings for %s: %s', model, ME.message);
         end
     end
     
