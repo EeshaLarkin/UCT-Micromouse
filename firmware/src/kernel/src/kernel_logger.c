@@ -24,6 +24,7 @@ static uint32_t log_write_addr = LOGGER_PARTITION_START;
 static bool logging_active = false;
 static bool header_written = false;
 static uint32_t log_start_time = 0;
+static uint32_t last_log_time = 0;
 
 // Track last-written shadow state for sparse log comparisons
 static int16_t last_left_pwm = 0;
@@ -197,6 +198,7 @@ void kernel_logger_tick(void) {
         append_to_log(header_buf);
         header_written = true;
         log_start_time = HAL_GetTick(); // Record the start time of the logged run
+        last_log_time = log_start_time;
 
         // Initialize shadow states
         last_left_pwm = s->left_pwm; last_right_pwm = s->right_pwm;
@@ -209,11 +211,14 @@ void kernel_logger_tick(void) {
         last_ax = IMU_Accel[0]; last_ay = IMU_Accel[1]; last_az = IMU_Accel[2];
     }
 
-    // 3. Perform sparse compression check. Build JSON listing relative timestamp and changed values.
-    uint32_t rel_time = HAL_GetTick() - log_start_time;
+    // 3. Perform sparse compression check. Build JSON listing relative timestamp delta and changed values.
+    uint32_t current_time = HAL_GetTick();
+    uint32_t dt = current_time - last_log_time;
+    last_log_time = current_time;
+
     char record_buf[256];
-    int written = snprintf(record_buf, sizeof(record_buf), "{\"t\":%lu", (unsigned long)rel_time);
-    bool first = false; // "t" has been written, so subsequent items always need a leading comma
+    int written = snprintf(record_buf, sizeof(record_buf), "{\"+t\":%lu", (unsigned long)dt);
+    bool first = false; // "+t" has been written, so subsequent items always need a leading comma
 
     // Check and log variables
     if (s->left_pwm != last_left_pwm) {
