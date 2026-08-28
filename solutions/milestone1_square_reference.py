@@ -290,7 +290,7 @@ def run_square():
             if len(lines) >= 4:
                 uct_mouse.set_encoder_polarity(int(lines[2]), int(lines[3]))
     except Exception:
-        uct_mouse.set_polarity(-1, -1)
+        uct_mouse.set_polarity(1, 1)
         uct_mouse.set_encoder_polarity(1, 1)
 
     print("=== Milestone 1: Run a 1 m × 1 m Square ===")
