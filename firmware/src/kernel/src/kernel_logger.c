@@ -285,10 +285,12 @@ void kernel_logger_tick(void) {
         last_az = IMU_Accel[2]; first = false;
     }
 
-    // Only log if something has changed (avoiding empty ticks)
+    // Log changes, or append an empty object to preserve the 25 Hz timebase
     if (!first) {
         written += snprintf(record_buf + written, sizeof(record_buf) - written, "}\n");
         append_to_log(record_buf);
+    } else {
+        append_to_log("{}\n");
     }
 }
 
