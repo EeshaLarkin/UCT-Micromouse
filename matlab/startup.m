@@ -59,12 +59,12 @@ function startup()
                         changed = true;
                     end
                     
-                    lflags = get_param(model, 'SimUserLinkerFlags');
+                    lflags = get_param(model, 'SimCustomLinkerFlags');
                     if ~contains(lflags, 'ws2_32')
                         if isempty(lflags)
-                            set_param(model, 'SimUserLinkerFlags', '-lws2_32');
+                            set_param(model, 'SimCustomLinkerFlags', '-lws2_32');
                         else
-                            set_param(model, 'SimUserLinkerFlags', [lflags ' -lws2_32']);
+                            set_param(model, 'SimCustomLinkerFlags', [lflags ' -lws2_32']);
                         end
                         changed = true;
                     end
