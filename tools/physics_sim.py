@@ -178,7 +178,7 @@ class PhysicsSimulator:
         self.total_width = 0.143
         
         self.max_speed = 0.40
-        self.tau = 0.15
+        self.tau = 0.088
         self.imbalance = imbalance
         self.slip_coeff = slip
         self.dead_band_l = 60.0  # Default dead-band left motor
