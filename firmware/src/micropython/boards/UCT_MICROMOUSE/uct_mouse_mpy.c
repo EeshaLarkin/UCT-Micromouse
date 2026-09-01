@@ -1,6 +1,7 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "micromouse_kernel.h"
+#include "ZD25WQ80C.h"
 
 extern volatile bool mouse_initialized;
 extern void initMicroMouse(void);
@@ -257,7 +258,6 @@ static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_reboot_dfu_obj, mpy_uct_mouse_reb
 
 // 7j. uct_mouse.erase_flash() -> none
 static mp_obj_t mpy_uct_mouse_erase_flash(void) {
-    #include "ZD25WQ80C.h"
     extern ZD25WQ80C_t flash;
     if (!flash.initialized) {
         initZD25WQ80C();
