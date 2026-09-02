@@ -97,6 +97,8 @@ int ext_flash_flush(void) {
             return -1;
         }
     }
+    // Turn off LED1 to indicate all cached sectors are committed to physical SPI flash
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
     return 0;
 }
 
@@ -109,7 +111,7 @@ void bdev_check_flush(void) {
             break;
         }
     }
-    if (has_dirty && (HAL_GetTick() - bdev_last_write_tick >= 250)) {
+    if (has_dirty && (HAL_GetTick() - bdev_last_write_tick >= 50)) {
         ext_flash_flush();
     }
 }
@@ -225,6 +227,8 @@ int uct_bdev_writeblocks(const uint8_t *src, uint32_t block_num, uint32_t num_bl
         memcpy(cache[slot].data + sector_offset, src + i * BLOCK_SIZE, BLOCK_SIZE);
         cache[slot].dirty = true;
         bdev_last_write_tick = HAL_GetTick();
+        // Turn on LED1 to indicate flash cache is dirty (writing in progress)
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
     }
 
     ext_flash_busy = false;
