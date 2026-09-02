@@ -314,6 +314,10 @@ void kernel_background_tick(void) {
         kernel_watchdog_tick();
     }
 
+    // Check if external SPI flash storage cache needs background flush (non-blocking outside USB IRQ)
+    extern void bdev_check_flush(void);
+    bdev_check_flush();
+
     in_tick = false;
 }
 
