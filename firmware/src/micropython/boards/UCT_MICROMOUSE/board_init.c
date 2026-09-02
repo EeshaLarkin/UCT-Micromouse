@@ -242,44 +242,16 @@ void board_early_init(void) {
     MX_SPI2_Init();
     __HAL_SPI_ENABLE(&hspi2);
 
-    // Release from deep power down
-    uint8_t cmd_rdp = 0xAB;
-    HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_RESET);
-    HAL_StatusTypeDef tx_rdp = HAL_SPI_Transmit(&hspi2, &cmd_rdp, 1, 1000);
-    HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
-    for (volatile int i = 0; i < 20000; i++) __NOP();
-
-    // Read JEDEC ID (0x9F)
-    uint8_t cmd_id = 0x9F;
-    uint8_t resp_id[3] = {0};
-    HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_RESET);
-    HAL_StatusTypeDef tx_id = HAL_SPI_Transmit(&hspi2, &cmd_id, 1, 1000);
-    HAL_StatusTypeDef rx_id = HAL_SPI_Receive(&hspi2, resp_id, 3, 1000);
-    HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
-
     // Initialize OLED display early on boot to show welcome feedback
     uart_print("Initializing Boot OLED Display...\n");
     SSD1306_Init();
     SSD1306_Fill(SSD1306_COLOR_BLACK);
-    SSD1306_GotoXY(2, 2);
-    char oled_l1[32];
-    snprintf(oled_l1, sizeof(oled_l1), "SPI2 CR1:%04X", (unsigned int)SPI2->CR1);
-    SSD1306_Puts(oled_l1, &Font_7x10, SSD1306_COLOR_WHITE);
-    
-    SSD1306_GotoXY(2, 16);
-    char oled_l2[32];
-    snprintf(oled_l2, sizeof(oled_l2), "TX:%d RX:%d", (int)tx_id, (int)rx_id);
-    SSD1306_Puts(oled_l2, &Font_7x10, SSD1306_COLOR_WHITE);
-
-    SSD1306_GotoXY(2, 30);
-    char oled_l3[32];
-    snprintf(oled_l3, sizeof(oled_l3), "ID:%02X %02X %02X", resp_id[0], resp_id[1], resp_id[2]);
-    SSD1306_Puts(oled_l3, &Font_7x10, SSD1306_COLOR_WHITE);
-
-    SSD1306_GotoXY(2, 44);
-    char oled_l4[32];
-    snprintf(oled_l4, sizeof(oled_l4), "GPIOB IDR:%04X", (unsigned int)GPIOB->IDR);
-    SSD1306_Puts(oled_l4, &Font_7x10, SSD1306_COLOR_WHITE);
+    SSD1306_GotoXY(4, 2);
+    SSD1306_Puts("UCT Mouse", &Font_11x18, SSD1306_COLOR_WHITE);
+    SSD1306_GotoXY(4, 24);
+    SSD1306_Puts("REPL/VCP Ready", &Font_7x10, SSD1306_COLOR_WHITE);
+    SSD1306_GotoXY(4, 40);
+    SSD1306_Puts("Status: Idle", &Font_7x10, SSD1306_COLOR_WHITE);
     SSD1306_UpdateScreen();
 
     // Configure PB3 (CTRL_LEDS) as GPIO Output Push-Pull and write it HIGH to enable the LED master gate
