@@ -232,9 +232,9 @@ static mp_obj_t mpy_uct_mouse_set_led(mp_obj_t led_idx_obj, mp_obj_t state_obj) 
     if (led_idx == 0) {
         HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, pin_state);
     } else if (led_idx == 1) {
-        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, pin_state);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, pin_state);
     } else if (led_idx == 2) {
-        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, pin_state);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, pin_state);
     }
     return mp_const_none;
 }
