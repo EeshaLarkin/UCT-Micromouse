@@ -72,6 +72,8 @@ extern const struct _mp_obj_module_t uct_mouse_module;
 
 // Enable external SPI flash custom block device
 #define MICROPY_HW_BDEV_IOCTL(op, arg)          uct_bdev_ioctl(op, arg)
+#define MICROPY_HW_BDEV_READBLOCK(dest, bl)     (uct_bdev_readblocks(dest, bl, 1) == 0)
+#define MICROPY_HW_BDEV_WRITEBLOCK(src, bl)     (uct_bdev_writeblocks(src, bl, 1) == 0)
 #define MICROPY_HW_BDEV_READBLOCKS(dest, bl, n) uct_bdev_readblocks(dest, bl, n)
 #define MICROPY_HW_BDEV_WRITEBLOCKS(src, bl, n) uct_bdev_writeblocks(src, bl, n)
 #define MICROPY_HW_ENABLE_INTERNAL_FLASH_STORAGE (0)
