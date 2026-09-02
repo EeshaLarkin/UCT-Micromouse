@@ -381,9 +381,15 @@ void kernel_set_oled_line4(const char* text) {
 void kernel_update_display(void) {
     // Limit I2C display updates to 10Hz to eliminate scanline tearing while maintaining responsiveness
     static uint32_t last_display_time = 0;
+    static bool first_run = true;
     uint32_t now = HAL_GetTick();
     if (now - last_display_time < 100) return; 
     last_display_time = now;
+
+    if (first_run) {
+        SSD1306_Fill(SSD1306_COLOR_BLACK);
+        first_run = false;
+    }
 
     // Check if Simulink is providing display data. If so, use it.
     if (g_oled_header[0] != '\0' || g_oled_line1[0] != '\0' || 
