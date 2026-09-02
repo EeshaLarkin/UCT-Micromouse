@@ -264,22 +264,23 @@ void board_early_init(void) {
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct_CTRL);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 
-    // Release PC14 and PC15 from LSE crystal mode via Backup Domain Reset
-    __HAL_RCC_PWR_CLK_ENABLE();
-    HAL_PWR_EnableBkUpAccess();
-    __HAL_RCC_BACKUPRESET_FORCE();
-    __HAL_RCC_BACKUPRESET_RELEASE();
-    HAL_PWR_DisableBkUpAccess();
-
-    // Configure PC13 (LED0), PC14 (LED1), PC15 (LED2) as Outputs
+    // Configure PC13 (LED0), PA4 (LED1), PA5 (LED2) as Outputs
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct_LEDs = {0};
-    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
     GPIO_InitStruct_LEDs.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct_LEDs.Pull = GPIO_NOPULL;
     GPIO_InitStruct_LEDs.Speed = GPIO_SPEED_FREQ_LOW;
+
+    // LED0 (PC13)
+    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_13;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct_LEDs);
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+
+    // LED1 (PA4) and LED2 (PA5)
+    GPIO_InitStruct_LEDs.Pin = GPIO_PIN_4 | GPIO_PIN_5;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct_LEDs);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_RESET);
 
     uart_print("Boot sequence completed successfully.\n");
 }

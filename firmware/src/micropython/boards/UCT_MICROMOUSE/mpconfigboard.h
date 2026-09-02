@@ -49,7 +49,7 @@
 #define MICROPY_HW_USRSW_EXTI_MODE  (GPIO_MODE_IT_FALLING)
 #define MICROPY_HW_USRSW_PRESSED    (0)
 
-// LEDs (PC13, PC14, PC15)
+// LEDs (PC13, PA4, PA5)
 #define MICROPY_HW_LED1             (pin_C13)
 #define MICROPY_HW_LED2             (pin_A4)
 #define MICROPY_HW_LED3             (pin_A5)
