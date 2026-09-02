@@ -60,17 +60,6 @@ static int ext_flash_init(void) {
         if (!initZD25WQ80C()) {
             return -1;
         }
-
-        // Ensure write protection is cleared on the flash chip
-        uint8_t wren = ZD25WQ80C_CMD_WREN;
-        HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_RESET);
-        HAL_SPI_Transmit(&hspi2, &wren, 1, 100);
-        HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
-        
-        uint8_t wrsr[2] = {ZD25WQ80C_CMD_WRSR, 0x00};
-        HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_RESET);
-        HAL_SPI_Transmit(&hspi2, wrsr, 2, 100);
-        HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
     }
     return 0;
 }

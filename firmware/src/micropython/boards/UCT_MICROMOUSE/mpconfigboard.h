@@ -37,6 +37,12 @@
 #define MICROPY_HW_I2C2_SCL         (pin_B10)
 #define MICROPY_HW_I2C2_SDA         (pin_B11)
 
+// SPI2 bus (External ZD25WQ80C Flash)
+#define MICROPY_HW_SPI2_NAME        "SPI2"
+#define MICROPY_HW_SPI2_SCK         (pin_B13)
+#define MICROPY_HW_SPI2_MISO        (pin_B14)
+#define MICROPY_HW_SPI2_MOSI        (pin_B15)
+
 // USRSW is SW1 (PE6), active low
 #define MICROPY_HW_USRSW_PIN        (pin_E6)
 #define MICROPY_HW_USRSW_PULL       (GPIO_PULLUP)
