@@ -205,21 +205,19 @@ def find_arm_gcc():
             
     # 2. Search common installation directories
     candidate_patterns = [
-        # Windows standard toolchain paths
-        r"C:\Program Files (x86)\GNU Arm Embedded Toolchain\*\bin\arm-none-eabi-gcc.exe",
-        r"C:\Program Files\Arm GNU Toolchain*\bin\arm-none-eabi-gcc.exe",
-        r"C:\Program Files (x86)\Arm GNU Toolchain*\bin\arm-none-eabi-gcc.exe",
-        r"C:\Program Files (x86)\GNU Tools ARM Embedded\*\bin\arm-none-eabi-gcc.exe",
-        r"C:\Program Files\GNU Tools ARM Embedded\*\bin\arm-none-eabi-gcc.exe",
-        r"C:\ST\STM32CubeCLT*\GNU-tools-for-STM32\bin\arm-none-eabi-gcc.exe",
-        r"C:\ST\STM32CubeIDE*\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.gnu.tools.arm-none-eabi.*\tools\bin\arm-none-eabi-gcc.exe",
-        r"C:\tools\arm-none-eabi\bin\arm-none-eabi-gcc.exe",
-        r"C:\tools\gcc-arm-none-eabi\bin\arm-none-eabi-gcc.exe",
-        os.path.expanduser(r"~\AppData\Local\Programs\*\bin\arm-none-eabi-gcc.exe"),
-        os.path.expanduser(r"~\scoop\apps\gcc-arm-none-eabi\current\bin\arm-none-eabi-gcc.exe"),
+        # Windows Arm GNU Toolchains (deep search)
+        r"C:\Program Files (x86)\Arm GNU Toolchain*\**\arm-none-eabi-gcc.exe",
+        r"C:\Program Files\Arm GNU Toolchain*\**\arm-none-eabi-gcc.exe",
+        r"C:\Program Files (x86)\GNU Arm Embedded Toolchain*\**\arm-none-eabi-gcc.exe",
+        r"C:\Program Files\GNU Arm Embedded Toolchain*\**\arm-none-eabi-gcc.exe",
+        r"C:\Program Files (x86)\GNU Tools ARM Embedded*\**\arm-none-eabi-gcc.exe",
+        r"C:\Program Files\GNU Tools ARM Embedded*\**\arm-none-eabi-gcc.exe",
+        r"C:\ST\**\arm-none-eabi-gcc.exe",
+        r"C:\tools\**\arm-none-eabi-gcc.exe",
+        os.path.expanduser(r"~\AppData\Local\Programs\**\arm-none-eabi-gcc.exe"),
+        os.path.expanduser(r"~\scoop\apps\**\arm-none-eabi-gcc.exe"),
         # MATLAB Support Packages (deep search)
         r"C:\ProgramData\MATLAB\SupportPackages\**\arm-none-eabi-gcc.exe",
-        os.path.expanduser(r"~\AppData\Roaming\MathWorks\MATLAB Support Packages\**\arm-none-eabi-gcc.exe"),
         os.path.expanduser(r"~\AppData\Roaming\MathWorks\**\arm-none-eabi-gcc.exe"),
         r"C:\Program Files\MATLAB\**\arm-none-eabi-gcc.exe",
         # Unix/macOS paths
