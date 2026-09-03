@@ -290,7 +290,26 @@ void kernel_background_tick(void) {
             refreshTOFValues();
             refreshIMUValues();
             refreshINA219Values();
-            kernel_update_display();
+            
+            // Snapshot physical state to the C-Kernel state structure
+            extern void kernel_snapshot_state(void);
+            kernel_snapshot_state();
+
+            // Run C-Kernel telemetry logger at 25 Hz (every 40ms / 4 ticks)
+            static uint32_t logger_tick_count = 0;
+            if (++logger_tick_count >= 4) {
+                logger_tick_count = 0;
+                extern void kernel_logger_tick(void);
+                kernel_logger_tick();
+            }
+
+            // Rate-limit OLED display updates to 10 Hz (every 100ms)
+            static uint32_t last_display_update = 0;
+            if (now - last_display_update >= 100) {
+                last_display_update = now;
+                kernel_update_display();
+            }
+
             serial_interface_tick();
             kernel_watchdog_tick();
         }
