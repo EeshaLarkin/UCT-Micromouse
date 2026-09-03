@@ -314,40 +314,72 @@ if __name__ == "__main__":
 
     elif args.engine == "simulink":
         # === SIMULINK ENGINE FLOW ===
-        # Re-route model build outputs to central build/ directory to keep repo clean
-        simulink_build_dir = os.path.join(repo_root, "build", "UCT_KDeploy_ert_rtw")
+        print("[1/2] Preparing Simulink firmware binary...")
+        
+        # 1. Search for generated Simulink code directory (*_ert_rtw)
+        ert_candidates = []
+        search_roots = [
+            os.path.join(repo_root, "build"),
+            os.path.join(repo_root, "matlab", "simulink"),
+            os.path.join(repo_root, "matlab"),
+            os.path.join(repo_root, "workspace"),
+            repo_root
+        ]
+        
+        for root_path in search_roots:
+            if os.path.exists(root_path):
+                for entry in os.listdir(root_path):
+                    full_p = os.path.join(root_path, entry)
+                    if entry.endswith("_ert_rtw") and os.path.isdir(full_p):
+                        # Verify it contains C sources
+                        c_files = [f for f in os.listdir(full_p) if f.endswith(".c") and f != "ert_main.c"]
+                        if c_files:
+                            mtime = os.path.getmtime(full_p)
+                            ert_candidates.append((mtime, full_p, entry))
+                            
+        selected_ert_dir = None
+        if ert_candidates:
+            # Sort by newest modification time
+            ert_candidates.sort(key=lambda x: x[0], reverse=True)
+            selected_ert_dir = ert_candidates[0][1]
+            model_name = ert_candidates[0][2].replace("_ert_rtw", "")
+            print(f"    -> Found generated Simulink model code: {selected_ert_dir} ({model_name})")
+            
         untracked_bin_path = os.path.join(repo_root, "build", "bin", "simulink.bin")
         tracked_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
+        active_bin_path = None
         
-        # Compile if not present or requested
-        print("[1/2] Preparing Simulink firmware binary...")
-        if not os.path.exists(simulink_build_dir) or args.flash:
-            # We compile by invoking the Simulink build helper script
-            print("    -> Compiling Simulink model code...")
-            compile_script = os.path.join(repo_root, "tools", "compile_simulink_pc.py")
-            if os.path.exists(compile_script):
-                subprocess.run([sys.executable, compile_script], check=True)
-            else:
-                print("Error: Simulink compiler script not found!")
+        if selected_ert_dir:
+            try:
+                print("    -> Configuring CMake for Simulink model...")
+                subprocess.run(
+                    ["cmake", "-S", "firmware", "-B", "firmware/build", f"-DSIMULINK_ERT_DIR={selected_ert_dir}"],
+                    cwd=repo_root,
+                    check=True
+                )
+                print("    -> Building Simulink firmware target (ARM cross-compiler)...")
+                subprocess.run(
+                    ["cmake", "--build", "firmware/build", "--target", "simulink_firmware"],
+                    cwd=repo_root,
+                    check=True
+                )
+                built_bin = os.path.join(repo_root, "firmware", "build", "simulink_firmware.bin")
+                if os.path.exists(built_bin):
+                    os.makedirs(os.path.dirname(untracked_bin_path), exist_ok=True)
+                    shutil.copy(built_bin, untracked_bin_path)
+                    shutil.copy(built_bin, tracked_bin_path)
+                    active_bin_path = untracked_bin_path
+                    print(f"    -> Successfully compiled fresh binary to {untracked_bin_path}")
+            except subprocess.CalledProcessError as e:
+                print(f"Error compiling Simulink model firmware: {e}")
                 sys.exit(1)
-
-        sim_bin = os.path.join(simulink_build_dir, "UCT_KDeploy.bin")
-        if not os.path.exists(sim_bin):
-            # Fall back to checking standard directories
-            sim_bin = os.path.join(repo_root, "UCT_KDeploy_ert_rtw", "UCT_KDeploy.bin")
-            
-        if not os.path.exists(sim_bin):
-            if os.path.exists(tracked_bin_path):
-                print(f"Using precompiled release binary: {tracked_bin_path}")
-                active_bin_path = tracked_bin_path
-            else:
-                print(f"Error: Compiled Simulink binary not found. Please build model first.")
-                sys.exit(1)
+        elif os.path.exists(tracked_bin_path):
+            print(f"    -> No *_ert_rtw folder found. Using precompiled fallback: {tracked_bin_path}")
+            active_bin_path = tracked_bin_path
         else:
-            os.makedirs(os.path.dirname(untracked_bin_path), exist_ok=True)
-            shutil.copy(sim_bin, untracked_bin_path)
-            print(f"    -> Copied compiled binary to {untracked_bin_path}")
-            active_bin_path = untracked_bin_path
+            print("Error: No Simulink generated code (*_ert_rtw) found and no fallback binary available.")
+            print("Please generate C code from your Simulink model in MATLAB (Cmd+B) first.")
+            sys.exit(1)
 
         # Flash the compiled firmware onto the board
         print(f"[2/2] Flashing Simulink firmware...")
