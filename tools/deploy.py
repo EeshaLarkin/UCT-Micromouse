@@ -77,14 +77,123 @@ def find_dfu_util_cmd():
     for cmd in ["dfu-util", "/opt/homebrew/bin/dfu-util", "/usr/local/bin/dfu-util", "/opt/local/bin/dfu-util"]:
         if shutil.which(cmd) or os.path.exists(cmd):
             return cmd
-    return None
-
 def find_st_flash_cmd():
-    """Finds the st-flash command path."""
+    """Finds the st-flash command path across PATH and Windows install locations."""
     for cmd in ["st-flash", "st-flash.exe", "/opt/homebrew/bin/st-flash", "/usr/local/bin/st-flash", "/opt/local/bin/st-flash"]:
         if shutil.which(cmd) or os.path.exists(cmd):
             return cmd
+    candidate_patterns = [
+        r"C:\Program Files\stlink*\bin\st-flash.exe",
+        r"C:\Program Files (x86)\stlink*\bin\st-flash.exe",
+        r"C:\tools\stlink*\bin\st-flash.exe",
+        os.path.expanduser(r"~\scoop\apps\stlink\current\bin\st-flash.exe")
+    ]
+    for pat in candidate_patterns:
+        matches = glob.glob(pat)
+        if matches and os.path.isfile(matches[0]):
+            return os.path.abspath(matches[0])
     return None
+
+def find_stm32_programmer_cli():
+    """Finds STM32_Programmer_CLI (official ST-Link CLI tool on Windows/Mac/Linux)."""
+    for cmd in ["STM32_Programmer_CLI", "STM32_Programmer_CLI.exe"]:
+        if shutil.which(cmd) or os.path.exists(cmd):
+            return cmd
+    candidate_patterns = [
+        r"C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
+        r"C:\Program Files (x86)\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
+        r"C:\ST\STM32CubeCLT*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
+        r"C:\ST\STM32CubeIDE*\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.*\tools\bin\STM32_Programmer_CLI.exe",
+        "/Applications/STMicroelectronics/STM32Cube/STM32CubeProgrammer/STM32CubeProgrammer.app/Contents/MacOs/bin/STM32_Programmer_CLI"
+    ]
+    for pat in candidate_patterns:
+        try:
+            matches = glob.glob(pat, recursive=True) if "**" in pat else glob.glob(pat)
+            if matches and os.path.isfile(matches[0]):
+                return os.path.abspath(matches[0])
+        except Exception:
+            pass
+    return None
+
+def flash_firmware(central_bin_path):
+    """Flashes the firmware binary onto the board.
+    Tries USB DFU via dfu-util first, then st-flash, STM32_Programmer_CLI, and falls back to ST-Link USB mass storage copy.
+    """
+    dfu_util_cmd = find_dfu_util_cmd()
+    if dfu_util_cmd and is_dfu_device_connected(dfu_util_cmd):
+        print(f"Using direct USB DFU flash via '{dfu_util_cmd}' (over USB OTG)...")
+        try:
+            subprocess.run([
+                dfu_util_cmd, 
+                "-a", "0", 
+                "-d", "0483:df11", 
+                "--dfuse-address", "0x08000000:leave", 
+                "-D", central_bin_path
+            ], check=True)
+            print("Success! Firmware flashed via USB DFU. Board reset triggered.")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Warning: USB DFU flashing failed: {e}")
+            print("Falling back to SWD flashing methods...")
+
+    # 2. Try st-flash
+    st_flash_cmd = find_st_flash_cmd()
+    if st_flash_cmd:
+        print(f"Using direct SWD flash via '{st_flash_cmd}' (fast & reliable)...")
+        try:
+            subprocess.run([st_flash_cmd, "--reset", "write", central_bin_path, "0x08000000"], check=True)
+            print("Success! Firmware flashed via SWD. Board reset triggered.")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Warning: Direct flashing via st-flash failed: {e}")
+            print("Trying STM32_Programmer_CLI...")
+
+    # 3. Try STM32_Programmer_CLI (Official ST tool)
+    stm32_cli = find_stm32_programmer_cli()
+    if stm32_cli:
+        print(f"Using direct SWD flash via STM32_Programmer_CLI ('{stm32_cli}')...")
+        try:
+            subprocess.run([
+                stm32_cli, "-c", "port=SWD", "-w", central_bin_path, "0x08000000", "-v", "-rst"
+            ], check=True)
+            print("Success! Firmware flashed via STM32CubeProgrammer. Board reset triggered.")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"Warning: STM32_Programmer_CLI failed: {e}")
+            print("Falling back to USB mass storage copy method...")
+            
+    # 4. Fallback: Find the ST-Link Mass Storage Drive
+    drive = find_stlink_drive()
+    if not drive:
+        print("\nError: Could not find ST-Link programmer or USB drive.")
+        print("Please ensure the ST-Link USB cable is firmly plugged in and the LED is lit.")
+        print("To install reliable command-line flashers on Windows:")
+        print("  winget install STMicroelectronics.STM32CubeProgrammer")
+        sys.exit(1)
+        
+    print(f"ST-Link found at {drive}. Flashing via USB mass storage stream write...")
+    try:
+        dest_path = os.path.join(drive, "firmware.bin")
+        # Remove old firmware.bin or failed transfer artifacts if present
+        for old_f in ["firmware.bin", "FAIL.TXT"]:
+            old_p = os.path.join(drive, old_f)
+            if os.path.exists(old_p):
+                try:
+                    os.remove(old_p)
+                except Exception:
+                    pass
+                    
+        # Direct raw binary stream write (avoids Windows FAT metadata allocation errors)
+        with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
+            f_dst.write(f_src.read())
+            f_dst.flush()
+            
+        print("Success! Firmware copied to drive. Mouse will automatically reboot.")
+        return True
+    except Exception as e:
+        print(f"Error copying to ST-Link drive: {e}")
+        print("Tip: If the ST-Link virtual drive is full or locked, unplug and replug the ST-Link USB cable.")
+        sys.exit(1)
 
 def find_arm_gcc():
     """Finds arm-none-eabi-gcc executable across PATH and standard OS install directories."""
@@ -175,67 +284,6 @@ def get_cmake_toolchain_flags(required=True):
             flags += ["-G", "MinGW Makefiles"]
             
     return flags
-
-def is_dfu_device_connected(dfu_util_cmd):
-    """Checks if an STM32 DFU device is currently connected."""
-    try:
-        res = subprocess.run([dfu_util_cmd, "-l"], capture_output=True, text=True)
-        return "0483:df11" in res.stdout
-    except Exception:
-        return False
-
-def flash_firmware(central_bin_path):
-    """Flashes the firmware binary onto the board.
-    Tries USB DFU via dfu-util first, then st-flash, and falls back to ST-Link USB mass storage copy.
-    """
-    dfu_util_cmd = find_dfu_util_cmd()
-    if dfu_util_cmd and is_dfu_device_connected(dfu_util_cmd):
-        print(f"Using direct USB DFU flash via '{dfu_util_cmd}' (over USB OTG)...")
-        try:
-            # 0x08000000 is the flash start address. :leave tells dfu-util to jump to application after programming.
-            subprocess.run([
-                dfu_util_cmd, 
-                "-a", "0", 
-                "-d", "0483:df11", 
-                "--dfuse-address", "0x08000000:leave", 
-                "-D", central_bin_path
-            ], check=True)
-            print("Success! Firmware flashed via USB DFU. Board reset triggered.")
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(f"Warning: USB DFU flashing failed: {e}")
-            print("Falling back to other flashing methods...")
-
-    st_flash_cmd = find_st_flash_cmd()
-    if st_flash_cmd:
-        print(f"Using direct SWD flash via '{st_flash_cmd}' (fast & reliable)...")
-        try:
-            subprocess.run([st_flash_cmd, "--reset", "write", central_bin_path, "0x08000000"], check=True)
-            print("Success! Firmware flashed via SWD. Board reset triggered.")
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(f"Warning: Direct flashing via st-flash failed: {e}")
-            print("Falling back to USB mass storage copy method...")
-            
-    # Fallback: Find the ST-Link Mass Storage Drive
-    drive = find_stlink_drive()
-    if not drive:
-        print("Error: Could not find ST-Link USB drive or st-flash. Is the board plugged in?")
-        sys.exit(1)
-        
-    print(f"ST-Link found at {drive}. Flashing via USB mass storage copy (slower, may hang)...")
-    try:
-        if sys.platform == 'darwin':
-            dest_path = os.path.join(drive, "firmware.bin")
-            with open(central_bin_path, "rb") as f_src, open(dest_path, "wb") as f_dst:
-                f_dst.write(f_src.read())
-        else:
-            shutil.copy(central_bin_path, drive)
-        print("Success! Firmware copied to drive. Mouse will automatically reboot.")
-        return True
-    except Exception as e:
-        print(f"Error copying to mass storage drive: {e}")
-        sys.exit(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="UCT Micromouse Firmware and Script Deployer")
