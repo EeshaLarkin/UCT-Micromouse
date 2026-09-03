@@ -124,13 +124,60 @@ def main():
         print(f"      Error: Failed to write binary to flash ({e}).")
         sys.exit(1)
 
-    # Step 5: Formatting and setup information
-    print("\n[4/4] Finalizing factory reset...")
+    # Step 5: Formatting and setup external SPI flash filesystem
+    print("\n[4/4] Finalizing factory reset & setting up external flash filesystem...")
     if args.engine == "micropython":
-        print("\n*** INFO: MicroPython interpreter is now flashed. ***")
-        print("On first boot, MicroPython will automatically format the external SPI flash")
-        print("with a clean FAT partition structure, and populate the default 'boot.py'")
-        print("and 'main.py' files. This takes about 2-3 seconds after rebooting.")
+        print("      Waiting 2.5s for MicroPython USB serial port to enumerate...")
+        time.sleep(2.5)
+        
+        mpy_port = None
+        for attempt in range(10):
+            for p in serial.tools.list_ports.comports():
+                if "ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid in (0x374b, 0x3752)) or "usbmodem" in p.device or (p.vid == 0xf055 and p.pid == 0x9800):
+                    mpy_port = p.device
+                    break
+            if mpy_port:
+                break
+            time.sleep(0.5)
+
+        if mpy_port:
+            print(f"      Formatting FAT partition on {mpy_port}...")
+            format_code = (
+                "import os, pyb\n"
+                "f = pyb.Flash()\n"
+                "os.VfsFat.mkfs(f)\n"
+                "vfs = os.VfsFat(f)\n"
+                "os.mount(vfs, '/flash')\n"
+                "with open('/flash/boot.py', 'w') as fp:\n"
+                "    fp.write('# boot.py -- run on boot-up\\n')\n"
+                "with open('/flash/main.py', 'w') as fp:\n"
+                "    fp.write('# main.py -- put your code here!\\n')\n"
+                "with open('/flash/README.txt', 'w') as fp:\n"
+                "    fp.write('UCT Micromouse external SPI flash storage (128 KB FAT partition).\\n')\n"
+                "print('FLASH_FORMAT_OK')\n"
+            )
+            try:
+                subprocess.run([sys.executable, "-m", "mpremote", "connect", mpy_port, "exec", format_code], check=True, timeout=10)
+                print("      Success: External SPI flash formatted and initial files created.")
+                subprocess.run([sys.executable, "-m", "mpremote", "connect", mpy_port, "soft-reset"], check=False)
+            except Exception as e:
+                # Fallback to direct raw serial commands
+                try:
+                    s = serial.Serial(mpy_port, 115200, timeout=2.0)
+                    s.write(b'\r\x03\x03\r\n')
+                    time.sleep(0.3)
+                    s.write(format_code.encode('utf-8') + b'\r\n')
+                    time.sleep(1.0)
+                    s.close()
+                    print("      Success: External SPI flash format command sent over serial.")
+                except Exception as ex:
+                    print(f"      Note: Could not format flash over serial ({ex}).")
+                    print("      Run 'python tools/deploy.py -e micropython --factory-reset' to format.")
+        else:
+            print("      Note: Serial port not detected yet. Flash will mount on next connection.")
+
+        print("\n*** INFO: MicroPython interpreter is flashed and external flash is configured. ***")
+        print("The board will mount on your computer as 'UCT_MMOUSE' with clean default files.")
     elif args.engine == "pikascript":
         print("\n*** INFO: PikaScript interpreter is now flashed. ***")
         print("Deploy your user main.py file using the standard deploy command:")

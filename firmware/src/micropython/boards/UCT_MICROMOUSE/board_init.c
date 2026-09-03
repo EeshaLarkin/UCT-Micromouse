@@ -269,8 +269,6 @@ void kernel_background_tick(void) {
         return;
     }
     
-
-
     static bool in_tick = false;
     if (in_tick) {
         return;
@@ -279,91 +277,36 @@ void kernel_background_tick(void) {
 
     static uint32_t last_tick = 0;
     uint32_t now = HAL_GetTick();
-    
-    // Rate limit C-Kernel background task updates to 100 Hz (every 10ms)
-    if (now - last_tick >= 10) {
+    if (now - last_tick >= 10) { // 100 Hz
         last_tick = now;
         
+        // Check deferred flash flush
+        extern void bdev_check_flush(void);
+        bdev_check_flush();
+
         if (mouse_initialized) {
             refreshADCs();
             refreshSWValues();
             refreshTOFValues();
             refreshIMUValues();
             refreshINA219Values();
-            
-            // Snapshot physical state to the C-Kernel state structure
-            kernel_snapshot_state();
-
-            // Run C-Kernel telemetry logger at 25 Hz (every 40ms / 4 ticks)
-            static uint32_t logger_tick_count = 0;
-            if (++logger_tick_count >= 4) {
-                logger_tick_count = 0;
-                extern void kernel_logger_tick(void);
-                kernel_logger_tick();
-            }
-            
-            // Rate-limit OLED display updates to 10 Hz (every 100ms)
-            static uint32_t last_display_update = 0;
-            if (now - last_display_update >= 100) {
-                last_display_update = now;
-                kernel_update_display();
-            }
+            kernel_update_display();
+            serial_interface_tick();
+            kernel_watchdog_tick();
         }
-        
-        // Feed kernel software watchdog
-        kernel_watchdog_tick();
     }
-
     in_tick = false;
 }
 
-// Override factory_reset_make_files to write our custom hybrid boot.py and main.py on first-boot filesystem creation.
-// This guarantees the USB drive is read-only by default even before the user deploys any files!
 #include "extmod/vfs_fat.h"
 
-static const char custom_boot_py[] =
-    "# boot.py - UCT Micromouse Hybrid Bootloader\r\n"
-    "try:\r\n"
-    "    import pyb\r\n"
-    "    pyb.usb_mode('VCP+MSC')\r\n"
-    "except Exception as e:\r\n"
-    "    pass\r\n";
-
-static const char custom_main_py[] =
-    "# main.py -- put your code here!\r\n";
-
-static const char custom_readme_txt[] =
-    "UCT Micromouse (UCT_MMOUSE) external SPI flash partition.\r\n"
-    "File storage space: 128 KB (last 128 KB of 1 MB chip).\r\n"
-    "\r\n"
-    "By default, the mouse boots in VCP+MSC mode.\r\n"
-    "This mounts the virtual USB drive on your PC and enables VCP serial telemetry simultaneously.\r\n"
-    "Deploy scripts cleanly over VCP serial using 'python tools/deploy.py -e micropython'.\r\n";
+// Override MicroPython's factory reset hooks to NEVER format or wipe files on boot errors.
+// External SPI flash format is strictly executed via explicit tools/deploy.py or factory_reset.py.
+int factory_reset_create_filesystem(void) {
+    uart_print("MPY: Auto-format disabled. Preserving external SPI flash.\n");
+    return 0;
+}
 
 void factory_reset_make_files(FATFS *fatfs) {
-    struct {
-        const char *name;
-        const char *data;
-    } files[] = {
-        {"boot.py", custom_boot_py},
-        {"main.py", custom_main_py},
-        {"README.txt", custom_readme_txt},
-    };
-    char ram_buf[1024]; // Temporary buffer in RAM to prevent Flash read-during-write conflicts
-    for (size_t i = 0; i < sizeof(files)/sizeof(files[0]); ++i) {
-        FIL fp;
-        FRESULT res = f_open(fatfs, &fp, files[i].name, FA_WRITE | FA_CREATE_ALWAYS);
-        if (res == FR_OK) {
-            UINT n;
-            size_t len = strlen(files[i].data);
-            if (len < sizeof(ram_buf)) {
-                memcpy(ram_buf, files[i].data, len);
-                ram_buf[len] = '\0';
-                f_write(&fp, ram_buf, len, &n);
-            }
-            f_close(&fp);
-        }
-    }
-    extern int ext_flash_flush(void);
-    ext_flash_flush();
+    // No-op: Do not overwrite main.py or existing filesystem files
 }
