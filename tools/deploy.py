@@ -468,13 +468,15 @@ if __name__ == "__main__":
                 print("[2/2] Performing Factory Reset: Formatting external SPI flash filesystem...")
                 format_script = (
                     "import os, pyb\n"
+                    "try: os.umount('/flash')\n"
+                    "except: pass\n"
                     "f = pyb.Flash()\n"
                     "print('Formatting FAT partition...')\n"
                     "os.VfsFat.mkfs(f)\n"
                     "vfs = os.VfsFat(f)\n"
                     "os.mount(vfs, '/flash')\n"
                     "with open('/flash/boot.py', 'w') as fp:\n"
-                    "    fp.write('# boot.py -- run on boot-up\\n')\n"
+                    "    fp.write('# boot.py - UCT Micromouse Hybrid Bootloader\\ntry:\\n    import pyb\\n    pyb.usb_mode(\\'VCP+MSC\\')\\nexcept Exception as e:\\n    pass\\n')\n"
                     "with open('/flash/main.py', 'w') as fp:\n"
                     "    fp.write('# main.py -- put your code here!\\n')\n"
                     "print('Flash formatted and mounted successfully!')\n"
