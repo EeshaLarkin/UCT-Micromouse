@@ -108,8 +108,11 @@ def find_arm_gcc():
         r"C:\tools\gcc-arm-none-eabi\bin\arm-none-eabi-gcc.exe",
         os.path.expanduser(r"~\AppData\Local\Programs\*\bin\arm-none-eabi-gcc.exe"),
         os.path.expanduser(r"~\scoop\apps\gcc-arm-none-eabi\current\bin\arm-none-eabi-gcc.exe"),
-        # MATLAB support packages
-        r"C:\ProgramData\MATLAB\SupportPackages\*\*\bin\arm-none-eabi-gcc.exe",
+        # MATLAB Support Packages (deep search)
+        r"C:\ProgramData\MATLAB\SupportPackages\**\arm-none-eabi-gcc.exe",
+        os.path.expanduser(r"~\AppData\Roaming\MathWorks\MATLAB Support Packages\**\arm-none-eabi-gcc.exe"),
+        os.path.expanduser(r"~\AppData\Roaming\MathWorks\**\arm-none-eabi-gcc.exe"),
+        r"C:\Program Files\MATLAB\**\arm-none-eabi-gcc.exe",
         # Unix/macOS paths
         "/opt/homebrew/bin/arm-none-eabi-gcc",
         "/usr/local/bin/arm-none-eabi-gcc",
@@ -118,9 +121,15 @@ def find_arm_gcc():
     ]
     
     for pat in candidate_patterns:
-        matches = glob.glob(pat)
-        if matches:
-            return os.path.abspath(matches[0])
+        try:
+            matches = glob.glob(pat, recursive=True) if "**" in pat else glob.glob(pat)
+            if matches:
+                # Ensure the matched file is executable / valid
+                for m in matches:
+                    if os.path.isfile(m):
+                        return os.path.abspath(m)
+        except Exception:
+            pass
             
     return None
 
