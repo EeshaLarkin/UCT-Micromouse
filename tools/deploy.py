@@ -81,10 +81,88 @@ def find_dfu_util_cmd():
 
 def find_st_flash_cmd():
     """Finds the st-flash command path."""
-    for cmd in ["st-flash", "/opt/homebrew/bin/st-flash", "/usr/local/bin/st-flash", "/opt/local/bin/st-flash"]:
+    for cmd in ["st-flash", "st-flash.exe", "/opt/homebrew/bin/st-flash", "/usr/local/bin/st-flash", "/opt/local/bin/st-flash"]:
         if shutil.which(cmd) or os.path.exists(cmd):
             return cmd
     return None
+
+def find_arm_gcc():
+    """Finds arm-none-eabi-gcc executable across PATH and standard OS install directories."""
+    # 1. Direct search on PATH
+    for exe in ["arm-none-eabi-gcc", "arm-none-eabi-gcc.exe"]:
+        p = shutil.which(exe)
+        if p:
+            return os.path.abspath(p)
+            
+    # 2. Search common installation directories
+    candidate_patterns = [
+        # Windows standard toolchain paths
+        r"C:\Program Files (x86)\GNU Arm Embedded Toolchain\*\bin\arm-none-eabi-gcc.exe",
+        r"C:\Program Files\Arm GNU Toolchain*\bin\arm-none-eabi-gcc.exe",
+        r"C:\Program Files (x86)\Arm GNU Toolchain*\bin\arm-none-eabi-gcc.exe",
+        r"C:\Program Files (x86)\GNU Tools ARM Embedded\*\bin\arm-none-eabi-gcc.exe",
+        r"C:\Program Files\GNU Tools ARM Embedded\*\bin\arm-none-eabi-gcc.exe",
+        r"C:\ST\STM32CubeCLT*\GNU-tools-for-STM32\bin\arm-none-eabi-gcc.exe",
+        r"C:\ST\STM32CubeIDE*\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.gnu.tools.arm-none-eabi.*\tools\bin\arm-none-eabi-gcc.exe",
+        r"C:\tools\arm-none-eabi\bin\arm-none-eabi-gcc.exe",
+        r"C:\tools\gcc-arm-none-eabi\bin\arm-none-eabi-gcc.exe",
+        os.path.expanduser(r"~\AppData\Local\Programs\*\bin\arm-none-eabi-gcc.exe"),
+        os.path.expanduser(r"~\scoop\apps\gcc-arm-none-eabi\current\bin\arm-none-eabi-gcc.exe"),
+        # MATLAB support packages
+        r"C:\ProgramData\MATLAB\SupportPackages\*\*\bin\arm-none-eabi-gcc.exe",
+        # Unix/macOS paths
+        "/opt/homebrew/bin/arm-none-eabi-gcc",
+        "/usr/local/bin/arm-none-eabi-gcc",
+        "/opt/local/bin/arm-none-eabi-gcc",
+        "/usr/bin/arm-none-eabi-gcc"
+    ]
+    
+    for pat in candidate_patterns:
+        matches = glob.glob(pat)
+        if matches:
+            return os.path.abspath(matches[0])
+            
+    return None
+
+def get_cmake_toolchain_flags():
+    """Generates CMake toolchain compiler arguments and ensures arm-none-eabi-gcc is in PATH."""
+    arm_gcc = find_arm_gcc()
+    if not arm_gcc:
+        print("\nError: ARM GCC cross-compiler ('arm-none-eabi-gcc') not found on your system.")
+        print("To compile Simulink or C firmware, please install the ARM GNU toolchain:")
+        print("  Windows (PowerShell): winget install Arm.GnuArmEmbeddedToolchain")
+        print("       or (Chocolatey): choco install make arm-none-eabi-gcc")
+        print("  macOS:                brew install arm-none-eabi-gcc")
+        print("  Linux (Ubuntu/Debian): sudo apt install gcc-arm-none-eabi")
+        sys.exit(1)
+        
+    gcc_dir = os.path.dirname(arm_gcc)
+    if gcc_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = gcc_dir + os.pathsep + os.environ.get("PATH", "")
+        
+    exe_ext = ".exe" if sys.platform.startswith("win") else ""
+    gxx = os.path.join(gcc_dir, f"arm-none-eabi-g++{exe_ext}")
+    objcopy = os.path.join(gcc_dir, f"arm-none-eabi-objcopy{exe_ext}")
+    size = os.path.join(gcc_dir, f"arm-none-eabi-size{exe_ext}")
+    
+    flags = [
+        f"-DCMAKE_C_COMPILER={arm_gcc.replace(os.sep, '/')}",
+        f"-DCMAKE_ASM_COMPILER={arm_gcc.replace(os.sep, '/')}"
+    ]
+    if os.path.exists(gxx):
+        flags.append(f"-DCMAKE_CXX_COMPILER={gxx.replace(os.sep, '/')}")
+    if os.path.exists(objcopy):
+        flags.append(f"-DCMAKE_OBJCOPY={objcopy.replace(os.sep, '/')}")
+    if os.path.exists(size):
+        flags.append(f"-DCMAKE_SIZE={size.replace(os.sep, '/')}")
+        
+    if sys.platform.startswith("win"):
+        if shutil.which("ninja"):
+            flags += ["-G", "Ninja"]
+        elif shutil.which("mingw32-make") or shutil.which("make"):
+            flags += ["-G", "MinGW Makefiles"]
+            
+    return flags
 
 def is_dfu_device_connected(dfu_util_cmd):
     """Checks if an STM32 DFU device is currently connected."""
@@ -289,7 +367,8 @@ if __name__ == "__main__":
             
         try:
             print("    -> Configuring CMake...")
-            subprocess.run(["cmake", "-S", "firmware", "-B", "firmware/build"], cwd=repo_root, check=True)
+            toolchain_flags = get_cmake_toolchain_flags()
+            subprocess.run(["cmake", "-S", "firmware", "-B", "firmware/build"] + toolchain_flags, cwd=repo_root, check=True)
             print("    -> Building PikaScript firmware target...")
             subprocess.run(["cmake", "--build", "firmware/build", "--target", "pikascript_firmware"], cwd=repo_root, check=True)
         except subprocess.CalledProcessError:
@@ -352,8 +431,10 @@ if __name__ == "__main__":
         if selected_ert_dir:
             try:
                 print("    -> Configuring CMake for Simulink model...")
+                toolchain_flags = get_cmake_toolchain_flags()
+                ert_arg = f"-DSIMULINK_ERT_DIR={selected_ert_dir.replace(os.sep, '/')}"
                 subprocess.run(
-                    ["cmake", "-S", "firmware", "-B", "firmware/build", f"-DSIMULINK_ERT_DIR={selected_ert_dir}"],
+                    ["cmake", "-S", "firmware", "-B", "firmware/build", ert_arg] + toolchain_flags,
                     cwd=repo_root,
                     check=True
                 )
