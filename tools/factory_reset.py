@@ -137,6 +137,8 @@ def main():
             print(f"      Formatting FAT partition on {mpy_port}...")
             format_code = (
                 "import os, pyb\n"
+                "try: os.umount('/flash')\n"
+                "except: pass\n"
                 "f = pyb.Flash()\n"
                 "os.VfsFat.mkfs(f)\n"
                 "vfs = os.VfsFat(f)\n"
@@ -159,15 +161,60 @@ def main():
                     s = serial.Serial(mpy_port, 115200, timeout=2.0)
                     s.write(b'\r\x03\x03\r\n')
                     time.sleep(0.3)
-                    s.write(format_code.encode('utf-8') + b'\r\n')
+                    s.write(b'import os, pyb\r\n')
+                    time.sleep(0.1)
+                    s.write(b'try: os.umount(\"/flash\")\r\nexcept: pass\r\n')
+                    time.sleep(0.1)
+                    s.write(b'f = pyb.Flash()\r\n')
+                    time.sleep(0.1)
+                    s.write(b'os.VfsFat.mkfs(f)\r\n')
                     time.sleep(1.0)
+                    s.write(b'vfs = os.VfsFat(f)\r\n')
+                    time.sleep(0.1)
+                    s.write(b'os.mount(vfs, \"/flash\")\r\n')
+                    time.sleep(0.2)
+                    s.write(b'with open(\"/flash/boot.py\", \"w\") as fp: fp.write(\"# boot.py -- run on boot-up\\n\")\r\n')
+                    time.sleep(0.2)
+                    s.write(b'with open(\"/flash/main.py\", \"w\") as fp: fp.write(\"# main.py -- put your code here!\\n\")\r\n')
+                    time.sleep(0.2)
+                    s.write(b'with open(\"/flash/README.txt\", \"w\") as fp: fp.write(\"UCT Micromouse external SPI flash storage (128 KB FAT partition).\\n\")\r\n')
+                    time.sleep(0.2)
                     s.close()
                     print("      Success: External SPI flash format command sent over serial.")
                 except Exception as ex:
                     print(f"      Note: Could not format flash over serial ({ex}).")
-                    print("      Run 'python tools/deploy.py -e micropython --factory-reset' to format.")
-        else:
-            print("      Note: Serial port not detected yet. Flash will mount on next connection.")
+
+        # On macOS, check if diskutil needs to initialize/mount the volume as UCT_MMOUSE
+        if sys.platform == "darwin":
+            try:
+                time.sleep(1.0)
+                out = subprocess.run(["diskutil", "list"], capture_output=True, text=True).stdout
+                for line in out.splitlines():
+                    if "DOS_FAT_12" in line or ("131.1 KB" in line and "disk" in line) or ("262.1 KB" in line and "disk" in line):
+                        disk_part = line.split()[-1]
+                        if disk_part.startswith("disk"):
+                            print(f"      Initializing macOS volume /dev/{disk_part} as UCT_MMOUSE...")
+                            subprocess.run(["diskutil", "eraseVolume", "MS-DOS FAT12", "UCT_MMOUSE", f"/dev/{disk_part}"], capture_output=True)
+                            break
+            except Exception:
+                pass
+
+        # Populate default template files on the mounted drive if present
+        mpy_drive = None
+        for candidate in ["/Volumes/UCT_MMOUSE", "/Volumes/UCT_MMOUSE 1", "D:\\", "E:\\", "F:\\"]:
+            if os.path.exists(candidate):
+                mpy_drive = candidate
+                break
+        if mpy_drive:
+            try:
+                with open(os.path.join(mpy_drive, "boot.py"), "w") as fp:
+                    fp.write("# boot.py -- run on boot-up\n")
+                with open(os.path.join(mpy_drive, "main.py"), "w") as fp:
+                    fp.write("# main.py -- put your code here!\n")
+                with open(os.path.join(mpy_drive, "README.txt"), "w") as fp:
+                    fp.write("UCT Micromouse external SPI flash storage (128 KB FAT partition).\n")
+            except Exception:
+                pass
 
         print("\n*** INFO: MicroPython interpreter is flashed and external flash is configured. ***")
         print("The board will mount on your computer as 'UCT_MMOUSE' with clean default files.")
