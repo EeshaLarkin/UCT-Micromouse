@@ -8,20 +8,16 @@ import os
 import serial
 import serial.tools.list_ports
 
-def detect_port():
-    mpy_port = None
-    stlink_port = None
-    
+def detect_mpy_port():
+    # 1. Look specifically for MicroPython USB OTG CDC device (VID 0xf055)
+    for p in serial.tools.list_ports.comports():
+        if p.vid == 0xf055 and p.pid in (0x9800, 0x9801, 0x9802):
+            return p.device
+
+    # 2. Fallback to ST-Link VCP bridge if OTG cable is not connected
     for p in serial.tools.list_ports.comports():
         if "ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid in (0x374b, 0x3752)) or "usbmodem" in p.device:
-            stlink_port = p.device
-        elif p.vid == 0xf055 and p.pid == 0x9800:
-            mpy_port = p.device
-
-    if stlink_port:
-        return stlink_port
-    elif mpy_port:
-        return mpy_port
+            return p.device
     return None
 
 def find_st_flash_cmd():
@@ -131,11 +127,8 @@ def main():
         time.sleep(2.5)
         
         mpy_port = None
-        for attempt in range(10):
-            for p in serial.tools.list_ports.comports():
-                if "ST-Link" in p.description or "STLink" in p.description or (p.vid == 0x0483 and p.pid in (0x374b, 0x3752)) or "usbmodem" in p.device or (p.vid == 0xf055 and p.pid == 0x9800):
-                    mpy_port = p.device
-                    break
+        for attempt in range(12):
+            mpy_port = detect_mpy_port()
             if mpy_port:
                 break
             time.sleep(0.5)
