@@ -133,17 +133,20 @@ def find_arm_gcc():
             
     return None
 
-def get_cmake_toolchain_flags():
+def get_cmake_toolchain_flags(required=True):
     """Generates CMake toolchain compiler arguments and ensures arm-none-eabi-gcc is in PATH."""
     arm_gcc = find_arm_gcc()
     if not arm_gcc:
-        print("\nError: ARM GCC cross-compiler ('arm-none-eabi-gcc') not found on your system.")
-        print("To compile Simulink or C firmware, please install the ARM GNU toolchain:")
-        print("  Windows (PowerShell): winget install Arm.GnuArmEmbeddedToolchain")
-        print("       or (Chocolatey): choco install make arm-none-eabi-gcc")
-        print("  macOS:                brew install arm-none-eabi-gcc")
-        print("  Linux (Ubuntu/Debian): sudo apt install gcc-arm-none-eabi")
-        sys.exit(1)
+        if required:
+            print("\nError: ARM GCC cross-compiler ('arm-none-eabi-gcc') not found on your system.")
+            print("To compile Simulink or C firmware, please install the ARM GNU toolchain:")
+            print("  Windows (PowerShell): winget install Arm.GnuArmEmbeddedToolchain")
+            print("       or (Chocolatey): choco install make arm-none-eabi-gcc")
+            print("  macOS:                brew install arm-none-eabi-gcc")
+            print("  Linux (Ubuntu/Debian): sudo apt install gcc-arm-none-eabi")
+            sys.exit(1)
+        else:
+            return None
         
     gcc_dir = os.path.dirname(arm_gcc)
     if gcc_dir not in os.environ.get("PATH", ""):
@@ -437,10 +440,11 @@ if __name__ == "__main__":
         tracked_bin_path = os.path.join(repo_root, "firmware", "binaries", "simulink.bin")
         active_bin_path = None
         
-        if selected_ert_dir:
+        toolchain_flags = get_cmake_toolchain_flags(required=False)
+        
+        if selected_ert_dir and toolchain_flags is not None:
             try:
                 print("    -> Configuring CMake for Simulink model...")
-                toolchain_flags = get_cmake_toolchain_flags()
                 ert_arg = f"-DSIMULINK_ERT_DIR={selected_ert_dir.replace(os.sep, '/')}"
                 subprocess.run(
                     ["cmake", "-S", "firmware", "-B", "firmware/build", ert_arg] + toolchain_flags,
@@ -461,15 +465,19 @@ if __name__ == "__main__":
                     active_bin_path = untracked_bin_path
                     print(f"    -> Successfully compiled fresh binary to {untracked_bin_path}")
             except subprocess.CalledProcessError as e:
-                print(f"Error compiling Simulink model firmware: {e}")
+                print(f"    -> Note: CMake build encountered: {e}")
+
+        if not active_bin_path:
+            if os.path.exists(untracked_bin_path):
+                print(f"    -> Flashing compiled model binary: {untracked_bin_path}")
+                active_bin_path = untracked_bin_path
+            elif os.path.exists(tracked_bin_path):
+                print(f"    -> Flashing firmware release binary: {tracked_bin_path}")
+                active_bin_path = tracked_bin_path
+            else:
+                print("Error: No Simulink firmware binary found.")
+                print("Please build your Simulink model in MATLAB (Cmd+B) or install arm-none-eabi-gcc.")
                 sys.exit(1)
-        elif os.path.exists(tracked_bin_path):
-            print(f"    -> No *_ert_rtw folder found. Using precompiled fallback: {tracked_bin_path}")
-            active_bin_path = tracked_bin_path
-        else:
-            print("Error: No Simulink generated code (*_ert_rtw) found and no fallback binary available.")
-            print("Please generate C code from your Simulink model in MATLAB (Cmd+B) first.")
-            sys.exit(1)
 
         # Flash the compiled firmware onto the board
         print(f"[2/2] Flashing Simulink firmware...")
