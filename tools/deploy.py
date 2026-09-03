@@ -467,6 +467,15 @@ if __name__ == "__main__":
             except subprocess.CalledProcessError as e:
                 print(f"    -> Note: CMake build encountered: {e}")
 
+        # 1. Check if MATLAB generated a .bin file directly inside the ert_rtw folder
+        if selected_ert_dir and not active_bin_path:
+            for f in os.listdir(selected_ert_dir):
+                if f.endswith(".bin"):
+                    direct_bin = os.path.join(selected_ert_dir, f)
+                    print(f"    -> Found direct binary in model folder: {direct_bin}")
+                    active_bin_path = direct_bin
+                    break
+
         if not active_bin_path:
             if os.path.exists(untracked_bin_path):
                 print(f"    -> Flashing compiled model binary: {untracked_bin_path}")
