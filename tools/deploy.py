@@ -175,6 +175,11 @@ if __name__ == "__main__":
         default="workspace",
         help="Path to the dedicated python development folder to mirror to the mouse (default: workspace)"
     )
+    parser.add_argument(
+        "--factory-reset",
+        action="store_true",
+        help="Format the external SPI NOR flash partition (UCT_MMOUSE) as a clean FAT filesystem and install default boot.py and main.py."
+    )
     args = parser.parse_args()
 
     print("=== UCT Micromouse Firmware Deployer ===")
@@ -459,6 +464,31 @@ if __name__ == "__main__":
                     print("  3. Make sure the board is powered on.")
                     sys.exit(1)
                 
+            if getattr(args, 'factory_reset', False):
+                print("[2/2] Performing Factory Reset: Formatting external SPI flash filesystem...")
+                format_script = (
+                    "import os, pyb\n"
+                    "f = pyb.Flash()\n"
+                    "print('Formatting FAT partition...')\n"
+                    "os.VfsFat.mkfs(f)\n"
+                    "vfs = os.VfsFat(f)\n"
+                    "os.mount(vfs, '/flash')\n"
+                    "with open('/flash/boot.py', 'w') as fp:\n"
+                    "    fp.write('# boot.py -- run on boot-up\\n')\n"
+                    "with open('/flash/main.py', 'w') as fp:\n"
+                    "    fp.write('# main.py -- put your code here!\\n')\n"
+                    "print('Flash formatted and mounted successfully!')\n"
+                )
+                try:
+                    subprocess.run(mpremote_cmd + ["exec", format_script], check=True)
+                    print("Factory reset complete. The external flash has been freshly formatted.")
+                    print("Soft-rebooting the board...")
+                    subprocess.run(mpremote_cmd + ["soft-reset"], check=False)
+                    sys.exit(0)
+                except Exception as e:
+                    print(f"Error executing factory reset: {e}")
+                    sys.exit(1)
+
             if target_script:
                 print(f"[2/2] Deploying {os.path.basename(target_script)} and bootloader to the mouse...")
                 
