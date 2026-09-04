@@ -506,10 +506,13 @@ def main():
             
         joined_run_report = "\n".join(run_report)
         
+        test_status = "passed" if run_score > 0.0 else "failed"
+        
         gradescope_tests.append({
             "name": run_name,
             "score": round(weighted_score, 2),
             "max_score": round(weight * 100.0, 2),
+            "status": test_status,
             "output": joined_run_report,
             "visibility": run_visibility
         })
