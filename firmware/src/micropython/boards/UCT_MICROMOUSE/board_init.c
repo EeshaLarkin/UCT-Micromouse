@@ -318,14 +318,29 @@ void kernel_background_tick(void) {
 }
 
 #include "extmod/vfs_fat.h"
+#include "factoryreset.h"
 
-// Override MicroPython's factory reset hooks to NEVER format or wipe files on boot errors.
-// External SPI flash format is strictly executed via explicit tools/deploy.py or factory_reset.py.
+// If the flash partition is blank/unformatted, format it as a valid FAT filesystem with default files
 int factory_reset_create_filesystem(void) {
-    uart_print("MPY: Auto-format disabled. Preserving external SPI flash.\n");
-    return 0;
+    uart_print("MPY: Initializing fresh FAT filesystem on external SPI flash...\n");
+    
+    fs_user_mount_t vfs;
+    vfs.blockdev.flags = 0;
+    pyb_flash_init_vfs(&vfs);
+    uint8_t working_buf[512];
+    FRESULT res = f_mkfs(&vfs.fatfs, FM_FAT, 0, working_buf, sizeof(working_buf));
+    if (res != FR_OK) {
+        uart_print("MPY: Failed to create flash filesystem!\n");
+        return -19; // -ENODEV
+    }
+
+    // Set volume label
+    f_setlabel(&vfs.fatfs, MICROPY_HW_FLASH_FS_LABEL);
+
+    // Populate the filesystem with factory default files
+    factory_reset_make_files(&vfs.fatfs);
+
+    uart_print("MPY: Flash filesystem successfully created and populated.\n");
+    return 0; // success
 }
 
-void factory_reset_make_files(FATFS *fatfs) {
-    // No-op: Do not overwrite main.py or existing filesystem files
-}
