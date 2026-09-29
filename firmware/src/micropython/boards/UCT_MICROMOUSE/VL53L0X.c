@@ -537,19 +537,16 @@ void getVL53L0(VL53L0_t* TOF_result){
     return;
   }
 
-  // If the range is valid, update the TOF_result structure
-  if (distanceStr.rangeStatus == RANGECOMPLETE || distanceStr.rangeStatus == NONE) {
-    if (distance < 8000){
-      TOF_result->Distance = distance;
-      TOF_result->Status = distanceStr.rangeStatus;
-      TOF_result->Ambient = distanceStr.Ambient;
-      TOF_result->Signal = distanceStr.Signal;
-    } else {
-      TOF_result->Distance = 8190;
-      TOF_result->Status = distanceStr.rangeStatus;
-    }
+  // Signal check: In open air, ambient SPAD noise produces false ~30-70mm readings with Signal < 150 (~1.17 MCPS).
+  // Real targets have strong laser return signals (Signal >= 150).
+  if ((distanceStr.rangeStatus == RANGECOMPLETE || distanceStr.rangeStatus == NONE) &&
+      distanceStr.Signal >= 150 && distance > 20 && distance < 2000) {
+    TOF_result->Distance = distance;
+    TOF_result->Status = distanceStr.rangeStatus;
+    TOF_result->Ambient = distanceStr.Ambient;
+    TOF_result->Signal = distanceStr.Signal;
   } else {
-    // Ranging failed/timed out (e.g. out of range / open air)
+    // Open air / no target / signal fail -> strictly 8190
     TOF_result->Distance = 8190;
     TOF_result->Status = distanceStr.rangeStatus;
   }

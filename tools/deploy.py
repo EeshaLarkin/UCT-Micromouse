@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import glob
 import argparse
+import time
 
 def find_stlink_drive():
     """Finds the ST-Link mass storage drive on Mac/Windows/Linux."""
@@ -659,28 +660,61 @@ if __name__ == "__main__":
                 print("[2/2] Performing Factory Reset: Formatting external SPI flash filesystem...")
                 format_script = (
                     "import os, pyb\n"
-                    "try: os.umount('/flash')\n"
-                    "except: pass\n"
+                    "try:\n"
+                    "    os.umount('/flash')\n"
+                    "except Exception:\n"
+                    "    pass\n"
                     "f = pyb.Flash()\n"
                     "print('Formatting FAT partition...')\n"
                     "os.VfsFat.mkfs(f)\n"
                     "vfs = os.VfsFat(f)\n"
                     "os.mount(vfs, '/flash')\n"
                     "with open('/flash/boot.py', 'w') as fp:\n"
-                    "    fp.write('# boot.py - UCT Micromouse Hybrid Bootloader\\ntry:\\n    import pyb\\n    pyb.usb_mode(\\'VCP+MSC\\')\\nexcept Exception as e:\\n    pass\\n')\n"
+                    "    fp.write('# boot.py - UCT Micromouse Hybrid Bootloader\\nimport pyb\\npyb.usb_mode(\\'VCP+MSC\\')\\n')\n"
                     "with open('/flash/main.py', 'w') as fp:\n"
                     "    fp.write('# main.py -- put your code here!\\n')\n"
+                    "with open('/flash/README.txt', 'w') as fp:\n"
+                    "    fp.write('UCT Micromouse MicroPython Drive\\n')\n"
                     "print('Flash formatted and mounted successfully!')\n"
                 )
-                try:
-                    subprocess.run(mpremote_cmd + ["exec", format_script], check=True)
-                    print("Factory reset complete. The external flash has been freshly formatted.")
-                    print("Soft-rebooting the board...")
-                    subprocess.run(mpremote_cmd + ["soft-reset"], check=False)
-                    sys.exit(0)
-                except Exception as e:
-                    print(f"Error executing factory reset: {e}")
-                    sys.exit(1)
+                reset_done = False
+                if mpy_port:
+                    try:
+                        import serial
+                        time.sleep(0.3)
+                        s = serial.Serial(mpy_port, 115200, timeout=2)
+                        s.write(b'\r\x03\x03')
+                        time.sleep(0.1)
+                        s.read_all()
+                        s.write(b'\r\x01')
+                        time.sleep(0.1)
+                        s.read_until(b'>')
+                        s.write(format_script.encode('utf-8') + b'\x04')
+                        time.sleep(0.5)
+                        s.read_until(b'OK')
+                        out = s.read_until(b'\x04')
+                        err = s.read_until(b'>')
+                        if out:
+                            print(out.decode('utf-8', errors='replace').strip())
+                        s.write(b'\r\x04') # soft reset
+                        time.sleep(0.2)
+                        s.close()
+                        reset_done = True
+                    except Exception as e:
+                        print(f"Direct serial execution attempt failed: {e}")
+                
+                if not reset_done:
+                    try:
+                        subprocess.run(mpremote_cmd + ["exec", format_script], check=True)
+                        subprocess.run(mpremote_cmd + ["soft-reset"], check=False)
+                        reset_done = True
+                    except Exception as e:
+                        print(f"Error executing factory reset via mpremote: {e}")
+                        sys.exit(1)
+
+                print("Factory reset complete. The external flash has been freshly formatted.")
+                print("Board soft-reset complete.")
+                sys.exit(0)
 
             if target_script:
                 print(f"[2/2] Deploying {os.path.basename(target_script)} and bootloader to the mouse...")

@@ -313,6 +313,16 @@ class PhysicsSimulator:
         self.is_turning = False
         
     def build_maze(self):
+        if self.maze_type == "empty":
+            self.maze_width = 3.0
+            self.maze_height = 3.0
+            # Outer boundary for open floor tests with generous clearance around origin
+            self.walls.append(((-1.0, -1.0), (4.0, -1.0))) # South
+            self.walls.append(((-1.0, 4.0), (4.0, 4.0)))   # North
+            self.walls.append(((-1.0, -1.0), (-1.0, 4.0))) # West
+            self.walls.append(((4.0, -1.0), (4.0, 4.0)))   # East
+            return
+
         self.maze_width = self.grid_cols * self.block_dim
         self.maze_height = self.grid_rows * self.block_dim
         
