@@ -524,6 +524,7 @@ def main():
     parser.add_argument("--slip", type=float, default=0.08, help="Wheel traction slip coefficient (0.0 to 0.3)")
     parser.add_argument("--video", type=str, default="", help="Output path to record MP4 video file")
     parser.add_argument("--headless", action="store_true", help="Run in headless cloud mode (no window display)")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind TCP socket server (default: 8000)")
     parser.add_argument("--json-log", type=str, default="", help="Path to save simulation metrics summary as JSON")
     parser.add_argument("--telemetry-log", type=str, default="", help="Path to save C-Kernel matching hardware JSONL log")
     parser.add_argument("--trajectory-log", type=str, default="", help="Path to save detailed simulation trajectory state JSONL log")
@@ -599,7 +600,7 @@ def main():
             video_writer = None
         
     # Start TCP Socket Server
-    port = 8000
+    port = args.port
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind(("127.0.0.1", port))

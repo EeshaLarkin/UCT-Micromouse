@@ -76,11 +76,24 @@ The submission consists of:
 2. **Your Physical Run Video (`run_video.mp4`):**
    * Uploaded as a **separate file** alongside your ZIP. The video must start with a **3-second close-up of your Student Card** followed by the uncut mapping and high-speed solving runs.
 
-#### **Testing the Autograder Offline (Locally)**
-You are highly encouraged to test your algorithm against the grading suite locally on your laptop before uploading to Gradescope. To run the full multi-test evaluation suite locally, run this command from the repository root:
-```bash
-python tools/autograder/grade_runner.py
-```
+#### **Testing the Autograder & Robustness Stress Tests Offline (Locally)**
+You are highly encouraged to test your algorithm against the grading suite and physical stress tests locally on your laptop before uploading to Gradescope.
+
+1. **Multi-Track Robustness Suite (Recommended):**
+   Evaluate your controller across 6 procedurally generated random mazes with motor imbalances ($\pm 12\%$) and surface slip ($8\%$):
+   ```bash
+   python tools/test_robustness.py workspace/task2_maze/main.py
+   ```
+   To test with completely randomized maze seeds and perturbation ranges:
+   ```bash
+   python tools/test_robustness.py workspace/task2_maze/main.py --randomize
+   ```
+
+2. **Official Autograder Replicator:**
+   Run the local autograder emulator:
+   ```bash
+   python tools/autograder/grade_runner.py --assignment milestone2_maze --submission workspace/task2_maze
+   ```
 
 ---
 

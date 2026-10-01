@@ -47,8 +47,11 @@ def _cleanup_backend():
                 pass
         _backend_process = None
 
+_target_host = os.environ.get("UCT_MICROMOUSE_HOST", "127.0.0.1")
+_target_port = int(os.environ.get("UCT_MICROMOUSE_PORT", "8000"))
+
 # Create a global background TCP instance
-_mouse = Micromouse(method='tcp', verbose=False)
+_mouse = Micromouse(method='tcp', host=_target_host, port=_target_port, verbose=False)
 _pending_pwm_l = 0
 _pending_pwm_r = 0
 _pwm_dirty = False
@@ -147,12 +150,12 @@ def init(fast_sim=None):
     backend = config.get("backend", "simulink").lower()
     auto_start = config.get("auto_start", False)
     
-    # Attempt to connect to an already running simulator on port 8000
+    # Attempt to connect to an already running simulator on target port
     connected_sock = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(0.2)
-        s.connect(("127.0.0.1", 8000))
+        s.connect((_target_host, _target_port))
         s.settimeout(None)
         connected_sock = s
     except Exception:
@@ -164,7 +167,7 @@ def init(fast_sim=None):
             sim_script = os.path.join(os.path.dirname(_script_dir), "tools", "physics_sim.py")
             if os.path.exists(sim_script):
                 # Construct physics_sim command line arguments from config
-                cmd = [sys.executable, sim_script]
+                cmd = [sys.executable, sim_script, "--port", str(_target_port)]
                 if "map" in config:
                     cmd += ["--map", str(config["map"])]
                 if "seed" in config and config["seed"] is not None:
@@ -187,13 +190,13 @@ def init(fast_sim=None):
                     # Register exit handler to clean up when main process exits
                     atexit.register(_cleanup_backend)
                     
-                    # Poll port 8000 until active
+                    # Poll target port until active
                     for _ in range(30):  # Wait up to 1.5 seconds
                         time.sleep(0.05)
                         try:
                             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             s.settimeout(0.1)
-                            s.connect(("127.0.0.1", 8000))
+                            s.connect((_target_host, _target_port))
                             s.settimeout(None)
                             connected_sock = s
                             auto_started = True
@@ -201,7 +204,7 @@ def init(fast_sim=None):
                         except Exception:
                             pass
                     if connected_sock is None:
-                        print("[PC Mock] Error: Python simulator started but port 8000 did not become active.")
+                        print(f"[PC Mock] Error: Python simulator started but port {_target_port} did not become active.")
                 except Exception as e:
                     print(f"[PC Mock] Error spawning simulator: {e}")
             else:

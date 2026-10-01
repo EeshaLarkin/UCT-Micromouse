@@ -252,3 +252,13 @@ Use this index to resolve common tasks instantly without additional user prompti
   * **Target Cohort Mean**: Anchor the grading engine to a standard academic mean of **~65% (`13.0 / 20.0`)**. Standard competent work without exceptional mathematical depth or multi-trial statistical telemetry must receive clean **`2.0 / 3.0`**, reserving `2.5` and `3.0` exclusively for distinction-level Tier A rigor.
   * **Zero Prompt Instruction Bleed**: Extraction scripts must strip all prompt header text before calculating section character limits to prevent accidental truncation.
 
+* **Controller Robustness & Perturbation Test Suite (`tools/test_robustness.py`)**:
+
+  * **Purpose**: Evaluates student controller disturbance rejection against physical parameter variations (motor gain imbalance $\pm 12\%$, wheel slip $2\dots 10\%$, turn skid, procedural maze topologies) before Gradescope submission.
+  * **Supported Tasks**:
+    * **Task 1 (Milestone 1 / 1m x 1m Square)**: `python tools/test_robustness.py workspace/task1_square/main.py`
+    * **Task 2 (Submission 4 / Autonomous Maze Solver)**: `python tools/test_robustness.py workspace/task2_maze/main.py`
+  * **Dynamic Socket Architecture**: Automatically isolates simulation subprocess ports using `UCT_MICROMOUSE_PORT` and `--port` to prevent bind collisions or race conditions during multi-run batch loops.
+  * **Offline Execution Guard**: Executes in fast-simulation mode with `--headless` and `UCT_OFFLINE_MODE=1` to guarantee fast, deterministic evaluation.
+
+
