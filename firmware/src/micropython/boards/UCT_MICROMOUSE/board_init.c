@@ -264,11 +264,6 @@ void board_early_init(void) {
 
 // Background tick function hook called inside MicroPython VM execution and delay loops
 void kernel_background_tick(void) {
-    extern volatile bool ext_flash_busy;
-    if (ext_flash_busy) {
-        return;
-    }
-    
     static bool in_tick = false;
     if (in_tick) {
         return;
@@ -279,10 +274,6 @@ void kernel_background_tick(void) {
     uint32_t now = HAL_GetTick();
     if (now - last_tick >= 10) { // 100 Hz
         last_tick = now;
-        
-        // Check deferred flash flush
-        extern void bdev_check_flush(void);
-        bdev_check_flush();
 
         if (mouse_initialized) {
             refreshADCs();
@@ -356,13 +347,16 @@ static const factory_file_t factory_files[] = {
 };
 
 void factory_reset_make_files(FATFS *fatfs) {
+    char ram_buf[512];
     for (size_t i = 0; i < sizeof(factory_files) / sizeof(factory_files[0]); ++i) {
         const factory_file_t *f = &factory_files[i];
         FIL fp;
         FRESULT res = f_open(fatfs, &fp, f->name, FA_WRITE | FA_CREATE_ALWAYS);
         if (res == FR_OK) {
             UINT n;
-            f_write(&fp, f->data, f->len, &n);
+            size_t copy_len = f->len < sizeof(ram_buf) ? f->len : sizeof(ram_buf);
+            memcpy(ram_buf, f->data, copy_len);
+            f_write(&fp, ram_buf, copy_len, &n);
             f_close(&fp);
         }
     }

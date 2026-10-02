@@ -321,7 +321,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--factory-reset",
         action="store_true",
-        help="Format the external SPI NOR flash partition (UCT_MMOUSE) as a clean FAT filesystem and install default boot.py and main.py."
+        help="Format the internal flash partition (UCT_MMOUSE) as a clean FAT filesystem and install default boot.py and main.py."
     )
     args = parser.parse_args()
 
