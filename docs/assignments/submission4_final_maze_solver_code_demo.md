@@ -35,11 +35,21 @@ Design and implement the complete autonomous intelligence for your Micromouse. T
 
 #### **Phase 1: Autonomous Exploration & Mapping (Start at `(0,0)`)**
 * Place your mouse in starting cell `(0,0)` facing North.
-* The mouse must autonomously explore the 4x6 maze. As it enters each cell, it reads its ToF sensors, classifies wall presence, updates its internal map matrix, and applies active side-wall centering.
-* **Target Feature Discovery:** The target is a **2x2 block of contiguous cells with all internal dividing walls removed**. The target location is not fixed and must be dynamically discovered through your wall map.
+* The mouse must autonomously explore the **4x6 grid maze** ($0.8\text{ m} \times 1.2\text{ m}$). As it enters each cell, it reads its ToF sensors, classifies wall presence, updates its internal map matrix, and applies active side-wall centering.
+* **Target Feature Discovery:** The target is a **2x2 block of 4 contiguous cells with all 4 internal dividing cross-walls removed** (forming an open plaza). The target room's coordinates are **NOT fixed in advance** and must be dynamically identified by your mapping algorithm:
+
+```text
+    ┌───────┬───────┐
+    │ (c,r+1) (c+1,r+1)
+    │       │       │    <-- Notice: ALL 4 internal dividing walls are OPEN
+    │       │       │        Outer perimeter walls may have arbitrary openings
+    │ (c, r) │ (c+1,r)│
+    └───────┴───────┘
+```
 
 #### **Phase 2: Target Recognition Handshake ($360^\circ$ Pirouette)**
-* Upon entering the 2x2 open target room, the mouse must **halt and execute an on-the-spot $360^\circ$ clockwise pirouette** using integrated gyro feedback. This provides clear, unambiguous confirmation to the autograder and tutors that the robot recognized the target zone.
+* **When to Trigger:** As soon as your mapping algorithm detects that the current cell is part of the confirmed 2x2 target room (e.g. by observing open internal partitions and updating your wall matrix), the mouse must **halt and execute an on-the-spot $360^\circ$ clockwise pirouette** using integrated gyro feedback.
+* **Autograder Evaluation:** The autograder verifies that the mouse is within the bounding area of the 2x2 room and integrates at least $\ge 315^\circ–360^\circ$ yaw rotation before departing.
 
 #### **Phase 3: Autonomous Return-to-Start**
 * Using its discovered topological map, the mouse calculates the shortest path from the target room back to starting cell `(0,0)`.
@@ -52,13 +62,12 @@ Design and implement the complete autonomous intelligence for your Micromouse. T
 
 ---
 
-### 3. Final Week Micromouse Championship Competition
+### 3. Grid Dimensions & Championship Scalability
 
-> [!IMPORTANT]
-> **Final Week Live Championship Tournament:**
-> In the final week of the course, we will host the live **2026 EEE3097S Micromouse Championship Competition**!
-> * **The Challenge:** Robots will compete under the exact same 4-stage mission rules (*Search $\rightarrow 360^\circ$ Pirouette $\rightarrow$ Return $\rightarrow$ Sprint*), but on a **larger competition maze (e.g. 8x8 or 10x10)**!
-> * **Design for Scalability:** Do **NOT** hardcode your code to 4x6 grid dimensions or fixed coordinates. Ensure your `MazeSolver` class dynamically parameterizes grid dimensions (`MAZE_ROWS`, `MAZE_COLS`) and relies strictly on dynamic topological wall discovery.
+> [!NOTE]
+> **Practical Lab & Gradescope Autograder Dimensions:**
+> * **Standard Course Maze:** Both the physical lab maze and the Gradescope autograder simulation use a **4 rows $\times$ 6 columns** grid ($0.8\text{ m} \times 1.2\text{ m}$ with $0.20\text{ m}$ cells).
+> * **Championship Competition (Final Week):** In the live competition tournament, robots will compete on an expanded maze (e.g. 8x8 or 10x10). Ensure your `MazeSolver` class dynamically parameterizes grid dimensions (`MAZE_ROWS`, `MAZE_COLS`) rather than hardcoding constants!
 
 ---
 

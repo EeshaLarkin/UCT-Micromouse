@@ -3963,6 +3963,14 @@ method_typedef(
     "dump_logs", ""
 );
 
+void uct_mouse_erase_flashMethod(PikaObj *self, Args *_args_){
+    uct_mouse_erase_flash(self);
+}
+method_typedef(
+    uct_mouse_erase_flash,
+    "erase_flash", ""
+);
+
 void uct_mouse_get_buttonMethod(PikaObj *self, Args *_args_){
     int res = uct_mouse_get_button(self);
     method_returnInt(_args_, res);
@@ -4044,6 +4052,16 @@ method_typedef(
     "log_custom", "json_str"
 );
 
+void uct_mouse_set_encoder_polarityMethod(PikaObj *self, Args *_args_){
+    int left_polarity = args_getInt(_args_, "left_polarity");
+    int right_polarity = args_getInt(_args_, "right_polarity");
+    uct_mouse_set_encoder_polarity(self, left_polarity, right_polarity);
+}
+method_typedef(
+    uct_mouse_set_encoder_polarity,
+    "set_encoder_polarity", "left_polarity,right_polarity"
+);
+
 void uct_mouse_set_ledMethod(PikaObj *self, Args *_args_){
     int led_idx = args_getInt(_args_, "led_idx");
     int state = args_getInt(_args_, "state");
@@ -4084,7 +4102,9 @@ class_def(uct_mouse){
     method_def(uct_mouse_set_polarity, 1121395780),
     method_def(uct_mouse_get_ticks_ms, 1179620097),
     method_def(uct_mouse_get_vbatt, 1303596709),
+    method_def(uct_mouse_set_encoder_polarity, 1409631171),
     method_def(uct_mouse_get_button, 1457009472),
+    method_def(uct_mouse_erase_flash, 1580339650),
     method_def(uct_mouse_get_encoders, 1872202775),
     method_def(uct_mouse_get_tof, 1886405933),
     method_def(uct_mouse_log_custom, 2061909953),

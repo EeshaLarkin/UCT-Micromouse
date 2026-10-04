@@ -11,9 +11,9 @@
 #define EXT_LOGGER_PARTITION_MAX    0xFFFFFUL   // 1024 KB limit
 #define EXT_LOG_SECTOR_SIZE         4096U
 
-// Internal Flash Partition Definitions (Legacy boards: 64 KB internal partition, Sectors 224-255)
-#define INT_LOGGER_PARTITION_START  0x08070000U
-#define INT_LOGGER_PARTITION_MAX    0x0807FFFFU // 64 KB limit
+// Internal Flash Partition Definitions (Legacy boards: 32 KB internal partition, Sectors 240-255)
+#define INT_LOGGER_PARTITION_START  0x08078000U
+#define INT_LOGGER_PARTITION_MAX    0x0807FFFFU // 32 KB limit
 #define INT_FLASH_PAGE_SIZE         2048U
 
 #define LOG_PAGE_SIZE               256U
@@ -87,7 +87,7 @@ static void ensure_sector_erased(uint32_t addr) {
             uint32_t PageError;
             EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
             EraseInitStruct.Banks = FLASH_BANK_2;
-            EraseInitStruct.Page = (addr - 0x08000000U) / INT_FLASH_PAGE_SIZE;
+            EraseInitStruct.Page = (addr - 0x08040000U) / INT_FLASH_PAGE_SIZE;
             EraseInitStruct.NbPages = 1;
             
             HAL_FLASH_Unlock();
@@ -174,6 +174,19 @@ static uint32_t backup_read_log_addr(void) {
     // Backup register was wiped. Recover address dynamically by scanning page-by-page.
     uint32_t scan_addr = log_partition_start;
     uint8_t first_byte = 0;
+    
+    // Check if the partition starts with valid JSON '{'
+    if (has_ext_flash) {
+        if (ZD25WQ80C_Read(scan_addr, &first_byte, 1) != HAL_OK || first_byte != '{') {
+            return log_partition_start;
+        }
+    } else {
+        first_byte = *(const uint8_t*)scan_addr;
+        if (first_byte != '{') {
+            return log_partition_start;
+        }
+    }
+    
     while (scan_addr < log_partition_max) {
         if (has_ext_flash) {
             if (ZD25WQ80C_Read(scan_addr, &first_byte, 1) != HAL_OK || first_byte == 0xFF) {
@@ -236,9 +249,15 @@ void kernel_logger_tick(void) {
     if (!header_written) {
         uint32_t *uid = (uint32_t*)STM32L4_UID_ADDR;
         uint32_t code_hash = compute_code_hash();
-        char header_buf[128];
+        char header_buf[160];
+        const char *board_str = has_ext_flash ? "2026" : "2025";
+        extern int getIMUType(void);
+        int imu_t = getIMUType();
+        const char *imu_str = (imu_t == 2) ? "LSM6DS3" : 
+                              (imu_t == 1) ? "ICM42605" : "UNKNOWN";
         snprintf(header_buf, sizeof(header_buf), 
-                 "{\"log_header\":1,\"uid\":\"%08X%08X%08X\",\"hash\":%lu,\"ext\":%d}\n", 
+                 "{\"log_header\":1,\"board\":\"%s\",\"imu\":\"%s\",\"uid\":\"%08X%08X%08X\",\"hash\":%lu,\"ext\":%d}\n", 
+                 board_str, imu_str,
                  (unsigned int)uid[0], (unsigned int)uid[1], (unsigned int)uid[2], 
                  (unsigned long)code_hash, has_ext_flash ? 1 : 0);
         append_to_log(header_buf);
@@ -340,7 +359,7 @@ void kernel_logger_dump_custom(void (*print_fn)(const uint8_t *buf, uint32_t len
     static uint8_t dump_buf[LOG_PAGE_SIZE];
     uint32_t current_addr = log_partition_start;
     
-    while (current_addr < log_write_addr) {
+    while (current_addr < log_write_addr && (current_addr + LOG_PAGE_SIZE) <= log_partition_max) {
         if (has_ext_flash) {
             if (ZD25WQ80C_Read(current_addr, dump_buf, LOG_PAGE_SIZE) == HAL_OK) {
                 if (dump_buf[0] == 0xFF) {
@@ -349,11 +368,11 @@ void kernel_logger_dump_custom(void (*print_fn)(const uint8_t *buf, uint32_t len
                 print_fn(dump_buf, LOG_PAGE_SIZE);
             }
         } else {
-            const uint8_t *ptr = (const uint8_t*)current_addr;
-            if (ptr[0] == 0xFF) {
+            memcpy(dump_buf, (const void*)current_addr, LOG_PAGE_SIZE);
+            if (dump_buf[0] == 0xFF) {
                 break;
             }
-            print_fn(ptr, LOG_PAGE_SIZE);
+            print_fn(dump_buf, LOG_PAGE_SIZE);
         }
         current_addr += LOG_PAGE_SIZE;
     }

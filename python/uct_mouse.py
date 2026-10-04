@@ -59,6 +59,53 @@ _pwm_dirty = False
 # Keep track of original sleep for restoring/using inside delay_ms
 _original_sleep = time.sleep
 
+# Virtual simulation clock tracking in milliseconds
+_virtual_time_ms = 0
+
+def _ticks_ms():
+    """Returns simulated virtual time in milliseconds (commensurate with hardware HAL_GetTick)."""
+    return int(_virtual_time_ms)
+
+def _ticks_us():
+    """Returns simulated virtual time in microseconds."""
+    return int(_virtual_time_ms * 1000)
+
+def _ticks_cpu():
+    """Returns simulated virtual CPU ticks."""
+    return int(_virtual_time_ms * 1000)
+
+def _ticks_diff(t1, t2):
+    """Computes signed difference between two tick values with standard 30-bit wraparound handling."""
+    diff = (int(t1) - int(t2)) & 0x3FFFFFFF
+    if diff & 0x20000000:
+        diff -= 0x40000000
+    return diff
+
+def _ticks_add(ticks, delta):
+    """Adds a delta in milliseconds to a tick value."""
+    return (int(ticks) + int(delta)) & 0x3FFFFFFF
+
+def _sleep_ms(ms):
+    """Paces simulation physics by ms milliseconds."""
+    delay_ms(ms)
+
+def _sleep_us(us):
+    """Paces simulation physics by us microseconds."""
+    delay_ms(max(1, int(us / 1000)))
+
+# Attach MicroPython time extensions onto standard Python time module for desktop compatibility
+for _attr_name, _attr_fn in [
+    ("ticks_ms", _ticks_ms),
+    ("ticks_us", _ticks_us),
+    ("ticks_cpu", _ticks_cpu),
+    ("ticks_diff", _ticks_diff),
+    ("ticks_add", _ticks_add),
+    ("sleep_ms", _sleep_ms),
+    ("sleep_us", _sleep_us),
+]:
+    if not hasattr(time, _attr_name):
+        setattr(time, _attr_name, _attr_fn)
+
 # Fast simulation tracking variable
 _is_fast_sim_active = (
     os.environ.get("GRADESCOPE_AUTOGRADER") == "1" or
@@ -258,9 +305,36 @@ def set_motors(left_pwm, right_pwm):
     # We do NOT immediately exchange data here. delay_ms will pace the simulation.
 
 def get_tof():
-    """Returns (left, front_left, center, front_right, right) virtual ToF distances in mm."""
+    """Returns (left, front_left, center, front_right, right) filtered ToF distances in mm (8190 if out-of-range)."""
     s = _mouse.get_sensors()
-    return s.get('tof_l', 0), s.get('tof_al', 0), s.get('tof_c', 0), s.get('tof_ar', 0), s.get('tof_r', 0)
+    return s.get('tof_l', 8190), s.get('tof_al', 8190), s.get('tof_c', 8190), s.get('tof_ar', 8190), s.get('tof_r', 8190)
+
+def get_tof_raw():
+    """Returns (left, front_left, center, front_right, right) raw un-thresholded ToF distances in mm."""
+    s = _mouse.get_sensors()
+    return s.get('tof_raw_l', s.get('tof_l', 8190)), s.get('tof_raw_al', s.get('tof_al', 8190)), \
+           s.get('tof_raw_c', s.get('tof_c', 8190)), s.get('tof_raw_ar', s.get('tof_ar', 8190)), \
+           s.get('tof_raw_r', s.get('tof_r', 8190))
+
+def _calc_sim_signal(dist_mm):
+    if dist_mm <= 0 or dist_mm >= 2000:
+        return 0
+    # Realistic inverse-square photon return rate in kcps (approx 800 kcps @ 150mm, 200 kcps @ 300mm)
+    return max(10, min(2000, int(18000000 / (dist_mm * dist_mm + 100))))
+
+def get_tof_signals():
+    """Returns (left, front_left, center, front_right, right) return signal rates in kcps."""
+    s = _mouse.get_sensors()
+    if 'tof_sig_l' in s:
+        return s['tof_sig_l'], s['tof_sig_al'], s['tof_sig_c'], s['tof_sig_ar'], s['tof_sig_r']
+    dists = get_tof_raw()
+    return tuple(_calc_sim_signal(d) for d in dists)
+
+def get_tof_detailed():
+    """Returns tuple of 5 pairs: ((left_dist, left_sig), (front_left_dist, front_left_sig), ...) in mm and kcps."""
+    dists = get_tof_raw()
+    sigs = get_tof_signals()
+    return tuple((dists[i], sigs[i]) for i in range(5))
 
 def get_gyro():
     """Returns virtual gyro reading (yaw rate or angle depending on context, typically deg/s or relative heading)."""
@@ -282,7 +356,10 @@ def get_vbatt():
 
 def delay_ms(ms):
     """Pauses the Python thread while advancing simulator physics in lock-step."""
-    global _pwm_dirty
+    global _pwm_dirty, _virtual_time_ms
+    ms = int(ms)
+    _virtual_time_ms += ms
+    
     rate_hz = 100  # Sync rate: 100Hz (10ms steps)
     step_ms = 1000.0 / rate_hz
     steps = int(ms / step_ms)
@@ -335,8 +412,17 @@ def log_custom(json_str):
     print(f"[LOG_CUSTOM] {json_str}")
 
 def get_ticks_ms():
-    """Returns elapsed time in milliseconds."""
-    return int(time.time() * 1000)
+    """Returns elapsed time in milliseconds (commensurate with hardware HAL_GetTick)."""
+    return int(_virtual_time_ms)
+
+# Export aliases for MicroPython time module compatibility directly on uct_mouse
+ticks_ms = _ticks_ms
+ticks_us = _ticks_us
+ticks_cpu = _ticks_cpu
+ticks_diff = _ticks_diff
+ticks_add = _ticks_add
+sleep_ms = _sleep_ms
+sleep_us = _sleep_us
 
 def dump_logs():
     """Triggers telemetry log dump over VCP (ignored on PC)."""
@@ -345,3 +431,18 @@ def dump_logs():
 def erase_flash():
     """Triggers complete external SPI flash erase on physical mouse (ignored on PC)."""
     pass
+
+def display_text(row, text):
+    """Writes custom text to OLED display row 1..4 (or None/empty string to restore default telemetry)."""
+    if text:
+        print(f"[OLED Line {row}] {text}")
+    else:
+        print(f"[OLED Line {row}] <Default Telemetry Restored>")
+
+def set_display_text(row, text):
+    """Alias for display_text(row, text)."""
+    display_text(row, text)
+
+def clear_display():
+    """Restores all custom OLED rows 1..4 back to default telemetry."""
+    print("[OLED] All rows restored to default telemetry.")

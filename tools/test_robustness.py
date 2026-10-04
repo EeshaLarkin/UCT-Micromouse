@@ -208,17 +208,28 @@ def evaluate_m2_trajectory(data):
             target_entry_idx = idx
 
     pirouette_detected = False
-    if entered_target and target_entry_idx >= 0:
-        yaw_accum = 0.0
-        prev_theta = trajectory[target_entry_idx][2]
-        for pt in trajectory[target_entry_idx:min(len(trajectory), target_entry_idx + 300)]:
-            d_theta = pt[2] - prev_theta
-            while d_theta > math.pi: d_theta -= 2 * math.pi
-            while d_theta < -math.pi: d_theta += 2 * math.pi
-            yaw_accum += abs(d_theta)
-            prev_theta = pt[2]
-            if yaw_accum >= 5.5:
-                pirouette_detected = True
+    if entered_target:
+        for start_i in range(target_entry_idx, len(trajectory) - 5):
+            if math.hypot(trajectory[start_i][0] - target_center_x, trajectory[start_i][1] - target_center_y) > target_radius:
+                continue
+            yaw_accum = 0.0
+            spin_start_pt = trajectory[start_i]
+            prev_theta = spin_start_pt[2]
+            max_linear_disp = 0.0
+            for end_i in range(start_i + 1, min(len(trajectory), start_i + 350)):
+                pt = trajectory[end_i]
+                d_theta = pt[2] - prev_theta
+                while d_theta > math.pi: d_theta -= 2 * math.pi
+                while d_theta < -math.pi: d_theta += 2 * math.pi
+                yaw_accum += abs(d_theta)
+                prev_theta = pt[2]
+                disp = math.hypot(pt[0] - spin_start_pt[0], pt[1] - spin_start_pt[1])
+                if disp > max_linear_disp:
+                    max_linear_disp = disp
+                if yaw_accum >= 5.5 and max_linear_disp <= 0.12:
+                    pirouette_detected = True
+                    break
+            if pirouette_detected:
                 break
 
     returned_to_start = False

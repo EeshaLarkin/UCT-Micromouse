@@ -14,7 +14,10 @@ Students interact with the hardware and simulation environment strictly through 
 |---|---|---|---|
 | `init` | `fast_sim=None` *(bool)* | `int` | Initializes connection to either the virtual simulation testbed (PC) or the physical hardware (STM32). |
 | `set_motors` | `left_pwm` *(int)*, `right_pwm` *(int)* | `None` | Sets raw motor speeds. Speeds range from `-100` (full reverse) to `100` (full forward). |
-| `get_tof` | None | `(left, front_left, center, front_right, right)` *(tuple of ints)* | Returns current VL53L0X distance readings in millimeters (0–8190 mm). `8190` represents out-of-range or disconnected. |
+| `get_tof` | None | `(left, front_left, center, front_right, right)` *(tuple of ints)* | Returns current VL53L0X distance readings in millimeters (0–8190 mm) with standard noise filtering ($\ge 180\text{ kcps}$). `8190` represents out-of-range or invalid signal. |
+| `get_tof_raw` | None | `(left, front_left, center, front_right, right)` *(tuple of ints)* | Returns raw, un-thresholded millimeter distance readings directly from the ASIC DSP registers. |
+| `get_tof_signals` | None | `(left, front_left, center, front_right, right)` *(tuple of ints)* | Returns return photon signal rates in `kcps` (kilo-counts per second). Higher values indicate stronger reflection / closer proximity. |
+| `get_tof_detailed` | None | `((l_dist, l_sig), (fl_dist, fl_sig), (c_dist, c_sig), (fr_dist, fr_sig), (r_dist, r_sig))` | Returns combined distance (mm) and return signal rate (kcps) pairs for all 5 active ToF sensors. |
 | `get_encoders` | None | `(left, right)` *(tuple of ints)* | Returns total accumulated quadrature encoder ticks. |
 | `get_gyro` | None | `float` | Returns current yaw gyro rate/angle (relative degrees/second rotation around Z-axis). |
 | `get_vbatt` | None | `float` | Returns current battery supply voltage in Volts. |
@@ -23,12 +26,46 @@ Students interact with the hardware and simulation environment strictly through 
 | `set_encoder_polarity` | `left` *(int)*, `right` *(int)* | `None` | Normalizes physical encoder direction. Pass `1` (normal) or `-1` (reversed) to mathematically match your chassis encoders. |
 | `get_line_sensors`| None | `(fl, fr, sl, sr)` *(tuple of ints)* | Returns raw ADC readings for Front-Left, Front-Right, Side-Left, and Side-Right photodetector line sensors. |
 | `get_telemetry` | None | `(ax, ay, az, gx, gy, gz, lenc, renc, current, battery_pct)` *(tuple)* | Returns full 6-DOF IMU data (ax/ay/az in m/s², gx/gy/gz in rad/s), encoders, battery current (mA), and battery life (%). |
+| `get_ticks_ms` | None | `int` | Returns monotonic elapsed time in milliseconds. Commensurate between physical STM32 hardware (`HAL_GetTick()`) and simulation physics clocks. |
+| `display_text` | `row` *(int, 1–4)*, `text` *(str)* | `None` | Writes custom text (up to 18 characters) to one of the 4 blue OLED rows. Passing an empty string `""` or `None` restores that row's default telemetry. |
+| `clear_display` | None | `None` | Restores all 4 blue OLED rows back to default live telemetry streaming. |
 
 ---
 
 ## 2. Dynamic OLED Display Modes
 
-On physical hardware, the C-Kernel automatically manages the SSD1306 OLED display configuration based on connected hardware:
+The SSD1306 128x64 OLED display has 5 text rows (using standard 7x10 font):
+* **Row 0 ($y=0$):** Reserved yellow header area, permanently displaying the platform header (`MicroPython`).
+* **Row 1 ($y=16$):** Default `CMD: [left_pwm] [right_pwm]`
+* **Row 2 ($y=28$):** Default TOF sensor telemetry (e.g. `TOF: [W] [N] [E]`)
+* **Row 3 ($y=40$):** Default `BAT: [voltage]V [pct]% [current]mA`
+* **Row 4 ($y=52$):** Default `WDG: [safety cutoff / ms]`
+
+### Custom User Text & Independent Fallback
+
+Students can override any of the 4 blue rows (1 to 4) independently using:
+
+```python
+import uct_mouse
+
+uct_mouse.init()
+
+# Display custom state on Row 1 and turn count on Row 4
+uct_mouse.display_text(1, "State: EXPLORE")
+uct_mouse.display_text(4, "Turns: 3")
+
+# Rows 2 (TOF) and 3 (BAT) continue streaming live hardware telemetry!
+
+# Restore Row 1 back to default motor telemetry:
+uct_mouse.display_text(1, "")
+
+# Or restore all rows back to default telemetry:
+uct_mouse.clear_display()
+```
+
+### Dynamic TOF Telemetry Formatting (Row 2)
+
+When Row 2 is in default telemetry mode, the C-Kernel automatically manages the TOF display configuration based on connected hardware:
 
 * **3-Sensor Combination (N, W, E):** If only the Left, Centre, and Right TOF sensors are connected, the display shows:
   `W:[W_val] N:[N_val] E:[E_val]`

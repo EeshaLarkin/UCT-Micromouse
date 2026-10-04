@@ -148,6 +148,7 @@ def main():
     global SUBMISSION_DIR, RESULTS_FILE
     import argparse
     parser = argparse.ArgumentParser(description="Gradescope Autograder Runner")
+    parser.add_argument("--assignment", type=str, default=None, help="Assignment name override (e.g. milestone1_square, milestone2_maze, final_demo)")
     parser.add_argument("--submission", type=str, default=None, help="Submission directory")
     parser.add_argument("--results", type=str, default=None, help="Results output file path")
     args, _ = parser.parse_known_args()
@@ -161,16 +162,19 @@ def main():
         print(f"[Grader] Overridden RESULTS_FILE: {RESULTS_FILE}")
     
     # 2. Find active assignment config
-    active_assignment_file = os.path.join(SOURCE_DIR, "active_assignment.txt")
-    if not os.path.exists(active_assignment_file):
-        # Local fallback
-        active_assignment_file = os.path.join(os.path.dirname(__file__), "active_assignment.txt")
-        
-    if os.path.exists(active_assignment_file):
-        with open(active_assignment_file, "r") as f:
-            assignment_name = f.read().strip()
+    if args.assignment:
+        assignment_name = args.assignment.strip()
     else:
-        assignment_name = "milestone1" # default fallback
+        active_assignment_file = os.path.join(SOURCE_DIR, "active_assignment.txt")
+        if not os.path.exists(active_assignment_file):
+            # Local fallback
+            active_assignment_file = os.path.join(os.path.dirname(__file__), "active_assignment.txt")
+            
+        if os.path.exists(active_assignment_file):
+            with open(active_assignment_file, "r") as f:
+                assignment_name = f.read().strip()
+        else:
+            assignment_name = "milestone1" # default fallback
         
     print(f"[Grader] Active assignment: {assignment_name}")
 
@@ -495,9 +499,14 @@ def main():
                     text=True
                 )
             except Exception as e:
-                sim_proc.send_signal(signal.SIGINT)
-                try: sim_proc.wait(timeout=2.0)
-                except Exception: sim_proc.kill()
+                try:
+                    if sys.platform == "win32":
+                        sim_proc.terminate()
+                    else:
+                        sim_proc.send_signal(signal.SIGINT)
+                    sim_proc.wait(timeout=2.0)
+                except Exception:
+                    sim_proc.kill()
                 return {
                     "score": 0.0,
                     "feedback": f"Execution Error: Failed to start student script/binary: {e}",
@@ -524,9 +533,15 @@ def main():
                 except Exception: client_proc.kill()
                 
             if sim_proc.poll() is None:
-                sim_proc.send_signal(signal.SIGINT)
-                try: sim_proc.wait(timeout=3.0)
-                except Exception: sim_proc.kill()
+                try:
+                    if sys.platform == "win32":
+                        # Windows does not support sending arbitrary SIGINT to child subprocesses
+                        sim_proc.terminate()
+                    else:
+                        sim_proc.send_signal(signal.SIGINT)
+                    sim_proc.wait(timeout=3.0)
+                except Exception:
+                    sim_proc.kill()
                 
             client_stdout, client_stderr = client_proc.communicate()
             

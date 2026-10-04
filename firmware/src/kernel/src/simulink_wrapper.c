@@ -54,6 +54,18 @@ void simulink_ext_get_tof(uint16_t *left, uint16_t *center, uint16_t *right) {
     *center = state->tof_c;
     *right  = state->tof_r;
 }
+void simulink_ext_get_tof_raw(uint16_t *left, uint16_t *center, uint16_t *right) {
+    const KernelState_t* state = kernel_get_state();
+    *left   = state->tof_raw_l;
+    *center = state->tof_raw_c;
+    *right  = state->tof_raw_r;
+}
+void simulink_ext_get_tof_signals(uint16_t *left, uint16_t *center, uint16_t *right) {
+    const KernelState_t* state = kernel_get_state();
+    *left   = state->tof_sig_l;
+    *center = state->tof_sig_c;
+    *right  = state->tof_sig_r;
+}
 void simulink_ext_get_encoders(int32_t *left, int32_t *right) {
     const KernelState_t* state = kernel_get_state();
     *left  = state->lenc;
@@ -415,6 +427,16 @@ void simulink_ext_set_motors(int16_t left, int16_t right) {
 
 void simulink_ext_get_tof(uint16_t *left, uint16_t *center, uint16_t *right) { 
     *left = sim_tof_l; *center = sim_tof_c; *right = sim_tof_r; 
+}
+
+void simulink_ext_get_tof_raw(uint16_t *left, uint16_t *center, uint16_t *right) { 
+    *left = sim_tof_l; *center = sim_tof_c; *right = sim_tof_r; 
+}
+
+void simulink_ext_get_tof_signals(uint16_t *left, uint16_t *center, uint16_t *right) { 
+    *left = (sim_tof_l > 0 && sim_tof_l < 2000) ? (uint16_t)(18000000 / (sim_tof_l * sim_tof_l + 100)) : 0;
+    *center = (sim_tof_c > 0 && sim_tof_c < 2000) ? (uint16_t)(18000000 / (sim_tof_c * sim_tof_c + 100)) : 0;
+    *right = (sim_tof_r > 0 && sim_tof_r < 2000) ? (uint16_t)(18000000 / (sim_tof_r * sim_tof_r + 100)) : 0;
 }
 
 void simulink_ext_get_encoders(int32_t *left, int32_t *right) { 

@@ -433,8 +433,10 @@ class PhysicsSimulator:
         self.x += v * math.cos(self.theta) * dt
         self.y += v * math.sin(self.theta) * dt
         
-        # Log path
-        if not self.trajectory or math.hypot(self.x - self.trajectory[-1][0], self.y - self.trajectory[-1][1]) > 0.01:
+        # Log path (log on linear displacement > 1cm or angular rotation > 2.5 deg)
+        if (not self.trajectory or 
+            math.hypot(self.x - self.trajectory[-1][0], self.y - self.trajectory[-1][1]) > 0.01 or 
+            abs((self.theta - self.trajectory[-1][2] + math.pi) % (2.0 * math.pi) - math.pi) > 0.04):
             self.trajectory.append((self.x, self.y, self.theta))
             
         # Integrate Encoders (measures physical rotations, before slip)
