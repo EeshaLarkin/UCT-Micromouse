@@ -16,21 +16,17 @@ MAP = "empty"
 TIME_LIMIT = 45.0
 SEED = 42
 
-# Define multiple evaluation test runs
+# Original 3-Test Evaluation Suite (Preserves historical 75% class average)
 # format: (name, weight, imbalance, slip, is_hidden)
 TEST_RUNS = [
-    ("Test 1: Public Baseline Run", 0.25, 0.05, 0.03, False),
-    ("Test 2: Hidden Positive Motor Imbalance", 0.15, 0.12, 0.04, True),
-    ("Test 3: Hidden Negative Motor Imbalance", 0.15, -0.12, 0.04, True),
-    ("Test 4: Hidden High Traction Slip & Spin", 0.15, 0.06, 0.10, True),
-    ("Test 5: Hidden Turn Settling & Dynamic Skid", 0.15, -0.12, 0.08, True),
-    ("Test 6: Hidden Compound Cross-Axis Perturbation", 0.15, 0.14, 0.10, True)
+    ("Test 1: Public Baseline Run", 0.40, 0.05, 0.04, False),
+    ("Test 2: Hidden Asymmetry Stress-Test", 0.30, 0.12, 0.02, True),
+    ("Test 3: Hidden Starting/Turning Slip Run", 0.30, 0.04, 0.10, True)
 ]
 
 def evaluate_run(trajectory_file):
     try:
         with open(trajectory_file, "r") as f:
-            # Trajectory is stored as a list of dicts or standard summary format
             data = json.load(f)
     except Exception as e:
         return 0.0, f"Error reading trajectory file: {e}"
@@ -42,7 +38,6 @@ def evaluate_run(trajectory_file):
     sim_time = data.get("time", 0.0)
     crashed = data.get("crashed", False)
     trajectory = data.get("trajectory", [])
-    final_theta = data.get("final_theta", trajectory[-1][2] if trajectory else 0.0)
 
     feedback = []
     feedback.append("=== Milestone 1 Trajectory Profile Evaluation ===")
@@ -53,7 +48,6 @@ def evaluate_run(trajectory_file):
         return 0.0, "Trajectory data incomplete or too short to analyze."
 
     # Segment the trajectory chronologically into 4 straight legs and 4 turns
-    # Uses unwrapped continuous heading to eliminate [pi, -pi] wraparound ambiguity during Turn 4
     raw_thetas = [pt[2] for pt in trajectory]
     unwrapped = unwrap_angles(raw_thetas)
     
@@ -139,19 +133,17 @@ def evaluate_run(trajectory_file):
         elif current_state == 8:
             turn4_end_heading = raw_th
 
-    # If the run ended during Turn 4 or after stopping without moving forward along a 5th leg,
-    # capture the final heading from the last trajectory point.
     if turn4_end_heading is None and len(trajectory) > 0:
         if current_state >= 7 or len(turns_points[3]) > 0:
             turn4_end_heading = raw_thetas[-1]
 
-    # Evaluate the 4 Straight Line Segments (35 points total - 8.75 points per leg)
+    # Evaluate the 4 Straight Line Segments (30 points total - 7.5 points per leg)
     leg_scores = []
     feedback.append("\n--- Leg Trajectory Analysis (Straightness & Length) ---")
     for i in range(4):
         pts = legs_points[i]
         if len(pts) < 3:
-            feedback.append(f"  Leg {i+1}: Insufficient trajectory points. Scored 0.0/8.75")
+            feedback.append(f"  Leg {i+1}: Insufficient trajectory points. Scored 0.0/7.5")
             leg_scores.append(0.0)
             continue
             
@@ -159,11 +151,11 @@ def evaluate_run(trajectory_file):
         leg_len = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
         len_error = abs(leg_len - 1.0)
         
-        # Score length (out of 4.375 points): full score if error <= 2.5cm, scales to 0 at 12cm
-        if len_error <= 0.025:
-            len_score = 4.375
+        # Score length (out of 3.75 points): full score if error <= 5cm, scales to 0 at 25cm
+        if len_error <= 0.05:
+            len_score = 3.75
         else:
-            len_score = max(0.0, 4.375 - (len_error - 0.025) / 0.095 * 4.375)
+            len_score = max(0.0, 3.75 - (len_error - 0.05) / 0.20 * 3.75)
             
         # Calculate straightness (maximum lateral deviation from ideal straight line vector)
         x0, y0 = pts[0][0], pts[0][1]
@@ -178,15 +170,15 @@ def evaluate_run(trajectory_file):
                 dev = abs((y1 - y0) * px - (x1 - x0) * py + x1 * y0 - y1 * x0) / line_len
                 max_dev = max(max_dev, dev)
                 
-        # Score straightness (out of 4.375 points): full score if max deviation <= 1.2cm, scales to 0 at 7cm
-        if max_dev <= 0.012:
-            straight_score = 4.375
+        # Score straightness (out of 3.75 points): full score if max deviation <= 2cm, scales to 0 at 15cm
+        if max_dev <= 0.02:
+            straight_score = 3.75
         else:
-            straight_score = max(0.0, 4.375 - (max_dev - 0.012) / 0.058 * 4.375)
+            straight_score = max(0.0, 3.75 - (max_dev - 0.02) / 0.13 * 3.75)
             
         leg_score = len_score + straight_score
         leg_scores.append(leg_score)
-        feedback.append(f"  Leg {i+1} ({['East', 'North', 'West', 'South'][i]}): Length={leg_len:.2f}m (err={len_error*100:.1f}cm), Max Dev={max_dev*100:.1f}cm -> Score {leg_score:.2f}/8.75")
+        feedback.append(f"  Leg {i+1} ({['East', 'North', 'West', 'South'][i]}): Length={leg_len:.2f}m (err={len_error*100:.1f}cm), Max Dev={max_dev*100:.1f}cm -> Score {leg_score:.2f}/7.50")
 
     # Calculate representative straight heading for each of the 4 legs (circular mean)
     target_headings = [0.0, math.pi / 2.0, math.pi, -math.pi / 2.0]
@@ -202,12 +194,12 @@ def evaluate_run(trajectory_file):
         else:
             leg_headings[i] = target_headings[i]
 
-    # Evaluate the 4 Turns / Right-Angleness (35 points total - 8.75 points per corner)
+    # Evaluate the 4 Turns / Right-Angleness (30 points total - 7.5 points per corner)
     turn_scores = []
     feedback.append("\n--- Corner Analysis (Right-Angleness) ---")
     for i in range(4):
         if len(legs_points[i]) < 3:
-            feedback.append(f"  Corner {i+1}: Incomplete turn trajectory (missing Leg {i+1}). Scored 0.0/8.75")
+            feedback.append(f"  Corner {i+1}: Incomplete turn trajectory (missing Leg {i+1}). Scored 0.0/7.5")
             turn_scores.append(0.0)
             continue
             
@@ -215,12 +207,12 @@ def evaluate_run(trajectory_file):
         
         if i < 3:
             if len(legs_points[i + 1]) < 3:
-                feedback.append(f"  Corner {i+1}: Incomplete turn trajectory (missing Leg {i+2}). Scored 0.0/8.75")
+                feedback.append(f"  Corner {i+1}: Incomplete turn trajectory (missing Leg {i+2}). Scored 0.0/7.5")
                 turn_scores.append(0.0)
                 continue
             h_end = leg_headings[i + 1]
         else:
-            # Corner 4: Turn from Leg 4 heading to the final resting heading at the origin
+            # Corner 4: Turn from Leg 4 heading to final resting heading
             final_tail = trajectory[-20:] if len(trajectory) >= 20 else trajectory
             resting_heading = circular_mean([pt[2] for pt in final_tail])
             h_end = resting_heading
@@ -232,20 +224,17 @@ def evaluate_run(trajectory_file):
         # Error from ideal 90 degree turn
         turn_error = abs(turn_deg - 90.0)
         
-        # Score (out of 8.75 points): full score if error <= 1.5 degrees, scales to 0 at 6.0 degrees
-        if turn_error <= 1.5:
-            t_score = 8.75
+        # Score (out of 7.5 points): full score if error <= 3 degrees, scales to 0 at 15 degrees
+        if turn_error <= 3.0:
+            t_score = 7.5
         else:
-            t_score = max(0.0, 8.75 - (turn_error - 1.5) / 4.5 * 8.75)
+            t_score = max(0.0, 7.5 - (turn_error - 3.0) / 12.0 * 7.5)
             
         turn_scores.append(t_score)
-        feedback.append(f"  Corner {i+1} ({['E->N', 'N->W', 'W->S', 'S->E'][i]}): Turn Angle={turn_deg:.1f}° (err={turn_error:.1f}°) -> Score {t_score:.2f}/8.75")
+        feedback.append(f"  Corner {i+1} ({['E->N', 'N->W', 'W->S', 'S->E'][i]}): Turn Angle={turn_deg:.1f}° (err={turn_error:.1f}°) -> Score {t_score:.2f}/7.50")
 
     # Return & Parking accuracy (20 points)
     feedback.append("\n--- Return & Parking Accuracy ---")
-    
-    # Evaluate parking offset across the completion of Leg 4, Turn 4, and final resting position
-    # (guarantees students are never penalized for any post-turn creep/motion after the 4th turn)
     candidate_points = [(final_x, final_y), (trajectory[-1][0], trajectory[-1][1])]
     if len(legs_points[3]) > 0:
         candidate_points.append((legs_points[3][-1][0], legs_points[3][-1][1]))
@@ -254,35 +243,38 @@ def evaluate_run(trajectory_file):
         
     d_e = min(math.hypot(px - start_x, py - start_y) for px, py in candidate_points)
     
-    # Full points if final distance to start is <= 1.8cm, scales to 0 at 8.0cm
-    if d_e <= 0.018:
+    # Full points if final distance to start is <= 3cm, scales to 0 at 25cm
+    if d_e <= 0.03:
         parking_score = 20.0
     else:
-        parking_score = max(0.0, 20.0 - (d_e - 0.018) / 0.062 * 20.0)
+        parking_score = max(0.0, 20.0 - (d_e - 0.03) / 0.22 * 20.0)
     feedback.append(f"  Final Position Offset: {d_e*100:.1f} cm -> Parking Score {parking_score:.2f}/20.0")
 
-    # Efficiency (10 points total - speed cadence)
-    feedback.append("\n--- Efficiency & Cadence ---")
-    # Speed score: scales from 10 points (time <= 18s) down to 0 points (time >= 32s)
-    if sim_time <= 18.0:
+    # Efficiency & Safety (20 points total - 10 pts speed, 10 pts safety)
+    feedback.append("\n--- Efficiency & Safety ---")
+    # Speed score: scales from 10 points (time <= 20s) down to 0 points (time >= 40s)
+    if sim_time <= 20.0:
         speed_score = 10.0
     else:
-        speed_score = max(0.0, 10.0 - (sim_time - 18.0) / 14.0 * 10.0)
+        speed_score = max(0.0, 10.0 - (sim_time - 20.0) / 20.0 * 10.0)
         
-    feedback.append(f"  Speed Cadence Score (time={sim_time:.1f}s): {speed_score:.2f}/10.0")
+    safety_score = 0.0 if crashed else 10.0
+    feedback.append(f"  Speed Score (time={sim_time:.1f}s): {speed_score:.2f}/10.0")
+    feedback.append(f"  Safety Score (crashed={crashed}): {safety_score:.2f}/10.0")
 
     # Final Grade Calculation
     base_legs = sum(leg_scores)
     base_turns = sum(turn_scores)
-    total_grade = base_legs + base_turns + parking_score + speed_score
+    total_grade = base_legs + base_turns + parking_score + speed_score + safety_score
     
     final_grade_rounded = round(total_grade)
 
     feedback.append("\n=== Score Arithmetic Breakdown ===")
-    feedback.append(f"  Leg Segments (Straightness/Length) : {base_legs:5.2f} / 35.00 pts")
-    feedback.append(f"  Corner Turn Angles (90 deg accuracy): {base_turns:5.2f} / 35.00 pts")
+    feedback.append(f"  Leg Segments (Straightness/Length) : {base_legs:5.2f} / 30.00 pts")
+    feedback.append(f"  Corner Turn Angles (90 deg accuracy): {base_turns:5.2f} / 30.00 pts")
     feedback.append(f"  Parking Accuracy (return to start) : {parking_score:5.2f} / 20.00 pts")
     feedback.append(f"  Run Speed Efficiency              : {speed_score:5.2f} / 10.00 pts")
+    feedback.append(f"  Safety Bonus (no collision)        : {safety_score:5.2f} / 10.00 pts")
     feedback.append(f"  -------------------------------------------")
     feedback.append(f"  Calculated Grade                   : {total_grade:5.2f} / 100.00 pts")
     feedback.append(f"  GRADE: {final_grade_rounded}%")
