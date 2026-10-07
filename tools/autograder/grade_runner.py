@@ -7,6 +7,7 @@ import json
 import signal
 import glob
 import importlib.util
+import math
 import shutil
 import tempfile
 
@@ -58,28 +59,73 @@ def generate_trajectory_svg(trajectory_file):
         if not traj or len(traj) < 2:
             return ""
         
-        # Bounding coordinates
-        xs = [pt[0] for pt in traj] + [0.0, 1.0]
-        ys = [pt[1] for pt in traj] + [0.0, 1.0]
-        min_x, max_x = min(xs) - 0.15, max(xs) + 0.15
-        min_y, max_y = min(ys) - 0.15, max(ys) + 0.15
-        span_x = max(max_x - min_x, 0.5)
-        span_y = max(max_y - min_y, 0.5)
+        start_x = data.get("start_x", traj[0][0])
+        start_y = data.get("start_y", traj[0][1])
+        th0 = traj[0][2]
         
-        w, h = 450, 450
+        # Detect turn direction: positive unwrapped change = CCW (+1), negative = CW (-1)
+        thetas = [pt[2] for pt in traj]
+        unwrapped = []
+        if thetas:
+            unwrapped = [thetas[0]]
+            for t in thetas[1:]:
+                diff = t - unwrapped[-1]
+                diff = (diff + math.pi) % (2.0 * math.pi) - math.pi
+                unwrapped.append(unwrapped[-1] + diff)
+                
+        dir_sign = 1.0
+        if unwrapped:
+            max_pos = max(unwrapped) - unwrapped[0]
+            max_neg = unwrapped[0] - min(unwrapped)
+            final_angle_change = unwrapped[-1] - unwrapped[0]
+            if max_neg > max_pos + math.radians(20.0) or final_angle_change < -math.pi / 2.0:
+                dir_sign = -1.0
+                
+        # Ideal square corners: 1m x 1m starting from (start_x, start_y)
+        # Unit forward vector: (cos(th0), sin(th0))
+        # Unit perpendicular lateral vector: (-dir_sign * sin(th0), dir_sign * cos(th0))
+        cos0 = math.cos(th0)
+        sin0 = math.sin(th0)
+        c0 = (start_x, start_y)
+        c1 = (start_x + 1.0 * cos0, start_y + 1.0 * sin0)
+        c2 = (start_x + 1.0 * cos0 - dir_sign * 1.0 * sin0, start_y + 1.0 * sin0 + dir_sign * 1.0 * cos0)
+        c3 = (start_x - dir_sign * 1.0 * sin0, start_y + dir_sign * 1.0 * cos0)
+        c4 = c0
+        ideal_pts = [c0, c1, c2, c3, c4]
+        
+        # Isometric Bounding coordinates (preserves 1:1 aspect ratio)
+        all_xs = [pt[0] for pt in traj] + [c[0] for c in ideal_pts]
+        all_ys = [pt[1] for pt in traj] + [c[1] for c in ideal_pts]
+        raw_min_x, raw_max_x = min(all_xs), max(all_xs)
+        raw_min_y, raw_max_y = min(all_ys), max(all_ys)
+        
+        span = max(raw_max_x - raw_min_x, raw_max_y - raw_min_y, 1.2) + 0.3
+        mid_x = (raw_min_x + raw_max_x) / 2.0
+        mid_y = (raw_min_y + raw_max_y) / 2.0
+        min_x, max_x = mid_x - span / 2.0, mid_x + span / 2.0
+        min_y, max_y = mid_y - span / 2.0, mid_y + span / 2.0
+        
+        w, h = 480, 480
         def to_svg(x, y):
-            sx = (x - min_x) / span_x * (w - 70) + 35
-            sy = h - ((y - min_y) / span_y * (h - 70) + 35)
+            sx = (x - min_x) / span * (w - 70) + 35
+            sy = h - ((y - min_y) / span * (h - 70) + 35)
             return sx, sy
         
         pts = [to_svg(pt[0], pt[1]) for pt in traj]
         polyline = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         
-        ideal = [to_svg(0,0), to_svg(1,0), to_svg(1,1), to_svg(0,1), to_svg(0,0)]
-        ideal_poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in ideal)
+        ideal_svg_pts = [to_svg(c[0], c[1]) for c in ideal_pts]
+        ideal_poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in ideal_svg_pts)
         
-        start_x, start_y = to_svg(traj[0][0], traj[0][1])
-        end_x, end_y = to_svg(traj[-1][0], traj[-1][1])
+        start_sx, start_sy = to_svg(traj[0][0], traj[0][1])
+        end_sx, end_sy = to_svg(traj[-1][0], traj[-1][1])
+        
+        # Avoid label overlap if end marker is parked very close to start
+        end_text_y = end_sy + 4.0
+        if math.hypot(end_sx - start_sx, end_sy - start_sy) < 25.0:
+            end_text_y = end_sy - 10.0
+        
+        dir_label = "CCW (Left)" if dir_sign > 0 else "CW (Right)"
         
         svg = f'''<div style="margin: 15px 0;">
   <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory Map:</h4>
@@ -93,12 +139,12 @@ def generate_trajectory_svg(trajectory_file):
     <!-- Actual Mouse Trajectory -->
     <polyline points="{polyline}" fill="none" stroke="#00b4d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
     <!-- Start & End Markers -->
-    <circle cx="{start_x:.1f}" cy="{start_y:.1f}" r="5" fill="#2ec4b6" stroke="#fff" stroke-width="1.5"/>
-    <circle cx="{end_x:.1f}" cy="{end_y:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
-    <text x="{start_x+8:.1f}" y="{start_y+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start (0,0)</text>
-    <text x="{end_x+8:.1f}" y="{end_y+4:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">End ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
+    <circle cx="{start_sx:.1f}" cy="{start_sy:.1f}" r="5" fill="#2ec4b6" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="{end_sx:.1f}" cy="{end_sy:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
+    <text x="{start_sx+8:.1f}" y="{start_sy+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start ({traj[0][0]:.2f}, {traj[0][1]:.2f})</text>
+    <text x="{end_sx+8:.1f}" y="{end_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">End ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
     <!-- Legend -->
-    <text x="45" y="30" fill="#888888" font-size="10" font-family="sans-serif">--- Ideal Square (1m x 1m)</text>
+    <text x="45" y="30" fill="#888888" font-size="10" font-family="sans-serif">--- Ideal Square (1m × 1m, {dir_label})</text>
     <text x="45" y="45" fill="#00b4d8" font-size="10" font-family="sans-serif">── Actual Trajectory</text>
   </svg>
 </div>'''
@@ -110,15 +156,42 @@ def get_video_html(video_path):
     if not video_path or not os.path.exists(video_path):
         return ""
     try:
+        # If video is larger than 12MB, attempt a quick ffmpeg compression to protect Gradescope JSON payload
         size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        if size_mb > 25.0:  # Avoid excessive payload in Gradescope
+        if size_mb > 12.0:
+            ffmpeg_bin = shutil.which("ffmpeg")
+            if ffmpeg_bin:
+                opt_video = video_path + ".opt.mp4"
+                try:
+                    cmd = [
+                        ffmpeg_bin, "-y",
+                        "-i", video_path,
+                        "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p",
+                        "-crf", "28",
+                        "-preset", "veryfast",
+                        "-movflags", "+faststart",
+                        opt_video
+                    ]
+                    subprocess.run(cmd, capture_output=True, text=True, timeout=15.0, check=True)
+                    if os.path.exists(opt_video) and os.path.getsize(opt_video) > 0:
+                        os.replace(opt_video, video_path)
+                        size_mb = os.path.getsize(video_path) / (1024 * 1024)
+                except Exception:
+                    if os.path.exists(opt_video):
+                        try: os.remove(opt_video)
+                        except Exception: pass
+                        
+        if size_mb > 25.0:  # Hard cap to prevent Gradescope web UI crash
             return ""
+            
         import base64
         with open(video_path, "rb") as vf:
             b64_data = base64.b64encode(vf.read()).decode("utf-8")
+            
         return f'''<div style="margin: 15px 0;">
   <h4 style="margin-bottom: 8px; color: #fff;">🎬 Simulation Run Playback Video:</h4>
-  <video width="480" height="480" controls autoplay loop muted style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;">
+  <video width="480" height="480" controls autoplay loop muted playsinline style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;">
     <source src="data:video/mp4;base64,{b64_data}" type="video/mp4">
     Your browser does not support the video tag.
   </video>

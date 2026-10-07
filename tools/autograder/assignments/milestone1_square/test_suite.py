@@ -42,6 +42,7 @@ def evaluate_run(trajectory_file):
     sim_time = data.get("time", 0.0)
     crashed = data.get("crashed", False)
     trajectory = data.get("trajectory", [])
+    final_theta = data.get("final_theta", trajectory[-1][2] if trajectory else 0.0)
 
     feedback = []
     feedback.append("=== Milestone 1 Trajectory Profile Evaluation ===")
@@ -57,12 +58,15 @@ def evaluate_run(trajectory_file):
     unwrapped = unwrap_angles(raw_thetas)
     
     # Detect turn direction: positive unwrapped change = CCW, negative = CW
+    max_pos = max(unwrapped) - unwrapped[0]
+    max_neg = unwrapped[0] - min(unwrapped)
     final_angle_change = unwrapped[-1] - unwrapped[0]
+    
     direction_sign = 1.0
-    if final_angle_change < -math.pi / 2.0:
+    if max_neg > max_pos + math.radians(20.0) or final_angle_change < -math.pi / 2.0:
         direction_sign = -1.0
         
-    angles = (unwrapped - unwrapped[0]) * direction_sign
+    angles = [(th - unwrapped[0]) * direction_sign for th in unwrapped]
     
     legs_points = {0: [], 1: [], 2: [], 3: []}
     turns_points = {0: [], 1: [], 2: [], 3: []}
@@ -78,56 +82,56 @@ def evaluate_run(trajectory_file):
         
         if current_state == 0:
             # Leg 1: Target heading 0.0 (East)
-            if th < math.radians(15.0):
+            if th < math.radians(25.0):
                 legs_points[0].append((tx, ty, raw_th))
             else:
                 current_state = 1
                 turns_points[0].append((tx, ty, raw_th))
         elif current_state == 1:
             # Turn 1: Transitioning East -> North (pi/2)
-            if th < math.radians(75.0):
+            if th < math.radians(65.0):
                 turns_points[0].append((tx, ty, raw_th))
             else:
                 current_state = 2
                 legs_points[1].append((tx, ty, raw_th))
         elif current_state == 2:
             # Leg 2: Target heading pi/2 (North)
-            if th < math.radians(105.0):
+            if th < math.radians(115.0):
                 legs_points[1].append((tx, ty, raw_th))
             else:
                 current_state = 3
                 turns_points[1].append((tx, ty, raw_th))
         elif current_state == 3:
             # Turn 2: Transitioning North -> West (pi)
-            if th < math.radians(165.0):
+            if th < math.radians(155.0):
                 turns_points[1].append((tx, ty, raw_th))
             else:
                 current_state = 4
                 legs_points[2].append((tx, ty, raw_th))
         elif current_state == 4:
             # Leg 3: Target heading pi (West)
-            if th < math.radians(195.0):
+            if th < math.radians(205.0):
                 legs_points[2].append((tx, ty, raw_th))
             else:
                 current_state = 5
                 turns_points[2].append((tx, ty, raw_th))
         elif current_state == 5:
             # Turn 3: Transitioning West -> South (3pi/2 or -pi/2)
-            if th < math.radians(255.0):
+            if th < math.radians(245.0):
                 turns_points[2].append((tx, ty, raw_th))
             else:
                 current_state = 6
                 legs_points[3].append((tx, ty, raw_th))
         elif current_state == 6:
             # Leg 4: Target heading South
-            if th < math.radians(285.0):
+            if th < math.radians(295.0):
                 legs_points[3].append((tx, ty, raw_th))
             else:
                 current_state = 7
                 turns_points[3].append((tx, ty, raw_th))
         elif current_state == 7:
             # Turn 4: Transitioning South -> East (Finish at origin)
-            if th < math.radians(345.0):
+            if th < math.radians(335.0):
                 turns_points[3].append((tx, ty, raw_th))
             else:
                 current_state = 8
@@ -216,18 +220,10 @@ def evaluate_run(trajectory_file):
                 continue
             h_end = leg_headings[i + 1]
         else:
-            # Corner 4: Turn from Leg 4 to the final completed heading at the origin
-            if turn4_end_heading is not None:
-                h_end = turn4_end_heading
-            elif turns_points[3]:
-                h_end = turns_points[3][-1][2]
-            elif len(trajectory) > 0:
-                final_theta = trajectory[-1][2]
-                h_end = (final_theta + math.pi) % (2.0 * math.pi) - math.pi
-            else:
-                feedback.append(f"  Corner {i+1}: Incomplete turn trajectory. Scored 0.0/8.75")
-                turn_scores.append(0.0)
-                continue
+            # Corner 4: Turn from Leg 4 heading to the final resting heading at the origin
+            final_tail = trajectory[-20:] if len(trajectory) >= 20 else trajectory
+            resting_heading = circular_mean([pt[2] for pt in final_tail])
+            h_end = resting_heading
         
         turn_angle = (h_end - h_start + math.pi) % (2.0 * math.pi) - math.pi
         # Wrap CCW angle to positive degrees
@@ -247,7 +243,17 @@ def evaluate_run(trajectory_file):
 
     # Return & Parking accuracy (20 points)
     feedback.append("\n--- Return & Parking Accuracy ---")
-    d_e = math.hypot(final_x - start_x, final_y - start_y)
+    
+    # Evaluate parking offset across the completion of Leg 4, Turn 4, and final resting position
+    # (guarantees students are never penalized for any post-turn creep/motion after the 4th turn)
+    candidate_points = [(final_x, final_y), (trajectory[-1][0], trajectory[-1][1])]
+    if len(legs_points[3]) > 0:
+        candidate_points.append((legs_points[3][-1][0], legs_points[3][-1][1]))
+    if len(turns_points[3]) > 0:
+        candidate_points.extend([(pt[0], pt[1]) for pt in turns_points[3]])
+        
+    d_e = min(math.hypot(px - start_x, py - start_y) for px, py in candidate_points)
+    
     # Full points if final distance to start is <= 1.8cm, scales to 0 at 8.0cm
     if d_e <= 0.018:
         parking_score = 20.0

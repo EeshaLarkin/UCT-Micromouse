@@ -3,7 +3,7 @@ import math
 
 # Milestone 2 / Submission 4 parameters: 4x6 maze with 2x2 target room
 MAP = "random"
-TIME_LIMIT = 90.0
+TIME_LIMIT = 120.0
 IMBALANCE = 0.08
 SLIP = 0.02
 SEED = 42
@@ -12,6 +12,16 @@ SEED = 42
 CELL_DIM = 0.20
 MAZE_ROWS = 4
 MAZE_COLS = 6
+
+# Define public development test runs (Visible to students during development)
+# format: (name, weight, imbalance, slip, is_hidden)
+TEST_RUNS = [
+    ("Test 1: Baseline Maze Navigation (Seed 42)", 0.25, 0.04, 0.02, False),
+    ("Test 2: Motor Gain Asymmetry (+6%, Seed 43)", 0.20, 0.06, 0.02, False),
+    ("Test 3: Motor Gain Asymmetry (-6%, Seed 44)", 0.20, -0.06, 0.02, False),
+    ("Test 4: Mild Surface Traction Slip (4%, Seed 45)", 0.15, 0.04, 0.04, False),
+    ("Test 5: Alternate Maze Topology (Seed 46)", 0.20, 0.05, 0.03, False),
+]
 
 def evaluate_run(trajectory_file):
     try:
@@ -137,16 +147,16 @@ def evaluate_run(trajectory_file):
     # Total Time Speed Bonus (10 pts)
     speed_bonus = 0.0
     if sprint_completed and not crashed:
-        if sim_time <= 25.0:
+        if sim_time <= 35.0:
             speed_bonus = 10.0
-        elif sim_time <= 90.0:
-            speed_bonus = 10.0 * (90.0 - sim_time) / (90.0 - 25.0)
+        elif sim_time <= 120.0:
+            speed_bonus = 10.0 * (120.0 - sim_time) / (120.0 - 35.0)
     feedback.append(f"  [Bonus]   Speed & Efficiency Bonus: {speed_bonus:.1f} / 10.0 pts")
 
     subtotal = score_target + score_pirouette + score_return + score_sprint + speed_bonus
     timeout_penalty = 10.0 if sim_time >= TIME_LIMIT else 0.0
     if timeout_penalty > 0:
-        feedback.append(f"  [Penalty] Timeout Penalty (> 90.0s): -{timeout_penalty:.1f} pts")
+        feedback.append(f"  [Penalty] Timeout Penalty (> 120.0s): -{timeout_penalty:.1f} pts")
 
     final_grade = max(0.0, min(100.0, subtotal - timeout_penalty))
     final_grade_rounded = round(final_grade)

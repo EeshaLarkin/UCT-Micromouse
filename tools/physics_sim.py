@@ -5,6 +5,8 @@ import time
 import json
 import socket
 import argparse
+import subprocess
+import shutil
 
 # Silence Pygame's startup print in stdout
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
@@ -933,6 +935,32 @@ def main():
         if video_writer:
             print("[Simulator] Closing video writer...")
             video_writer.release()
+            video_writer = None
+            
+            # Post-process with ffmpeg to guarantee web-browser H.264 (YUV420p + faststart) playback
+            ffmpeg_bin = shutil.which("ffmpeg")
+            if ffmpeg_bin and args.video and os.path.exists(args.video) and os.path.getsize(args.video) > 0:
+                temp_h264 = args.video + ".web.mp4"
+                try:
+                    cmd = [
+                        ffmpeg_bin, "-y",
+                        "-i", args.video,
+                        "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p",
+                        "-crf", "24",
+                        "-preset", "fast",
+                        "-movflags", "+faststart",
+                        temp_h264
+                    ]
+                    subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
+                    if os.path.exists(temp_h264) and os.path.getsize(temp_h264) > 0:
+                        os.replace(temp_h264, args.video)
+                        print(f"[Simulator] Transcoded browser-ready H.264 video saved to: {args.video}")
+                except Exception as fe:
+                    print(f"[Simulator] Note: ffmpeg post-transcoding skipped: {fe}")
+                    if os.path.exists(temp_h264):
+                        try: os.remove(temp_h264)
+                        except Exception: pass
             
         # If crashed and running interactively, show crash banner and wait
         if crashed and not args.headless:
@@ -963,11 +991,16 @@ def main():
         # Save JSON log if requested
         if args.json_log:
             try:
+                # Ensure the final resting pose is appended to trajectory
+                if not sim.trajectory or math.hypot(sim.x - sim.trajectory[-1][0], sim.y - sim.trajectory[-1][1]) > 1e-4 or abs((sim.theta - sim.trajectory[-1][2] + math.pi) % (2.0 * math.pi) - math.pi) > 1e-3:
+                    sim.trajectory.append((sim.x, sim.y, sim.theta))
+                    
                 # Calculate metrics
                 start_x = sim.trajectory[0][0] if sim.trajectory else 0.0
                 start_y = sim.trajectory[0][1] if sim.trajectory else 0.0
                 final_x = sim.x
                 final_y = sim.y
+                final_theta = sim.theta
                 
                 # Max displacement
                 max_displacement = 0.0
@@ -981,6 +1014,7 @@ def main():
                     "start_y": start_y,
                     "final_x": final_x,
                     "final_y": final_y,
+                    "final_theta": final_theta,
                     "max_displacement": max_displacement,
                     "time": sim.time,
                     "crashed": crashed,
