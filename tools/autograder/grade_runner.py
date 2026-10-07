@@ -156,32 +156,34 @@ def get_video_html(video_path):
     if not video_path or not os.path.exists(video_path):
         return ""
     try:
-        # If video is larger than 12MB, attempt a quick ffmpeg compression to protect Gradescope JSON payload
+        # Always transcode using ffmpeg to guarantee web-standard H.264 Baseline Profile (YUV420p + faststart)
+        # to ensure compatibility across all browsers (Firefox, Chrome, Safari, Edge)
+        ffmpeg_bin = shutil.which("ffmpeg")
+        if ffmpeg_bin:
+            opt_video = video_path + ".opt.mp4"
+            try:
+                cmd = [
+                    ffmpeg_bin, "-y",
+                    "-i", video_path,
+                    "-c:v", "libx264",
+                    "-profile:v", "baseline",
+                    "-level", "3.0",
+                    "-pix_fmt", "yuv420p",
+                    "-crf", "26",
+                    "-preset", "fast",
+                    "-movflags", "+faststart",
+                    opt_video
+                ]
+                subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
+                if os.path.exists(opt_video) and os.path.getsize(opt_video) > 0:
+                    os.replace(opt_video, video_path)
+            except Exception as fe:
+                print(f"[Grader] Warning during video transcoding: {fe}")
+                if os.path.exists(opt_video):
+                    try: os.remove(opt_video)
+                    except Exception: pass
+                    
         size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        if size_mb > 12.0:
-            ffmpeg_bin = shutil.which("ffmpeg")
-            if ffmpeg_bin:
-                opt_video = video_path + ".opt.mp4"
-                try:
-                    cmd = [
-                        ffmpeg_bin, "-y",
-                        "-i", video_path,
-                        "-c:v", "libx264",
-                        "-pix_fmt", "yuv420p",
-                        "-crf", "28",
-                        "-preset", "veryfast",
-                        "-movflags", "+faststart",
-                        opt_video
-                    ]
-                    subprocess.run(cmd, capture_output=True, text=True, timeout=15.0, check=True)
-                    if os.path.exists(opt_video) and os.path.getsize(opt_video) > 0:
-                        os.replace(opt_video, video_path)
-                        size_mb = os.path.getsize(video_path) / (1024 * 1024)
-                except Exception:
-                    if os.path.exists(opt_video):
-                        try: os.remove(opt_video)
-                        except Exception: pass
-                        
         if size_mb > 25.0:  # Hard cap to prevent Gradescope web UI crash
             return ""
             
@@ -196,7 +198,8 @@ def get_video_html(video_path):
     Your browser does not support the video tag.
   </video>
 </div>'''
-    except Exception:
+    except Exception as e:
+        print(f"[Grader] Failed to process video HTML: {e}")
         return ""
 
 def load_test_suite(assignment_name):
