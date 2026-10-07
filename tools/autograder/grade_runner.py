@@ -11,6 +11,11 @@ import math
 import shutil
 import tempfile
 
+# Force headless environment for SDL/Pygame before any imports
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["SDL_AUDIODRIVER"] = "dummy"
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
+
 # 1. Path Resolution
 if os.path.exists("/autograder"):
     SUBMISSION_DIR = "/autograder/submission"
@@ -163,7 +168,7 @@ def get_video_html(video_path):
             opt_video = video_path + ".opt.mp4"
             try:
                 cmd = [
-                    ffmpeg_bin, "-y",
+                    ffmpeg_bin, "-y", "-nostdin",
                     "-i", video_path,
                     "-c:v", "libx264",
                     "-profile:v", "baseline",
@@ -184,7 +189,7 @@ def get_video_html(video_path):
                     except Exception: pass
                     
         size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        if size_mb > 25.0:  # Hard cap to prevent Gradescope web UI crash
+        if size_mb > 15.0:  # Hard cap to prevent Gradescope web UI crash
             return ""
             
         import base64
@@ -193,8 +198,8 @@ def get_video_html(video_path):
             
         return f'''<div style="margin: 15px 0;">
   <h4 style="margin-bottom: 8px; color: #fff;">🎬 Simulation Run Playback Video:</h4>
-  <video width="480" height="480" controls autoplay loop muted playsinline style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;">
-    <source src="data:video/mp4;base64,{b64_data}" type="video/mp4">
+  <video width="480" height="480" controls autoplay loop muted playsinline style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;" src="data:video/mp4;base64,{b64_data}">
+    <source src="data:video/mp4;base64,{b64_data}" type='video/mp4; codecs="avc1.42E01E"'>
     Your browser does not support the video tag.
   </video>
 </div>'''
@@ -469,8 +474,26 @@ def main():
 
     total_score = 0.0
     gradescope_tests = []
+    session_start_time = time.time()
+    MAX_SESSION_SECONDS = 240.0  # 4.0 minutes hard budget for whole autograder suite
     
     for idx, (run_name, weight, imb_val, slip_val, is_hidden) in enumerate(test_runs):
+        elapsed_total = time.time() - session_start_time
+        if elapsed_total > MAX_SESSION_SECONDS:
+            print(f"[Grader] Overall autograder time budget exceeded ({elapsed_total:.1f}s > {MAX_SESSION_SECONDS}s). Skipping {run_name}.")
+            max_test_points = round(weight * 60.0, 2)
+            run_visibility = "after_due_date" if is_hidden else "visible"
+            gradescope_tests.append({
+                "name": run_name,
+                "score": 0.0,
+                "max_score": max_test_points,
+                "status": "failed",
+                "output": f"<p>Evaluation timed out: overall autograder execution time budget reached ({elapsed_total:.1f}s).</p>",
+                "output_format": "html",
+                "visibility": run_visibility
+            })
+            continue
+
         print(f"\n[Grader] === Executing {run_name} (Weight: {weight*100:.0f}%, Imbalance: {imb_val}, Slip: {slip_val}) ===")
         
         def run_single_simulation(seed_val, is_video):
@@ -532,7 +555,7 @@ def main():
                                 break
                     except Exception:
                         pass
-                time.sleep(0.1)
+                time.sleep(0.05)
                 
             if not simulator_ready:
                 sim_proc.terminate()
@@ -591,17 +614,19 @@ def main():
                 }
                 
             time_limit = getattr(test_suite, "TIME_LIMIT", 45.0)
-            max_duration = time_limit + 10.0
+            # In fast-sim autograder mode, a 45s simulated run takes ~1s.
+            # Allow up to 25s wall-clock time per run to quickly catch hung loops.
+            max_duration = min(time_limit + 5.0, 25.0) if os.path.exists("/autograder") else (time_limit + 5.0)
             start_time = time.time()
             client_exited = False
             
             while time.time() - start_time < max_duration:
                 if not client_exited and client_proc.poll() is not None:
                     client_exited = True
-                    time.sleep(1.5)
+                    time.sleep(0.5)
                 if sim_proc.poll() is not None:
                     break
-                time.sleep(0.5)
+                time.sleep(0.2)
                 
             if client_proc.poll() is None:
                 client_proc.terminate()
@@ -669,21 +694,19 @@ def main():
         best_trial = trial
         retry_note = ""
         
-        # 2. Crash-Only Best-of-3 Stochastic Retry Policy:
-        # If and only if a collision/crash was detected on Trial 1, execute up to 2 additional seeded runs
-        if trial["crashed"]:
-            print(f"[Grader] Collision detected on initial run (Seed {base_seed}). Executing Crash-Only Best-of-3 Retry...")
-            retry_seeds = [base_seed + 100, base_seed + 200]
-            for r_idx, r_seed in enumerate(retry_seeds, start=2):
-                print(f"[Grader]   Executing Trial {r_idx} (Seed {r_seed})...")
-                rtrial = run_single_simulation(r_seed, is_video=False)
-                if rtrial["score"] > best_trial["score"]:
-                    best_trial = rtrial
-                    
+        # 2. Stochastic Crash-Resilience Retry (Test 1 Baseline Only):
+        # If and only if a collision/crash was detected on Test 1, execute 1 single additional retry
+        if idx == 0 and trial["crashed"]:
+            retry_seed = base_seed + 100
+            print(f"[Grader] Collision detected on Test 1 baseline run (Seed {base_seed}). Executing single stochastic retry (Seed {retry_seed})...")
+            rtrial = run_single_simulation(retry_seed, is_video=False)
+            if rtrial["score"] > best_trial["score"]:
+                best_trial = rtrial
+                
             if not best_trial["crashed"]:
-                retry_note = f"\n\n[Crash Resilience Note: Initial run with Seed {base_seed} suffered a collision. Executed 3 randomized trials under crash policy; awarding highest score achieved (Seed {best_trial['seed']}: {best_trial['score']:.1f}%)]"
+                retry_note = f"\n\n[Crash Resilience Note: Initial baseline run (Seed {base_seed}) suffered a collision. Executed retry under crash policy; awarding score achieved on Seed {best_trial['seed']}: {best_trial['score']:.1f}%]"
             else:
-                retry_note = f"\n\n[Crash Resilience Note: Executed 3 independent randomized noise trials (Seeds {base_seed}, {base_seed+100}, {base_seed+200}); awarding highest score ({best_trial['score']:.1f}%)]"
+                retry_note = f"\n\n[Crash Resilience Note: Executed independent randomized retry (Seed {retry_seed}); awarding highest score ({best_trial['score']:.1f}%)]"
 
         run_score = best_trial["score"]
         run_feedback = best_trial["feedback"] + retry_note

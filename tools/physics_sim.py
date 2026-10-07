@@ -8,6 +8,11 @@ import argparse
 import subprocess
 import shutil
 
+# Configure headless environment if requested or in CI/Docker without X11
+if "--headless" in sys.argv or os.environ.get("GRADESCOPE_AUTOGRADER") == "1" or (sys.platform.startswith("linux") and not os.environ.get("DISPLAY")):
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
+    os.environ["SDL_AUDIODRIVER"] = "dummy"
+
 # Silence Pygame's startup print in stdout
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
@@ -943,9 +948,11 @@ def main():
                 temp_h264 = args.video + ".web.mp4"
                 try:
                     cmd = [
-                        ffmpeg_bin, "-y",
+                        ffmpeg_bin, "-y", "-nostdin",
                         "-i", args.video,
                         "-c:v", "libx264",
+                        "-profile:v", "baseline",
+                        "-level", "3.0",
                         "-pix_fmt", "yuv420p",
                         "-crf", "24",
                         "-preset", "fast",
