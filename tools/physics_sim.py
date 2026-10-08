@@ -231,9 +231,9 @@ class PhysicsSimulator:
             if "motor" in config:
                 mc = config["motor"]
                 self.max_speed = mc.get("max_speed", self.max_speed)
-                self.tau = mc.get("tau", self.tau)
-                # Load independent dead_bands if specified, falling back to a shared 'dead_band' value
-                shared_db = mc.get("dead_band", 60.0)
+                self.tau = mc.get("tau", 0.045)
+                # Load independent dead_bands if specified, falling back to a shared 'dead_band' value (28.0% PWM nominal)
+                shared_db = mc.get("dead_band", 28.0)
                 self.dead_band_l = mc.get("dead_band_l", shared_db)
                 self.dead_band_r = mc.get("dead_band_r", shared_db)
                 # If command line arguments were default, use config values
