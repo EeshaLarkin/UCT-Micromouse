@@ -7,17 +7,15 @@ extern volatile bool mouse_initialized;
 extern void initMicroMouse(void);
 
 static mp_obj_t mpy_uct_mouse_init(void) {
-    if (mouse_initialized) {
-        return mp_obj_new_int(1);
-    }
-
     // Disable I2C interrupts in the NVIC to prevent conflicts with polling-mode C-Kernel reads
     HAL_NVIC_DisableIRQ(I2C1_EV_IRQn);
     HAL_NVIC_DisableIRQ(I2C1_ER_IRQn);
     HAL_NVIC_DisableIRQ(I2C2_EV_IRQn);
     HAL_NVIC_DisableIRQ(I2C2_ER_IRQn);
 
-    // 1. Force disable all DMA channels to prevent background memory corruption
+    // 1. Enable DMA clocks before accessing registers to prevent HardFault, then disable active channels
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
     DMA1_Channel1->CCR &= ~DMA_CCR_EN;
     DMA1_Channel2->CCR &= ~DMA_CCR_EN;
     DMA1_Channel3->CCR &= ~DMA_CCR_EN;
@@ -50,31 +48,70 @@ static mp_obj_t mpy_uct_mouse_init(void) {
     MX_I2C1_Init();
     MX_I2C2_Init();
 
-    // Re-initialize TIM3 (Motor PWM) and TIM4 (Encoders) alternate functions
-    extern TIM_HandleTypeDef htim3;
-    extern TIM_HandleTypeDef htim4;
-    HAL_TIM_PWM_DeInit(&htim3);
-    HAL_TIM_IC_DeInit(&htim4);
-    
-    extern void MX_TIM3_Init(void);
-    extern void MX_TIM4_Init(void);
-    MX_TIM3_Init();
-    MX_TIM4_Init();
-
-    // Enable GPIOD and GPIOC clocks to ensure motor enable and PWM control are active
-    __HAL_RCC_GPIOD_CLK_ENABLE();
+    // Enable GPIO clocks for motors, encoders, LEDs
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
 
-    // Explicitly re-initialize PD7 (MOTOR_EN) as a Push-Pull output
+    // Explicitly configure PD7 (MOTOR_EN) as a Push-Pull output, initial state LOW
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin = GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_RESET);
+
+    // Re-initialize TIM3 (Motor PWM)
+    extern TIM_HandleTypeDef htim3;
+    HAL_TIM_PWM_DeInit(&htim3);
+    extern void MX_TIM3_Init(void);
+    MX_TIM3_Init();
+
+    // Re-assert PC6, PC7, PC8, PC9 as AF2 (TIM3 PWM)
+    GPIO_InitTypeDef GPIO_InitStruct_TIM3 = {0};
+    GPIO_InitStruct_TIM3.Pin = GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9;
+    GPIO_InitStruct_TIM3.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct_TIM3.Pull = GPIO_NOPULL;
+    GPIO_InitStruct_TIM3.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct_TIM3.Alternate = GPIO_AF2_TIM3;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct_TIM3);
+
+    // Start all 4 TIM3 PWM channels
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
+
+    // Re-initialize TIM4 (Encoders)
+    extern TIM_HandleTypeDef htim4;
+    HAL_TIM_IC_DeInit(&htim4);
+    extern void MX_TIM4_Init(void);
+    MX_TIM4_Init();
+
+    // Re-assert PD12, PD13, PD14, PD15 as AF2 (TIM4 IC)
+    GPIO_InitTypeDef GPIO_InitStruct_TIM4 = {0};
+    GPIO_InitStruct_TIM4.Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+    GPIO_InitStruct_TIM4.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct_TIM4.Pull = GPIO_PULLUP;
+    GPIO_InitStruct_TIM4.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct_TIM4.Alternate = GPIO_AF2_TIM4;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct_TIM4);
+
+    // Enable TIM4 interrupts in NVIC and start input capture
+    HAL_NVIC_SetPriority(TIM4_IRQn, 14, 0);
+    HAL_NVIC_EnableIRQ(TIM4_IRQn);
+    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
+    HAL_TIM_IC_Start(&htim4, TIM_CHANNEL_2);
+    HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_3);
+    HAL_TIM_IC_Start(&htim4, TIM_CHANNEL_4);
 
     // Enable PB3 master LED gate
-    __HAL_RCC_GPIOB_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct_Led = {0};
     GPIO_InitStruct_Led.Pin = GPIO_PIN_3;
     GPIO_InitStruct_Led.Mode = GPIO_MODE_OUTPUT_PP;
@@ -84,13 +121,11 @@ static mp_obj_t mpy_uct_mouse_init(void) {
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 
     // Initialize PC13 (LED0)
-    __HAL_RCC_GPIOC_CLK_ENABLE();
     GPIO_InitStruct_Led.Pin = GPIO_PIN_13;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct_Led);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
     // Initialize PA4 (LED1) and PA5 (LED2) on 2026 boards
-    __HAL_RCC_GPIOA_CLK_ENABLE();
     GPIO_InitStruct_Led.Pin = GPIO_PIN_4 | GPIO_PIN_5;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct_Led);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4 | GPIO_PIN_5, GPIO_PIN_RESET);
@@ -186,6 +221,8 @@ static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_tof_detailed_obj, mpy_uct_mou
 
 // 4. uct_mouse.get_encoders() -> tuple (left, right)
 static mp_obj_t mpy_uct_mouse_get_encoders(void) {
+    extern void kernel_snapshot_state(void);
+    kernel_snapshot_state();
     const KernelState_t* state = kernel_get_state();
     mp_obj_t tuple[2] = {
         mp_obj_new_int(state->lenc),
@@ -197,6 +234,8 @@ static MP_DEFINE_CONST_FUN_OBJ_0(mpy_uct_mouse_get_encoders_obj, mpy_uct_mouse_g
 
 // 4b. uct_mouse.get_gyro() -> float
 static mp_obj_t mpy_uct_mouse_get_gyro(void) {
+    extern void kernel_snapshot_state(void);
+    kernel_snapshot_state();
     const KernelState_t* state = kernel_get_state();
     return mp_obj_new_float(state->gyro);
 }
@@ -457,6 +496,7 @@ static const mp_rom_map_elem_t uct_mouse_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_get_telemetry), MP_ROM_PTR(&mpy_uct_mouse_get_telemetry_obj) },
     { MP_ROM_QSTR(MP_QSTR_log_custom),   MP_ROM_PTR(&mpy_uct_mouse_log_custom_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_ticks_ms), MP_ROM_PTR(&mpy_uct_mouse_get_ticks_ms_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ticks_ms),     MP_ROM_PTR(&mpy_uct_mouse_get_ticks_ms_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_led),      MP_ROM_PTR(&mpy_uct_mouse_set_led_obj) },
     { MP_ROM_QSTR(MP_QSTR_get_button),   MP_ROM_PTR(&mpy_uct_mouse_get_button_obj) },
     { MP_ROM_QSTR(MP_QSTR_display_text), MP_ROM_PTR(&mpy_uct_mouse_display_text_obj) },

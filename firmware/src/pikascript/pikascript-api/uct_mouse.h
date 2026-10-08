@@ -17,7 +17,9 @@
 
 PikaObj *New_uct_mouse(Args *args);
 
+void uct_mouse_clear_display(PikaObj *self);
 void uct_mouse_delay_ms(PikaObj *self, int ms);
+void uct_mouse_display_text(PikaObj *self, int row, char* text);
 void uct_mouse_dump_logs(PikaObj *self);
 void uct_mouse_erase_flash(PikaObj *self);
 int uct_mouse_get_button(PikaObj *self);

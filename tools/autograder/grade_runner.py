@@ -143,14 +143,15 @@ def generate_trajectory_svg(trajectory_file):
     <polyline points="{ideal_poly}" fill="none" stroke="#666666" stroke-width="2" stroke-dasharray="5,5"/>
     <!-- Actual Mouse Trajectory -->
     <polyline points="{polyline}" fill="none" stroke="#00b4d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Start & End Markers -->
+    <!-- Start & Stop Markers -->
     <circle cx="{start_sx:.1f}" cy="{start_sy:.1f}" r="5" fill="#2ec4b6" stroke="#fff" stroke-width="1.5"/>
     <circle cx="{end_sx:.1f}" cy="{end_sy:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
-    <text x="{start_sx+8:.1f}" y="{start_sy+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start ({traj[0][0]:.2f}, {traj[0][1]:.2f})</text>
-    <text x="{end_sx+8:.1f}" y="{end_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">End ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
+    <text x="{start_sx+8:.1f}" y="{start_sy+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start Origin ({traj[0][0]:.2f}, {traj[0][1]:.2f})</text>
+    <text x="{end_sx+8:.1f}" y="{end_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">Stop ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
     <!-- Legend -->
-    <text x="45" y="30" fill="#888888" font-size="10" font-family="sans-serif">--- Ideal Square (1m × 1m, {dir_label})</text>
-    <text x="45" y="45" fill="#00b4d8" font-size="10" font-family="sans-serif">── Actual Trajectory</text>
+    <text x="45" y="25" fill="#888888" font-size="10" font-family="sans-serif">--- Ideal Square (1m × 1m, {dir_label})</text>
+    <text x="45" y="38" fill="#00b4d8" font-size="10" font-family="sans-serif">── Actual Trajectory</text>
+    <text x="45" y="51" fill="#aaaaaa" font-size="9" font-family="sans-serif">Note: Parking is scored at square completion; extra forward rollout is not penalized.</text>
   </svg>
 </div>'''
         return svg
@@ -161,8 +162,9 @@ def get_video_html(video_path):
     if not video_path or not os.path.exists(video_path):
         return ""
     try:
-        # Always transcode using ffmpeg to guarantee web-standard H.264 Baseline Profile (YUV420p + faststart)
-        # to ensure compatibility across all browsers (Firefox, Chrome, Safari, Edge)
+        # Transcode using ffmpeg to standard H.264 Baseline Profile (YUV420p + faststart)
+        # Scaled to 400x400 @ 15fps with CRF 30 to produce lightweight ~100-150KB payload
+        # compatible across all browsers (Firefox, Chrome, Safari, Edge) without JSON truncation.
         ffmpeg_bin = shutil.which("ffmpeg")
         if ffmpeg_bin:
             opt_video = video_path + ".opt.mp4"
@@ -170,12 +172,14 @@ def get_video_html(video_path):
                 cmd = [
                     ffmpeg_bin, "-y", "-nostdin",
                     "-i", video_path,
+                    "-vf", "scale=400:400",
+                    "-r", "15",
                     "-c:v", "libx264",
                     "-profile:v", "baseline",
                     "-level", "3.0",
                     "-pix_fmt", "yuv420p",
-                    "-crf", "26",
-                    "-preset", "fast",
+                    "-crf", "30",
+                    "-preset", "faster",
                     "-movflags", "+faststart",
                     opt_video
                 ]
@@ -189,7 +193,7 @@ def get_video_html(video_path):
                     except Exception: pass
                     
         size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        if size_mb > 15.0:  # Hard cap to prevent Gradescope web UI crash
+        if size_mb > 5.0:  # Cap to prevent Gradescope web UI issues
             return ""
             
         import base64
@@ -198,8 +202,8 @@ def get_video_html(video_path):
             
         return f'''<div style="margin: 15px 0;">
   <h4 style="margin-bottom: 8px; color: #fff;">🎬 Simulation Run Playback Video:</h4>
-  <video width="480" height="480" controls autoplay loop muted playsinline style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;" src="data:video/mp4;base64,{b64_data}">
-    <source src="data:video/mp4;base64,{b64_data}" type='video/mp4; codecs="avc1.42E01E"'>
+  <video width="480" height="480" controls autoplay loop muted playsinline style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;">
+    <source src="data:video/mp4;base64,{b64_data}" type="video/mp4">
     Your browser does not support the video tag.
   </video>
 </div>'''
@@ -671,7 +675,10 @@ def main():
                     with open(TRAJECTORY_JSON, "r") as f:
                         tdata = json.load(f)
                         is_crashed = tdata.get("crashed", False)
-                    raw_score, run_feedback = test_suite.evaluate_run(TRAJECTORY_JSON)
+                    try:
+                        raw_score, run_feedback = test_suite.evaluate_run(TRAJECTORY_JSON, is_hidden=is_hidden)
+                    except TypeError:
+                        raw_score, run_feedback = test_suite.evaluate_run(TRAJECTORY_JSON)
                     run_score = raw_score
                 except Exception as e:
                     run_feedback = f"System Error: Failed to evaluate simulation results: {e}"

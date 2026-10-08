@@ -13,11 +13,12 @@ void board_start_soft_reset(void) {
     __HAL_RCC_DMA1_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
     
-    // Stop all motor PWM actuation immediately if initialized
-    if (mouse_initialized) {
-        TIM3->CCR3 = 0;
-        TIM3->CCR4 = 0;
-    }
+    // Stop all motor PWM actuation immediately and disable motor driver
+    TIM3->CCR1 = 0;
+    TIM3->CCR2 = 0;
+    TIM3->CCR3 = 0;
+    TIM3->CCR4 = 0;
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_7, GPIO_PIN_RESET);
     
     // Force disable all DMA channels to prevent background transfers during reboot transition
     DMA1_Channel1->CCR &= ~DMA_CCR_EN;

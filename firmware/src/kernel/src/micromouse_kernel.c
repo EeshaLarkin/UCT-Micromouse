@@ -105,8 +105,6 @@ void kernel_set_pwm(int16_t left_pwm, int16_t right_pwm) {
     int16_t actual_l = left_pwm * polarity_l;
     int16_t actual_r = right_pwm * polarity_r;
 
-    printf("ACTUATE: L=%d (act=%d), R=%d (act=%d)\r\n", left_pwm, actual_l, right_pwm, actual_r);
-
     current_state.left_pwm = left_pwm;   // Report the original INTENT back to telemetry
     current_state.right_pwm = right_pwm; 
     

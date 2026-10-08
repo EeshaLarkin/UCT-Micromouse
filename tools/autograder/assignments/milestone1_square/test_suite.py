@@ -16,15 +16,21 @@ MAP = "empty"
 TIME_LIMIT = 45.0
 SEED = 42
 
-# Original 3-Test Evaluation Suite (8% Baseline, 16% Hidden Disturbances -> 75% class average)
+# Calibrated 6-Test Evaluation Suite (25% Public Baseline, 5x15% Hidden Stress Tests)
+# Public Test 1 carries 25% weight (15.0/60 pts) and uses original baseline rubric (~87% avg).
+# Hidden Tests 2-6 carry 15% weight each (9.0/60 pts each) with continuous linear deductions.
+# All physical parameters realistically bounded: Imbalance <= 12%, Slip <= 12%
 # format: (name, weight, imbalance, slip, is_hidden)
 TEST_RUNS = [
-    ("Test 1: Public Baseline Run", 0.40, 0.08, 0.08, False),
-    ("Test 2: Hidden Asymmetry Stress-Test", 0.30, 0.16, 0.04, True),
-    ("Test 3: Hidden Starting/Turning Slip Run", 0.30, 0.04, 0.16, True)
+    ("Test 1: Public Baseline Run", 0.25, 0.05, 0.03, False),
+    ("Test 2: Hidden Positive Imbalance (+12%)", 0.15, 0.12, 0.06, True),
+    ("Test 3: Hidden Negative Imbalance (-12%)", 0.15, -0.12, 0.06, True),
+    ("Test 4: Hidden Traction Slip & Spin (12% Slip)", 0.15, 0.06, 0.12, True),
+    ("Test 5: Hidden Turn Settling & Dynamic Skid", 0.15, -0.12, 0.10, True),
+    ("Test 6: Hidden Compound Perturbation", 0.15, 0.12, 0.12, True)
 ]
 
-def evaluate_run(trajectory_file):
+def evaluate_run(trajectory_file, is_hidden=False):
     try:
         with open(trajectory_file, "r") as f:
             data = json.load(f)
@@ -72,56 +78,48 @@ def evaluate_run(trajectory_file):
         raw_th = raw_thetas[idx]
         
         if current_state == 0:
-            # Leg 1: Target heading 0.0 (East)
             if th < math.radians(15.0):
                 legs_points[0].append((tx, ty, raw_th))
             else:
                 current_state = 1
                 turns_points[0].append((tx, ty, raw_th))
         elif current_state == 1:
-            # Turn 1: Transitioning East -> North (pi/2)
             if th < math.radians(75.0):
                 turns_points[0].append((tx, ty, raw_th))
             else:
                 current_state = 2
                 legs_points[1].append((tx, ty, raw_th))
         elif current_state == 2:
-            # Leg 2: Target heading pi/2 (North)
             if th < math.radians(105.0):
                 legs_points[1].append((tx, ty, raw_th))
             else:
                 current_state = 3
                 turns_points[1].append((tx, ty, raw_th))
         elif current_state == 3:
-            # Turn 2: Transitioning North -> West (pi)
             if th < math.radians(165.0):
                 turns_points[1].append((tx, ty, raw_th))
             else:
                 current_state = 4
                 legs_points[2].append((tx, ty, raw_th))
         elif current_state == 4:
-            # Leg 3: Target heading pi (West)
             if th < math.radians(195.0):
                 legs_points[2].append((tx, ty, raw_th))
             else:
                 current_state = 5
                 turns_points[2].append((tx, ty, raw_th))
         elif current_state == 5:
-            # Turn 3: Transitioning West -> South (3pi/2 or -pi/2)
             if th < math.radians(255.0):
                 turns_points[2].append((tx, ty, raw_th))
             else:
                 current_state = 6
                 legs_points[3].append((tx, ty, raw_th))
         elif current_state == 6:
-            # Leg 4: Target heading South
             if th < math.radians(285.0):
                 legs_points[3].append((tx, ty, raw_th))
             else:
                 current_state = 7
                 turns_points[3].append((tx, ty, raw_th))
         elif current_state == 7:
-            # Turn 4: Transitioning South -> East (Finish at origin)
             if th < math.radians(345.0):
                 turns_points[3].append((tx, ty, raw_th))
             else:
@@ -130,8 +128,6 @@ def evaluate_run(trajectory_file):
         elif current_state == 8:
             turn4_end_heading = raw_th
 
-    # If the run ended during Turn 4 or after stopping without moving forward along a 5th leg,
-    # capture the final heading from the last trajectory point.
     if turn4_end_heading is None and len(trajectory) > 0:
         if current_state >= 7 or len(turns_points[3]) > 0:
             turn4_end_heading = raw_thetas[-1]
@@ -146,17 +142,19 @@ def evaluate_run(trajectory_file):
             leg_scores.append(0.0)
             continue
             
-        # Calculate length (Euclidean distance between start and end of leg)
         leg_len = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
         len_error = abs(leg_len - 1.0)
         
-        # Score length (out of 3.75 points): full score if error <= 5cm, scales to 0 at 25cm
-        if len_error <= 0.05:
-            len_score = 3.75
+        if not is_hidden:
+            # Public Baseline Run (original submission rubric): full score if error <= 5cm, scales to 0 at 25cm
+            if len_error <= 0.05:
+                len_score = 3.75
+            else:
+                len_score = max(0.0, 3.75 - (len_error - 0.05) / 0.20 * 3.75)
         else:
-            len_score = max(0.0, 3.75 - (len_error - 0.05) / 0.20 * 3.75)
+            # Hidden Stress Tests: continuous linear taper from 0cm down to 0 at 15cm
+            len_score = max(0.0, 3.75 * (1.0 - len_error / 0.15))
             
-        # Calculate straightness (maximum lateral deviation from ideal straight line vector)
         x0, y0 = pts[0][0], pts[0][1]
         x1, y1 = pts[-1][0], pts[-1][1]
         line_len = math.hypot(x1 - x0, y1 - y0)
@@ -165,21 +163,23 @@ def evaluate_run(trajectory_file):
         if line_len > 1e-3:
             for pt in pts:
                 px, py = pt[0], pt[1]
-                # Perpendicular distance from point (px, py) to line segment (x0,y0)-(x1,y1)
                 dev = abs((y1 - y0) * px - (x1 - x0) * py + x1 * y0 - y1 * x0) / line_len
                 max_dev = max(max_dev, dev)
                 
-        # Score straightness (out of 3.75 points): full score if max deviation <= 2cm, scales to 0 at 15cm
-        if max_dev <= 0.02:
-            straight_score = 3.75
+        if not is_hidden:
+            # Public Baseline Run: full score if max dev <= 2cm, scales to 0 at 15cm
+            if max_dev <= 0.02:
+                straight_score = 3.75
+            else:
+                straight_score = max(0.0, 3.75 - (max_dev - 0.02) / 0.13 * 3.75)
         else:
-            straight_score = max(0.0, 3.75 - (max_dev - 0.02) / 0.13 * 3.75)
+            # Hidden Stress Tests: continuous linear taper from 0cm down to 0 at 10cm
+            straight_score = max(0.0, 3.75 * (1.0 - max_dev / 0.10))
             
         leg_score = len_score + straight_score
         leg_scores.append(leg_score)
         feedback.append(f"  Leg {i+1} ({['East', 'North', 'West', 'South'][i]}): Length={leg_len:.2f}m (err={len_error*100:.1f}cm), Max Dev={max_dev*100:.1f}cm -> Score {leg_score:.2f}/7.50")
 
-    # Calculate representative straight heading for each of the 4 legs (circular mean)
     target_headings = [0.0, math.pi / 2.0, math.pi, -math.pi / 2.0]
     def circular_mean(thetas):
         sin_sum = sum(math.sin(th) for th in thetas)
@@ -211,7 +211,6 @@ def evaluate_run(trajectory_file):
                 continue
             h_end = leg_headings[i + 1]
         else:
-            # Corner 4: Turn from Leg 4 to the final completed heading at the origin
             if turn4_end_heading is not None:
                 h_end = turn4_end_heading
             elif turns_points[3]:
@@ -225,30 +224,50 @@ def evaluate_run(trajectory_file):
                 continue
         
         turn_angle = (h_end - h_start + math.pi) % (2.0 * math.pi) - math.pi
-        # Wrap CCW angle to positive degrees
         turn_deg = abs(math.degrees(turn_angle))
-        
-        # Error from ideal 90 degree turn
         turn_error = abs(turn_deg - 90.0)
         
-        # Score (out of 7.5 points): full score if error <= 3 degrees, scales to 0 at 15 degrees
-        if turn_error <= 3.0:
-            t_score = 7.5
+        if not is_hidden:
+            # Public Baseline Run: full score if error <= 3 deg, scales to 0 at 15 deg
+            if turn_error <= 3.0:
+                t_score = 7.5
+            else:
+                t_score = max(0.0, 7.5 - (turn_error - 3.0) / 12.0 * 7.5)
         else:
-            t_score = max(0.0, 7.5 - (turn_error - 3.0) / 12.0 * 7.5)
+            # Hidden Stress Tests: continuous linear taper from 0 deg down to 0 at 12 deg
+            t_score = max(0.0, 7.50 * (1.0 - turn_error / 12.0))
             
         turn_scores.append(t_score)
         feedback.append(f"  Corner {i+1} ({['E->N', 'N->W', 'W->S', 'S->E'][i]}): Turn Angle={turn_deg:.1f}° (err={turn_error:.1f}°) -> Score {t_score:.2f}/7.50")
 
     # Return & Parking accuracy (20 points)
     feedback.append("\n--- Return & Parking Accuracy ---")
-    d_e = math.hypot(final_x - start_x, final_y - start_y)
-    # Full points if final distance to start is <= 3cm, scales to 0 at 25cm
-    if d_e <= 0.03:
-        parking_score = 20.0
+    candidate_points = []
+    if len(legs_points[3]) > 0:
+        candidate_points.extend(legs_points[3][max(0, len(legs_points[3]) - 5):])
+    if len(turns_points[3]) > 0:
+        candidate_points.extend(turns_points[3])
+    if len(trajectory) > 0:
+        candidate_points.append(trajectory[-1])
+        
+    if candidate_points:
+        d_e = min(math.hypot(p[0] - start_x, p[1] - start_y) for p in candidate_points)
     else:
-        parking_score = max(0.0, 20.0 - (d_e - 0.03) / 0.22 * 20.0)
-    feedback.append(f"  Final Position Offset: {d_e*100:.1f} cm -> Parking Score {parking_score:.2f}/20.0")
+        d_e = math.hypot(final_x - start_x, final_y - start_y)
+
+    if not is_hidden:
+        # Public Baseline Run: full score if error <= 3cm, scales to 0 at 25cm
+        if d_e <= 0.03:
+            parking_score = 20.0
+        else:
+            parking_score = max(0.0, 20.0 - (d_e - 0.03) / 0.22 * 20.0)
+    else:
+        # Hidden Stress Tests: continuous linear taper from 0cm down to 0 at 15cm
+        parking_score = max(0.0, 20.0 * (1.0 - d_e / 0.15))
+        
+    feedback.append(f"  Return Offset (at Square Completion): {d_e*100:.1f} cm -> Parking Score {parking_score:.2f}/20.0")
+    if math.hypot(final_x - start_x, final_y - start_y) > d_e + 0.02:
+        feedback.append("  [Info] Extra forward rollout / 5th mini-leg beyond origin incurs 0 penalty.")
 
     # Efficiency & Safety (20 points total - 10 pts speed, 10 pts safety)
     feedback.append("\n--- Efficiency & Safety ---")

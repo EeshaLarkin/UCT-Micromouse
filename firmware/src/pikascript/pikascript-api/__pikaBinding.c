@@ -3946,6 +3946,14 @@ Arg *builtins_object(PikaObj *self){
 #endif
 
 #ifndef PIKA_MODULE_UCT_MOUSE_DISABLE
+void uct_mouse_clear_displayMethod(PikaObj *self, Args *_args_){
+    uct_mouse_clear_display(self);
+}
+method_typedef(
+    uct_mouse_clear_display,
+    "clear_display", ""
+);
+
 void uct_mouse_delay_msMethod(PikaObj *self, Args *_args_){
     int ms = args_getInt(_args_, "ms");
     uct_mouse_delay_ms(self, ms);
@@ -3953,6 +3961,16 @@ void uct_mouse_delay_msMethod(PikaObj *self, Args *_args_){
 method_typedef(
     uct_mouse_delay_ms,
     "delay_ms", "ms"
+);
+
+void uct_mouse_display_textMethod(PikaObj *self, Args *_args_){
+    int row = args_getInt(_args_, "row");
+    char* text = args_getStr(_args_, "text");
+    uct_mouse_display_text(self, row, text);
+}
+method_typedef(
+    uct_mouse_display_text,
+    "display_text", "row,text"
 );
 
 void uct_mouse_dump_logsMethod(PikaObj *self, Args *_args_){
@@ -4094,6 +4112,7 @@ method_typedef(
 
 class_def(uct_mouse){
     __BEFORE_MOETHOD_DEF
+    method_def(uct_mouse_clear_display, 98689857),
     method_def(uct_mouse_set_led, 204143333),
     method_def(uct_mouse_get_line_sensors, 528952248),
     method_def(uct_mouse_set_motors, 546510804),
@@ -4105,6 +4124,7 @@ class_def(uct_mouse){
     method_def(uct_mouse_set_encoder_polarity, 1409631171),
     method_def(uct_mouse_get_button, 1457009472),
     method_def(uct_mouse_erase_flash, 1580339650),
+    method_def(uct_mouse_display_text, 1773777375),
     method_def(uct_mouse_get_encoders, 1872202775),
     method_def(uct_mouse_get_tof, 1886405933),
     method_def(uct_mouse_log_custom, 2061909953),

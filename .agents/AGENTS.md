@@ -8,6 +8,9 @@ This document outlines the architecture of the UCT Micromouse project, a platfor
 * **Role:** Course Convenor (2026 Academic Year Rollout).
 * **Distribution Paradigm:** Native MATLAB Project Toolbox Add-On deployment.
 * **Core Philosophy:** Software paradigm selection serves as an explicit design challenge for ECSA GA 3 / GA 5 compliance tracking.
+* **Host Python Execution Rule:**
+  * **Primary Interpreter:** Always execute Python commands and tools using `/opt/local/bin/python` (invoked simply as `python` in the user's zsh shell, Python 3.13). This interpreter contains all required simulation and grading dependencies (`pygame`, `numpy`, `scipy`, `pyserial`, `pytest`, etc.).
+  * **Do NOT use unconfigured `python3`:** On this host, `python3` points to `/opt/homebrew/bin/python3` (Python 3.14), which lacks the simulation libraries and will fail with `Missing required Python libraries`.
 
 ---
 
@@ -99,11 +102,16 @@ The system is strictly divided into three distinct layers to preserve the kernel
 * **Simulation Double-Stepping Bug (Resolved):** In earlier iterations, calling both `uct_mouse.set_motors()` and `uct_mouse.delay_ms()` within the same loop advanced the physics simulator time step twice per loop.
   * **Impact:** The mouse travelled or turned roughly twice the expected distance (e.g., turning 180 degrees instead of 90) because the simulation accumulated two ticks (0.1s total) per logic cycle instead of one (0.05s).
   * **Fix:** `set_motors` has been restructured in standard templates. Student control loops should call `set_motors` appropriately so time advancement is tightly coupled and predictable.
-* **Fast Simulation Mode Configuration Interface:** To support reinforcement learning (RL) or rapid offline batch testing, the simulator can run in high-speed offline mode where standard wall-clock delays are bypassed. The state `_is_fast_sim_active` in `uct_mouse.py` is resolved dynamically in this order:
-  * **Programmatic Code Override:** Call `uct_mouse.set_fast_sim(True/False)` or initialize via `uct_mouse.init(fast_sim=True/False)`.
-  * **Configuration File:** Add `"fast_sim": true` or `"fast_sim": false` in `sim_config.json`.
-  * **Environment Variables:** Set `GRADESCOPE_AUTOGRADER=1`, `UCT_MICROMOUSE_FAST_SIM=1`, or `UCT_OFFLINE_MODE=1`.
-  * When enabled, `time.sleep` calls are dynamically intercepted via frame-stack analysis (`sys._getframe()`) and redirected to virtual simulator steps.
+* **Fast Simulation Mode & `get_ticks_ms()` Parity (Hardware vs Virtual Time):** To support reinforcement learning (RL), autograding, or rapid offline batch testing, the simulator can run in high-speed offline mode where standard wall-clock delays are bypassed while preserving deterministic virtual time tracking:
+  * **Unified API:** Both `uct_mouse.get_ticks_ms()` and `uct_mouse.ticks_ms()` (as well as `time.ticks_ms()`, `time.ticks_diff()`, `time.ticks_add()`, `time.sleep_ms()`) are supported identically across all three deployment modes:
+    * **Physical Hardware:** Returns the true MCU millisecond SysTick counter via `HAL_GetTick()`.
+    * **Desktop Real-Time Simulation:** Returns virtual elapsed time (`_virtual_time_ms`) paced at 100 Hz against real wall-clock time.
+    * **Fast Simulation Mode (`fast_sim=True`):** Advances virtual time (`_virtual_time_ms`) instantaneously inside `delay_ms()` / `time.sleep()` / `sleep_ms()` calls by the exact stepped physics duration without sleeping, allowing `(t_now - t_prev)` integration loops to execute at thousands of frames per second with mathematical equivalence.
+  * **Fast Simulation Activation Priority:** Resolved dynamically in this order:
+    1. **Programmatic Code Override:** Call `uct_mouse.set_fast_sim(True/False)` or initialize via `uct_mouse.init(fast_sim=True/False)`.
+    2. **Configuration File:** Add `"fast_sim": true` or `"fast_sim": false` in `sim_config.json`.
+    3. **Environment Variables:** Set `GRADESCOPE_AUTOGRADER=1`, `UCT_MICROMOUSE_FAST_SIM=1`, or `UCT_OFFLINE_MODE=1`.
+    * When active, standard `time.sleep` calls are dynamically intercepted via frame-stack analysis (`sys._getframe()`) and redirected to virtual simulator steps.
 * **MicroPython Read-During-Write Flash Corruption (Factory Reset):** When the MicroPython internal FAT filesystem is formatted on first boot, `factory_reset_make_files` writes default files (`boot.py`, `main.py`, `README.txt`) to Flash.
   * **Impact:** Writing these files by reading directly from C string literals (which also reside in Flash) violates the STM32 single-bank Flash read-during-write hardware constraint. The AHB bus returns corrupted binary garbage, leading to a parser crash: `RuntimeError: name too long`.
   * **Fix:** Buffer default file strings into a temporary stack RAM array (`ram_buf`) before calling `f_write()`. Reading from RAM during Flash programming cycles prevents bank access collisions.
@@ -157,10 +165,15 @@ The system is strictly divided into three distinct layers to preserve the kernel
   1. An inline HTML5 `<video controls>` tag streaming base64-encoded MP4 playback of Test 1 directly into the student's submission panel.
   2. An interactive 2D vector trajectory map (SVG) rendering the ideal $1.0\text{m} \times 1.0\text{m}$ reference square against the student's actual path with start $(0,0)$ and end coordinates.
 * **Autograder Non-Interactive Docker Build Configuration (`setup.sh`):** Headless Gradescope Docker builds require `export DEBIAN_FRONTEND=noninteractive` and `export TZ=Etc/UTC` alongside `apt-get install -y --no-install-recommends` in `tools/autograder/setup.sh`. Omitting these causes packages like `ffmpeg` and `tzdata` to halt on interactive keyboard timezone selection prompts, hanging the Gradescope Docker image build for hours.
-* **Milestone 1 Physical Perturbations & Turn 4 Motor Deadband Trap:** The autograder evaluates controllers across 3 test runs with pseudo-random perturbations (Seeds 42, 43, 44) including motor gain imbalances (up to 13%), wheel slip (up to 10%), static friction deadbands ($55\text{--}65\text{ PWM}$), and gyro bias offsets. Two common bugs cause students to score $0/7.5$ on Corner 4 (`Turn Angle=3.4°`, `error 86.6°`) despite printing "Turn complete":
-
-  1. **Sub-Deadband Turning PWM:** If in-place turning PWM is below the simulated static friction deadband, wheels stall on the floor while software timeouts or open-loop loops exit, falsely declaring the turn complete.
-  2. **Stationary Auto-Complete Trigger:** Pausing for $\ge 3.0\text{s}$ at the end of Leg 4 before triggering Turn 4 activates the simulator's 3-second stationary auto-complete, closing the socket before Turn 4 executes.
+* **Motor PWM Prescaler for 1S Battery Operation (250 Hz Carrier):** Running the motor timer (`TIM3`) at high PWM carrier frequencies (e.g. 20 kHz, `PSC = 3`) chokes small coreless DC motors on a 1S LiPo battery (~3.7–4.0 V) due to high inductive reactance ($X_L = 2\pi f L$). At 20 kHz, the coils never reach sufficient current during short pulses, requiring ~60–65% duty cycle before overcoming static friction.
+  * **Resolution:** Configure `TIM3` with `PSC = 319` and `ARR = 999` in `MicroMouse_main.c` ($80\text{ MHz} / (320 \times 1000) = 250\text{ Hz}$). The lower carrier frequency lets drive current saturate the windings, dropping the physical starting deadband to ~25–28% PWM and delivering smooth, high-torque low-speed driving.
+* **Physical Encoder Resolution vs Simulator Calibration:** The physical 2025/2026 chassis with standard rubber wheels measures $\approx \mathbf{4,400\text{ ticks/m}}$ (compared to the simulator's theoretical $5,730\text{ ticks/m}$ based on $R = 0.0325\text{ m}$). Sending $5,730\text{ ticks}$ on physical hardware drives $\approx 1.30\text{ m}$. Student controllers targeting physical hardware should calibrate `TICKS_PER_M = 4400`.
+* **Turn Deceleration Profile & Active Reverse-Torque Braking:** Cutting motor power (`0, 0`) at the moment a high-speed in-place turn reaches $90^\circ$ causes rotational momentum to coast an unbraked $15^\circ\text{--}30^\circ$ across low-friction surfaces.
+  * **Fix:** Ramp down turning speed proportionally within the final $25^\circ\text{--}35^\circ$ of the target (`GYRO_DECEL_DEG = 35.0`), crawling into $90^\circ$ at $\le 25^\circ/\text{s}$, and fire a **$30\text{ ms}$ active reverse-torque counter-pulse** (`BRAKE_PULSE_PWM`) the instant $90.0^\circ$ is crossed to clamp motor back-EMF and stop on a dime.
+* **Straight-Line Gyro PD Heading Stabilization & Oscillation Damping:** Pure proportional control on both encoder imbalance `(dl - dr)` and gyro heading drift creates an underdamped harmonic oscillator where the two feedback terms fight each other, causing fishtailing and aggressive motor over-actuation.
+  * **Fix:** Use gyro heading as the primary orientation authority with derivative angular rate damping:
+    $$\text{steer} = (K_{p,\text{heading}} \cdot \text{drift}) + (K_{d,\text{gyro}} \cdot \omega_z)$$
+    with $K_{p} \approx 0.45, K_{d} \approx 0.035$, and clamp maximum differential steering authority to $\pm 12.0\text{ PWM}$.
 
 ---
 

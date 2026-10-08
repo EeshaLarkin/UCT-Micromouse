@@ -950,12 +950,14 @@ def main():
                     cmd = [
                         ffmpeg_bin, "-y", "-nostdin",
                         "-i", args.video,
+                        "-vf", "scale=400:400",
+                        "-r", "15",
                         "-c:v", "libx264",
                         "-profile:v", "baseline",
                         "-level", "3.0",
                         "-pix_fmt", "yuv420p",
-                        "-crf", "24",
-                        "-preset", "fast",
+                        "-crf", "30",
+                        "-preset", "faster",
                         "-movflags", "+faststart",
                         temp_h264
                     ]
