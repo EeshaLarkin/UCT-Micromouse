@@ -688,31 +688,15 @@ def main():
                 "seed": seed_val
             }
 
-        # 1. Execute primary trial
+        # Execute simulation trial
         base_seed = getattr(test_suite, "SEED", 42) + idx
         trial = run_single_simulation(base_seed, is_video=(idx == 0))
-        best_trial = trial
-        retry_note = ""
         
-        # 2. Stochastic Crash-Resilience Retry (Test 1 Baseline Only):
-        # If and only if a collision/crash was detected on Test 1, execute 1 single additional retry
-        if idx == 0 and trial["crashed"]:
-            retry_seed = base_seed + 100
-            print(f"[Grader] Collision detected on Test 1 baseline run (Seed {base_seed}). Executing single stochastic retry (Seed {retry_seed})...")
-            rtrial = run_single_simulation(retry_seed, is_video=False)
-            if rtrial["score"] > best_trial["score"]:
-                best_trial = rtrial
-                
-            if not best_trial["crashed"]:
-                retry_note = f"\n\n[Crash Resilience Note: Initial baseline run (Seed {base_seed}) suffered a collision. Executed retry under crash policy; awarding score achieved on Seed {best_trial['seed']}: {best_trial['score']:.1f}%]"
-            else:
-                retry_note = f"\n\n[Crash Resilience Note: Executed independent randomized retry (Seed {retry_seed}); awarding highest score ({best_trial['score']:.1f}%)]"
-
-        run_score = best_trial["score"]
-        run_feedback = best_trial["feedback"] + retry_note
-        client_stdout = best_trial["stdout"]
-        client_stderr = best_trial["stderr"]
-        sim_stdout = best_trial["simout"]
+        run_score = trial["score"]
+        run_feedback = trial["feedback"]
+        client_stdout = trial["stdout"]
+        client_stderr = trial["stderr"]
+        sim_stdout = trial["simout"]
         
         max_test_points = round(weight * 60.0, 2)
         test_points = round((run_score / 100.0) * max_test_points, 2)
