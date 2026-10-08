@@ -2,9 +2,9 @@
   "robot": {
     "mass": 0.238,
     "axle_half_length": 0.054,
-    "wheel_radius": 0.0325,
+    "wheel_radius": 0.017,
     "collision_radius": 0.070,
-    "ticks_per_rot": 1170.0,
+    "ticks_per_rot": 470.0,
     "total_width": 0.122
   },
   "motor": {
@@ -12,9 +12,9 @@
     "tau": 0.088,
     "imbalance": 0.08,
     "slip": 0.08,
-    "dead_band_l": 58.0,
-    "dead_band_r": 62.0,
-    "perturb_dead_band_std": 3.0,
+    "dead_band_l": 28.0,
+    "dead_band_r": 28.0,
+    "perturb_dead_band_std": 2.0,
     "perturb_imbalance_std": 0.02,
     "perturb_slip_std": 0.015
   },

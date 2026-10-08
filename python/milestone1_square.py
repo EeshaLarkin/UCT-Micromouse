@@ -20,7 +20,9 @@
 import uct_mouse
 import math
 
-TICK_DIST_M = (2.0 * math.pi * 0.031) / 8.0
+# Physical wheel calibration: 34mm diameter wheel (R = 0.017m), 470 ticks/rot -> ~4400 ticks/m
+TICKS_PER_M = 4400
+TICK_DIST_M = 1.0 / TICKS_PER_M
 
 def drive_straight(distance_m):
     """

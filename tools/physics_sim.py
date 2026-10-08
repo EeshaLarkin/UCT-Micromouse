@@ -186,19 +186,19 @@ class PhysicsSimulator:
         self.headless = headless
         self.seed = seed
         
-        # Defaults (matching simstruct)
-        self.L = 0.060  # axle half-length (m)
-        self.R = 0.031  # wheel radius (m)
-        self.collision_radius = 0.058
-        self.ticks_per_rot = 8.0
-        self.total_width = 0.143
+        # Defaults (matching physical hardware chassis)
+        self.L = 0.054  # axle half-length (m)
+        self.R = 0.017  # wheel radius (m) — 34mm wheel diameter
+        self.collision_radius = 0.070
+        self.ticks_per_rot = 470.0 # 4400 ticks/m
+        self.total_width = 0.122
         
         self.max_speed = 0.40
         self.tau = 0.088
         self.imbalance = imbalance
         self.slip_coeff = slip
-        self.dead_band_l = 60.0  # Default dead-band left motor
-        self.dead_band_r = 60.0  # Default dead-band right motor
+        self.dead_band_l = 28.0  # Default dead-band left motor (250Hz PWM on 1S battery)
+        self.dead_band_r = 28.0  # Default dead-band right motor (250Hz PWM on 1S battery)
         
         # Initialize default IMU variables
         self.gyro_bias = 0.0
