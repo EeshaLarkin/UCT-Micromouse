@@ -16,12 +16,12 @@ MAP = "empty"
 TIME_LIMIT = 45.0
 SEED = 42
 
-# Original 3-Test Evaluation Suite (Preserves historical 75% class average)
+# Original 3-Test Evaluation Suite (8% Baseline, 16% Hidden Disturbances -> 75% class average)
 # format: (name, weight, imbalance, slip, is_hidden)
 TEST_RUNS = [
-    ("Test 1: Public Baseline Run", 0.40, 0.05, 0.04, False),
-    ("Test 2: Hidden Asymmetry Stress-Test", 0.30, 0.12, 0.02, True),
-    ("Test 3: Hidden Starting/Turning Slip Run", 0.30, 0.04, 0.10, True)
+    ("Test 1: Public Baseline Run", 0.40, 0.08, 0.08, False),
+    ("Test 2: Hidden Asymmetry Stress-Test", 0.30, 0.16, 0.04, True),
+    ("Test 3: Hidden Starting/Turning Slip Run", 0.30, 0.04, 0.16, True)
 ]
 
 def evaluate_run(trajectory_file):
