@@ -132,8 +132,11 @@ def generate_trajectory_svg(trajectory_file):
         
         dir_label = "CCW (Left)" if dir_sign > 0 else "CW (Right)"
         
+        path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
+        anim_dur = max(6.0, min(30.0, len(traj) * 0.05))
+        
         svg = f'''<div style="margin: 15px 0;">
-  <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory Map:</h4>
+  <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory & Live Playback:</h4>
   <svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" style="background:#181818; border:1px solid #444; border-radius:6px; max-width: 100%; height: auto;">
     <rect width="100%" height="100%" fill="#181818"/>
     <!-- Grid Marks -->
@@ -142,63 +145,27 @@ def generate_trajectory_svg(trajectory_file):
     <!-- Ideal Square Reference -->
     <polyline points="{ideal_poly}" fill="none" stroke="#666666" stroke-width="2" stroke-dasharray="5,5"/>
     <!-- Actual Mouse Trajectory -->
-    <polyline points="{polyline}" fill="none" stroke="#00b4d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="{path_d}" fill="none" stroke="#00b4d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
     <!-- Start & Stop Markers -->
     <circle cx="{start_sx:.1f}" cy="{start_sy:.1f}" r="5" fill="#2ec4b6" stroke="#fff" stroke-width="1.5"/>
     <circle cx="{end_sx:.1f}" cy="{end_sy:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
     <text x="{start_sx+8:.1f}" y="{start_sy+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start Origin ({traj[0][0]:.2f}, {traj[0][1]:.2f})</text>
     <text x="{end_sx+8:.1f}" y="{end_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">Stop ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
+    <!-- Animated Robot Playback Vehicle Marker -->
+    <g>
+      <circle r="6.5" fill="#ffb703" stroke="#ffffff" stroke-width="1.5"/>
+      <polygon points="8,0 -4,-5 -4,5" fill="#e71d36"/>
+      <animateMotion path="{path_d}" dur="{anim_dur:.1f}s" repeatCount="indefinite" rotate="auto" />
+    </g>
     <!-- Legend -->
     <text x="45" y="25" fill="#888888" font-size="10" font-family="sans-serif">--- Ideal Square (1m × 1m, {dir_label})</text>
     <text x="45" y="38" fill="#00b4d8" font-size="10" font-family="sans-serif">── Actual Trajectory</text>
-    <text x="45" y="51" fill="#aaaaaa" font-size="9" font-family="sans-serif">Note: Parking is scored at square completion; extra forward rollout is not penalized.</text>
+    <text x="45" y="51" fill="#48cae4" font-size="10" font-family="sans-serif">🎬 Live Playback: Vehicle Marker (🟡/🔺) traces trajectory ({anim_dur:.1f}s loop)</text>
+    <text x="45" y="64" fill="#aaaaaa" font-size="9" font-family="sans-serif">Note: Parking is scored at square completion; extra forward rollout is not penalized.</text>
   </svg>
 </div>'''
         return svg
     except Exception:
-        return ""
-
-def get_video_html(video_path):
-    if not video_path or not os.path.exists(video_path):
-        return ""
-    try:
-        ffmpeg_bin = shutil.which("ffmpeg")
-        if not ffmpeg_bin:
-            return ""
-            
-        gif_path = video_path + ".preview.gif"
-        try:
-            # Generate optimized lightweight animated GIF preview (320x320 @ 8fps, max 32 colors)
-            # Compatible across all browsers and Gradescope markdown sanitizers without being stripped
-            cmd = [
-                ffmpeg_bin, "-y", "-nostdin",
-                "-i", video_path,
-                "-vf", "fps=8,scale=320:320:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer",
-                "-loop", "0",
-                gif_path
-            ]
-            subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
-            if os.path.exists(gif_path) and os.path.getsize(gif_path) > 0:
-                size_mb = os.path.getsize(gif_path) / (1024 * 1024)
-                if size_mb <= 5.0:
-                    import base64
-                    with open(gif_path, "rb") as gf:
-                        b64_data = base64.b64encode(gf.read()).decode("utf-8")
-                    try: os.remove(gif_path)
-                    except Exception: pass
-                    return f'''<div style="margin: 15px 0; text-align: center; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333;">
-  <h4 style="margin: 0 0 8px 0; color: #4CAF50; font-family: sans-serif;">🎬 Simulation Run Playback</h4>
-  <img src="data:image/gif;base64,{b64_data}" alt="Simulation Run Playback" style="max-width: 380px; width: 100%; height: auto; border: 2px solid #555; border-radius: 4px;" />
-  <p style="color: #aaa; font-size: 11px; margin: 6px 0 0 0; font-family: sans-serif;">Visual playback animation of robot trajectory</p>
-</div>'''
-        except Exception as ge:
-            print(f"[Grader] Warning during GIF generation: {ge}")
-            if os.path.exists(gif_path):
-                try: os.remove(gif_path)
-                except Exception: pass
-        return ""
-    except Exception as e:
-        print(f"[Grader] Failed to process video HTML: {e}")
         return ""
 
 def load_test_suite(assignment_name):
@@ -744,7 +711,6 @@ def main():
         
         # Generate HTML visualizations
         svg_html = generate_trajectory_svg(TRAJECTORY_JSON)
-        video_html = get_video_html(VIDEO_PATH) if (idx == 0 and os.path.exists(VIDEO_PATH)) else ""
         
         import html
         escaped_feedback = html.escape(run_feedback)
@@ -758,8 +724,6 @@ def main():
         
         if svg_html:
             html_sections.append(svg_html)
-        if video_html:
-            html_sections.append(video_html)
             
         html_sections.append(f"<pre style='background:#1e1e1e; color:#d4d4d4; padding:12px; border-radius:6px; font-family:monospace; font-size:12px; line-height:1.4; overflow-x:auto;'>{escaped_feedback}</pre>")
         
