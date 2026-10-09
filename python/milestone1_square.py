@@ -20,7 +20,9 @@
 import uct_mouse
 import math
 
-TICK_DIST_M = (2.0 * math.pi * 0.031) / 8.0
+# Physical wheel calibration: 34mm diameter wheel (R = 0.017m), 470 ticks/rot -> ~4400 ticks/m
+TICKS_PER_M = 4400
+TICK_DIST_M = 1.0 / TICKS_PER_M
 
 def drive_straight(distance_m):
     """
@@ -55,15 +57,9 @@ def run_square():
         print("Initialization failed.")
         return
 
-    # Load polarity calibration if it exists
-    try:
-        with open("polarity.txt", "r") as f:
-            lines = f.read().strip().split(",")
-            uct_mouse.set_polarity(int(lines[0]), int(lines[1]))
-            if len(lines) >= 4:
-                uct_mouse.set_encoder_polarity(int(lines[2]), int(lines[3]))
-    except Exception:
-        uct_mouse.set_polarity(1, 1)
+    # Set motor and encoder polarities directly (avoid file I/O on bare-metal MCU)
+    uct_mouse.set_polarity(1, 1)
+    uct_mouse.set_encoder_polarity(1, 1)
 
     print("--- Milestone 1: Run a Square ---")
 

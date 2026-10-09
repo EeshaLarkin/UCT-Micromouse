@@ -180,13 +180,13 @@ To ensure complete fairness, rigor, and defensibility during ECSA accreditation 
 
 ---
 
-### Summary Checklist for Submission 2
+### Summary Checklist for Design Reports (Report 1 & Report 2)
 
-Before converting your Word document to PDF and submitting to Gradescope, check:
+Before submitting your report (whether as a PDF upload for Report 1 or directly into the **Gradescope Online Assignment** for Report 2), verify:
 
-- [ ] Every technical section (Sections 3–7) contains specific numbers and physical units.
-- [ ] Section 2 (Page 4 diagram) is explicitly cited and discussed in the body text (e.g., *"As shown in Figure 1..."*).
-- [ ] Section 5 contains a structured decision / trade-off matrix or rigorously justified multi-criteria comparison comparing at least two options.
-- [ ] Section 6 contains explicit first-principles governing mathematical formulas (differential kinematics, discrete difference equations, transfer functions, or state transition guards).
-- [ ] Section 7 contains quantitative test metrics comparing expected vs. measured performance across experimental trials.
-- [ ] Form protection was maintained, text is within character limits, and no page overflow occurred.
+- [ ] Every technical section (Sections 3–7) contains specific quantitative numbers and physical units.
+- [ ] Section 2 (Visual Aid graphic) is high-resolution, clearly labeled, and explicitly cited and discussed in the body text (e.g., *"As shown in the Page 4 block diagram..."* or *"See Figure in Question 2"*).
+- [ ] Section 5 contains a structured decision / trade-off matrix (or rigorously justified multi-criteria comparison) evaluating at least two viable competing options.
+- [ ] Section 6 contains explicit first-principles governing mathematical formulas (differential kinematics, discrete difference equations, transfer functions, or state transition guards) with parameter definitions.
+- [ ] Section 7 contains quantitative test metrics comparing expected vs. measured performance across experimental trials, with discussion of discrepancies.
+- [ ] For Report 2 (Gradescope Online Assignment): Text is drafted and verified within character limits, and LaTeX math notation (`$math$` or `$$block$$`) renders cleanly.

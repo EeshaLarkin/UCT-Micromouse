@@ -34,16 +34,26 @@ Design and implement the complete autonomous intelligence for your Micromouse. T
 ```
 
 #### **Phase 1: Autonomous Exploration & Mapping (Start at `(0,0)`)**
-* Place your mouse in starting cell `(0,0)` facing North.
-* The mouse must autonomously explore the 4x6 maze. As it enters each cell, it reads its ToF sensors, classifies wall presence, updates its internal map matrix, and applies active side-wall centering.
-* **Target Feature Discovery:** The target is a **2x2 block of contiguous cells with all internal dividing walls removed**. The target location is not fixed and must be dynamically discovered through your wall map.
+* Place your mouse in starting cell `(0,0)` facing **East** (`$\theta = 0.0$`). The start cell has walls on its South, West, and North boundaries, opening exclusively to the **East** into cell `(1,0)`.
+* The mouse must autonomously explore the **4x6 grid maze** ($0.8\text{ m} \times 1.2\text{ m}$). As it enters each cell, it reads its ToF sensors, classifies wall presence, updates its internal map matrix, and applies active side-wall centering.
+* **Target Feature Discovery:** The target is a **2x2 block of 4 contiguous cells with all 4 internal dividing cross-walls removed** (forming an open plaza). The target room's coordinates are **NOT fixed in advance** and must be dynamically identified by your mapping algorithm:
+
+```text
+    ┌───────┬───────┐
+    │ (c,r+1) (c+1,r+1)
+    │       │       │    <-- Notice: ALL 4 internal dividing walls are OPEN
+    │       │       │        Outer perimeter walls may have arbitrary openings
+    │ (c, r) │ (c+1,r)│
+    └───────┴───────┘
+```
 
 #### **Phase 2: Target Recognition Handshake ($360^\circ$ Pirouette)**
-* Upon entering the 2x2 open target room, the mouse must **halt and execute an on-the-spot $360^\circ$ clockwise pirouette** using integrated gyro feedback. This provides clear, unambiguous confirmation to the autograder and tutors that the robot recognized the target zone.
+* **When to Trigger:** As soon as your mapping algorithm detects that the current cell is part of the confirmed 2x2 target room (e.g. by observing open internal partitions and updating your wall matrix), the mouse must **halt and execute an on-the-spot $360^\circ$ clockwise pirouette** using integrated gyro feedback.
+* **Autograder Evaluation:** The autograder verifies that the mouse is within the bounding area of the 2x2 room and integrates at least $\ge 315^\circ–360^\circ$ yaw rotation before departing.
 
 #### **Phase 3: Autonomous Return-to-Start**
 * Using its discovered topological map, the mouse calculates the shortest path from the target room back to starting cell `(0,0)`.
-* It traverses back to `(0,0)`, turns to face North, and halts.
+* It traverses back to `(0,0)`, turns to face **East**, and halts.
 
 #### **Phase 4: High-Speed Solving Sprint**
 * The mouse pauses at `(0,0)` for **3.0 seconds** to reset its state.
@@ -52,13 +62,12 @@ Design and implement the complete autonomous intelligence for your Micromouse. T
 
 ---
 
-### 3. Final Week Micromouse Championship Competition
+### 3. Grid Dimensions & Championship Scalability
 
-> [!IMPORTANT]
-> **Final Week Live Championship Tournament:**
-> In the final week of the course, we will host the live **2026 EEE3097S Micromouse Championship Competition**!
-> * **The Challenge:** Robots will compete under the exact same 4-stage mission rules (*Search $\rightarrow 360^\circ$ Pirouette $\rightarrow$ Return $\rightarrow$ Sprint*), but on a **larger competition maze (e.g. 8x8 or 10x10)**!
-> * **Design for Scalability:** Do **NOT** hardcode your code to 4x6 grid dimensions or fixed coordinates. Ensure your `MazeSolver` class dynamically parameterizes grid dimensions (`MAZE_ROWS`, `MAZE_COLS`) and relies strictly on dynamic topological wall discovery.
+> [!NOTE]
+> **Lab Assessment & Gradescope Autograder Dimensions:**
+> * **Standard Course Maze:** Both the physical lab maze and the Gradescope autograder simulation use a **4 rows $\times$ 6 columns** grid ($0.8\text{ m} \times 1.2\text{ m}$ with $0.20\text{ m}$ cells). The starting cell `(0,0)` always opens to the East (`(1,0)`).
+> * **Championship Scalability (Tournament Exhibition):** In the final week tournament exhibition, robots may optionally compete on an expanded maze (e.g. 8x8 or 10x10). Ensure your `MazeSolver` class dynamically parameterizes grid dimensions (`MAZE_ROWS`, `MAZE_COLS`) rather than hardcoding fixed constants!
 
 ---
 
@@ -76,11 +85,24 @@ The submission consists of:
 2. **Your Physical Run Video (`run_video.mp4`):**
    * Uploaded as a **separate file** alongside your ZIP. The video must start with a **3-second close-up of your Student Card** followed by the uncut mapping and high-speed solving runs.
 
-#### **Testing the Autograder Offline (Locally)**
-You are highly encouraged to test your algorithm against the grading suite locally on your laptop before uploading to Gradescope. To run the full multi-test evaluation suite locally, run this command from the repository root:
-```bash
-python tools/autograder/grade_runner.py
-```
+#### **Testing the Autograder & Robustness Stress Tests Offline (Locally)**
+You are highly encouraged to test your algorithm against the grading suite and physical stress tests locally on your laptop before uploading to Gradescope.
+
+1. **Multi-Track Robustness Suite (Recommended):**
+   Evaluate your controller across 6 procedurally generated random mazes with motor imbalances ($\pm 12\%$) and surface slip ($8\%$):
+   ```bash
+   python tools/test_robustness.py workspace/task2_maze/main.py
+   ```
+   To test with completely randomized maze seeds and perturbation ranges:
+   ```bash
+   python tools/test_robustness.py workspace/task2_maze/main.py --randomize
+   ```
+
+2. **Official Autograder Replicator:**
+   Run the local autograder emulator:
+   ```bash
+   python tools/autograder/grade_runner.py --assignment milestone2_maze --submission workspace/task2_maze
+   ```
 
 ---
 
@@ -130,20 +152,20 @@ To verify that your physical run is authentic, the video must strictly adhere to
 Your Gradescope submission is evaluated across three parts:
 
 * **Part A: Co-Simulation Speed & Accuracy (60% of Milestone Mark):**
-  Your solver is tested in procedurally generated 4x6 virtual mazes under realistic physical perturbations ($8\%$ motor asymmetry, $2\%$ wheel slip). The simulation runs up to a **90-second limit**.
+  Your solver is tested in procedurally generated 4x6 virtual mazes under realistic physical perturbations ($8\%$ motor asymmetry, $2\%$ wheel slip). The simulation runs up to a **120-second (2.0 minute) limit**.
   
   The autograder score is calculated out of 100 points as follows:
   * **Target Room Discovery (30 points):** Awarded for navigating into the 2x2 target room during exploration.
   * **Recognition Pirouette (20 points):** Awarded for executing the $360^\circ$ clockwise spin inside the target room.
   * **Autonomous Return-to-Start (20 points):** Awarded for navigating back and stopping inside starting cell `(0,0)`.
   * **High-Speed Solving Sprint (20 points):** Awarded for sprinting from `(0,0)` directly back into the target room.
-  * **Total Time Speed Bonus (10 points):** Scales continuously based on total elapsed mission time ($\le 25\text{s} = 10\text{ pts}$, $25\text{s} < t \le 90\text{s} = 10 \rightarrow 0\text{ pts}$).
+  * **Total Time Speed Bonus (10 points):** Scales continuously based on total elapsed mission time ($\le 35\text{s} = 10\text{ pts}$, $35\text{s} < t \le 120\text{s} = 10 \rightarrow 0\text{ pts}$).
   * **Applied Penalties:**
-    * **Timeout Penalty ($-10$ points):** Subtracted if the mission exceeds the 90-second limit.
+    * **Timeout Penalty ($-10$ points):** Subtracted if the mission exceeds the 120-second limit.
     * *Collision Note:* Contacting a wall halts the simulation immediately, capping the score at the milestones achieved prior to the crash.
 
 * **Part B: Physical Run Verification (30% of Milestone Mark):**
-  Tutors evaluate your submitted physical demonstration video (`run_video.mp4`) against the 4-stage mission: active wall-centering, mapping reliability, $360^\circ$ recognition pirouette, return-to-start navigation, and high-speed sprint.
+  Tutors evaluate your submitted physical demonstration video (`run_video.mp4`) against the 4-stage mission (active wall-centering, mapping reliability, $360^\circ$ recognition pirouette, return-to-start navigation, and high-speed sprint) within a **4-minute (240s) maximum continuous run window**.
 
 * **Part C: Submission Compliance (10% of Milestone Mark):**
   * **All Files Included (5%):** Correct zipping of source code workspace and valid FNV-1a checksum matched physical telemetry log file (`run_log.jsonl`).
@@ -152,4 +174,5 @@ Your Gradescope submission is evaluated across three parts:
 ---
 
 > [!NOTE]
-> **Grading Adaptation Policy:** The grading thresholds, coefficients, and parameters detailed above serve as baseline targets. Course staff reserve the right to adjust or tailor specific parameters post-submission to ensure final grades are highly representative of actual design and hardware performance.
+> **Post-Submission Stress Testing & Grading Adaptation Policy:**
+> While public baseline tests are provided during development to verify basic mission flow, final autograding is conducted against a suite of randomized hidden stress tests (evaluating motor imbalances, surface slip, IMU noise, and alternate maze topologies) to test true closed-loop disturbance rejection and prevent overtraining. The grading thresholds, coefficients, and parameters detailed above serve as baseline targets. Course staff reserve the right to adjust, recalibrate, or expand specific test suites post-submission to ensure final grades remain fair, rigorous, and highly representative of actual design and hardware performance.

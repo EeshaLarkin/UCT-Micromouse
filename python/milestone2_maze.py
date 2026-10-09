@@ -39,7 +39,7 @@ class MazeSolver:
         self.visited = [[False]*self.cols for _ in range(self.rows)]
         self.x = 0
         self.y = 0
-        self.dir = 0  # 0: North
+        self.dir = 1  # 1: East (+x, matching starting pose theta=0.0)
         
         # Target room coordinates (discovered dynamically)
         self.target_room = None  # e.g., (min_x, min_y) of 2x2 block
@@ -54,10 +54,10 @@ class MazeSolver:
 
     def _read_sensors(self):
         """Helper to read all sensors (ToFs, encoders, gyro)."""
-        tof_l, tof_c, tof_r = uct_mouse.get_tof()
+        tofs = uct_mouse.get_tof()
+        tof_l, tof_c, tof_r = tofs[0], tofs[2], tofs[4]
         lenc, renc = uct_mouse.get_encoders()
-        sensors = uct_mouse._mouse.get_sensors() if hasattr(uct_mouse, '_mouse') else {}
-        gyro = sensors.get('gyro', 0.0)
+        gyro = uct_mouse.get_gyro()
         return tof_l, tof_c, tof_r, lenc, renc, gyro
 
     def _update_walls(self, tof_l, tof_c, tof_r):
@@ -168,7 +168,7 @@ class MazeSolver:
         # -----------------------------------------------------------------
         print("[Phase 3] Navigating back to start (0,0)...")
         path_to_start = self.find_shortest_path((self.x, self.y), (0, 0))
-        # Student code: traverse path_to_start back to (0,0) and face North
+        # Student code: traverse path_to_start back to (0,0) and face East
         print("[Phase 3 Complete] Returned safely to (0,0)!")
 
         # -----------------------------------------------------------------

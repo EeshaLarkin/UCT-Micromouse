@@ -135,20 +135,24 @@ To satisfy the ECSA Graduate Attribute 3 (Design) accreditation portfolio, you m
 *   **Assessment & Passing Criteria:** Evaluated against the ECSA GA3 Design rubric. Must demonstrate implementation testing (3.4) and critical evaluation (3.5). One resubmission of this report is permitted if required to demonstrate Graduate Attribute competence.
 
 ### **Submission 4: Final Maze Solver Code & Demo (25%)**
-*   **Task:** Navigate a virtual/physical mouse through the 4-stage autonomous mission (*Explore & Discover 2x2 Target Room $\rightarrow 360^\circ$ Recognition Pirouette $\rightarrow$ Return to Start `(0,0)` $\rightarrow$ High-Speed Solving Sprint*).
-*   **Final Week Micromouse Championship:** In the final week of the course, we will host a live competition on a **larger competition maze (e.g. 8x8 or 10x10)** using the exact same 4-stage mission rules. Design your code to dynamically parameterize grid dimensions (`MAZE_ROWS`, `MAZE_COLS`) rather than hardcoding to 4x6!
+*   **Task:** Navigate a virtual/physical mouse through the 4-stage autonomous mission on a **4 rows $\times$ 6 columns** maze ($0.8\text{ m} \times 1.2\text{ m}$):
+    1. **Phase 1 (Exploration):** Autonomously explore from `(0,0)` (facing East) to discover the 2x2 target plaza (defined as 4 contiguous cells with all 4 internal dividing walls open).
+    2. **Phase 2 (Target Recognition):** Upon confirming the 2x2 target room, execute an on-the-spot $360^\circ$ clockwise pirouette inside the room.
+    3. **Phase 3 (Return to Start):** Compute the optimal shortest path and navigate back to `(0,0)`, facing East.
+    4. **Phase 4 (High-Speed Sprint):** Pause 3.0 seconds, then sprint along the shortest path directly into the target room.
+*   **Championship Scalability:** In the final week championship tournament, robots will compete on an expanded maze (e.g. 8x8 or 10x10). Ensure your `MazeSolver` dynamically parameterizes grid dimensions (`MAZE_ROWS`, `MAZE_COLS`) rather than hardcoding constants!
 *   **Assessment & Grading Metric:** The milestone mark is split as **60% Autograded Trajectory**, **30% Tutor Physical Run Evaluation**, and **10% Submission Compliance** (proper files and student card shown).
     *   *Autograder Score (100 pts max):* Checked in procedurally generated 4x6 virtual mazes under physical perturbations:
         *   **Target Room Discovery (30 pts):** Successfully navigating into the 2x2 target room during exploration.
         *   **Recognition Pirouette (20 pts):** Executing the $360^\circ$ clockwise spin inside the target room.
         *   **Return to Start (20 pts):** Navigating back and stopping at starting cell `(0,0)`.
         *   **High-Speed Sprint (20 pts):** Sprinting from `(0,0)` directly back into the target room.
-        *   **Speed Run Bonus (10 pts):** Scales continuously based on total elapsed mission time ($\le 25\text{s} = 10\text{ pts}$, $25\text{s} < t \le 90\text{s} = 10 \rightarrow 0\text{ pts}$).
-        *   *Penalties:* -10 pts for timeout (90s limit); Wall contact immediately halts the simulation.
+        *   **Speed Run Bonus (10 pts):** Scales continuously based on total elapsed mission time ($\le 35\text{s} = 10\text{ pts}$, $35\text{s} < t \le 120\text{s} = 10 \rightarrow 0\text{ pts}$).
+        *   *Penalties:* -10 pts for timeout (120s limit); Wall contact immediately halts the simulation.
     *   *Physical Run (30%):* Tutor evaluation of the 4-stage mission on the physical 4x6 board.
     *   *Compliance (10%):* Legible 3s student card close-up (5%) and code-telemetry log zip formatting (5%).
 
-*   *Note on Grading Thresholds:* The grading thresholds, coefficients, and parameter metrics detailed in this handbook serve as baseline targets. Course staff reserve the right to tailor or adjust specific parameters post-submission to ensure final grades remain highly representative of actual design and hardware performance.
+*   *Note on Grading Adaptation & Post-Submission Stress Testing:* While public baseline tests are provided during development to verify fundamental mission flow, final autograding is conducted against a suite of randomized hidden stress tests (evaluating motor imbalances, surface traction slip, IMU noise, and alternate maze layouts) to evaluate true closed-loop robustness and avoid overtraining. The grading thresholds, coefficients, and parameter metrics detailed in this handbook serve as baseline targets; course staff reserve the right to tailor, recalibrate, or adjust specific parameters post-submission to ensure final grades achieve a fair and representative spread reflecting actual engineering design performance.
 
 
 ---
