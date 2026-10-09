@@ -75,14 +75,23 @@ def generate_random_maze(grid_rows=4, grid_cols=6, block_dim=0.20, seed=None, ta
     v_walls = set((c, r) for c in range(1, grid_cols) for r in range(grid_rows))
     h_walls = set((c, r) for c in range(grid_cols) for r in range(1, grid_rows))
     
-    # 2x2 Target room cells: default placed towards the opposite quadrant or center
-    # For a 4x6 grid, default (cx, cy) = (4, 2) makes cells {(3,1), (3,2), (4,1), (4,2)} or (cols//2, rows//2)
+    # 2x2 Target room cells: placed dynamically and deterministically by seed
     if target_pos:
         cx, cy = target_pos
     else:
-        # Place 2x2 room in upper-right / center area, ensuring 1 <= cx <= grid_cols - 1 and 1 <= cy <= grid_rows - 1
-        cx = max(1, min(grid_cols - 1, grid_cols - 2 if grid_cols >= 4 else grid_cols // 2))
-        cy = max(1, min(grid_rows - 1, grid_rows // 2))
+        # Candidate (cx, cy) locations for 2x2 room (must fit in grid and not overlap start cell (0,0))
+        candidates = []
+        for c in range(1, grid_cols):
+            for r in range(1, grid_rows):
+                # Ensure start cell (0,0) and initial corridor (1,0) are not engulfed
+                if (c - 1, r - 1) == (0, 0) or (c, r - 1) == (0, 0):
+                    continue
+                candidates.append((c, r))
+        if candidates:
+            cx, cy = random.choice(candidates)
+        else:
+            cx = max(1, min(grid_cols - 1, grid_cols - 2 if grid_cols >= 4 else grid_cols // 2))
+            cy = max(1, min(grid_rows - 1, grid_rows // 2))
         
     tcs = {(cx - 1, cy - 1), (cx - 1, cy), (cx, cy - 1), (cx, cy)}
     
