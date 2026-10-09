@@ -311,7 +311,7 @@ class PhysicsSimulator:
         self.last_enc_l = 0.0  # tracks last-sent value to compute per-frame delta
         self.last_enc_r = 0.0
         self.time = 0.0
-        self.trajectory = [(self.x, self.y, self.theta)]
+        self.trajectory = [(self.x, self.y, self.theta, round(self.time, 3))]
         self.last_actuation = [0, 0]
         
         # Transient slip simulation state variables
@@ -442,11 +442,13 @@ class PhysicsSimulator:
         self.x += v * math.cos(self.theta) * dt
         self.y += v * math.sin(self.theta) * dt
         
-        # Log path (log on linear displacement > 1cm or angular rotation > 2.5 deg)
+        # Log path (log on linear displacement > 1cm, angular rotation > 2.5 deg, or every 0.1s during pauses)
+        last_t = self.trajectory[-1][3] if (self.trajectory and len(self.trajectory[-1]) > 3) else 0.0
         if (not self.trajectory or 
             math.hypot(self.x - self.trajectory[-1][0], self.y - self.trajectory[-1][1]) > 0.01 or 
-            abs((self.theta - self.trajectory[-1][2] + math.pi) % (2.0 * math.pi) - math.pi) > 0.04):
-            self.trajectory.append((self.x, self.y, self.theta))
+            abs((self.theta - self.trajectory[-1][2] + math.pi) % (2.0 * math.pi) - math.pi) > 0.04 or
+            (self.time - last_t) >= 0.10):
+            self.trajectory.append((self.x, self.y, self.theta, round(self.time, 3)))
             
         # Integrate Encoders (measures physical rotations, before slip)
         self.enc_l += (self.v_l * dt) / (2.0 * math.pi * self.R) * self.ticks_per_rot
@@ -1117,7 +1119,7 @@ def main():
             try:
                 # Ensure the final resting pose is appended to trajectory
                 if not sim.trajectory or math.hypot(sim.x - sim.trajectory[-1][0], sim.y - sim.trajectory[-1][1]) > 1e-4 or abs((sim.theta - sim.trajectory[-1][2] + math.pi) % (2.0 * math.pi) - math.pi) > 1e-3:
-                    sim.trajectory.append((sim.x, sim.y, sim.theta))
+                    sim.trajectory.append((sim.x, sim.y, sim.theta, round(sim.time, 3)))
                     
                 # Calculate metrics
                 start_x = sim.trajectory[0][0] if sim.trajectory else 0.0

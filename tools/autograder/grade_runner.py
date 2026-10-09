@@ -183,6 +183,24 @@ def generate_trajectory_svg(trajectory_file):
                 cum_th += d_th
                 unwrapped_thetas.append(cum_th)
             
+            # Time-accurate physical keyTimes calculation
+            has_timestamps = len(sub_traj[0]) > 3 and len(sub_traj[-1]) > 3
+            if has_timestamps:
+                t0 = sub_traj[0][3]
+                t_end = sub_traj[-1][3]
+                total_duration = max(0.5, t_end - t0)
+                times = [max(0.0, min(1.0, (pt[3] - t0) / total_duration)) for pt in sub_traj]
+                times[0] = 0.0
+                times[-1] = 1.0
+                for ti in range(1, len(times)):
+                    if times[ti] < times[ti - 1]:
+                        times[ti] = times[ti - 1]
+                key_times_attr = f'keyTimes="{"; ".join(f"{t:.4f}" for t in times)}"'
+                anim_dur = max(6.0, min(45.0, total_duration))
+            else:
+                key_times_attr = ""
+                anim_dur = max(10.0, min(45.0, len(traj) * 0.05))
+
             trans_vals = "; ".join(f"{to_svg_m(pt[0], pt[1])[0]:.1f} {to_svg_m(pt[0], pt[1])[1]:.1f}" for pt in sub_traj)
             rot_vals = "; ".join(f"{-math.degrees(th):.1f}" for th in unwrapped_thetas)
             
@@ -225,8 +243,8 @@ def generate_trajectory_svg(trajectory_file):
     
     <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
     <g id="uct_mouse_robot">
-      <animateTransform attributeName="transform" type="translate" values="{trans_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
-      <animateTransform attributeName="transform" type="rotate" additive="sum" values="{rot_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate" values="{trans_vals}" {key_times_attr} dur="{anim_dur:.1f}s" repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate" additive="sum" values="{rot_vals}" {key_times_attr} dur="{anim_dur:.1f}s" repeatCount="indefinite" />
       <!-- Left & Right Wheels -->
       <rect x="{-wrad:.1f}" y="{-ww:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
       <rect x="{-wrad:.1f}" y="{ww-wth:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
@@ -369,10 +387,25 @@ def generate_trajectory_svg(trajectory_file):
             cum_th += d_th
             unwrapped_thetas.append(cum_th)
         
+        has_timestamps = len(sub_traj[0]) > 3 and len(sub_traj[-1]) > 3
+        if has_timestamps:
+            t0 = sub_traj[0][3]
+            t_end = sub_traj[-1][3]
+            total_duration = max(0.5, t_end - t0)
+            times = [max(0.0, min(1.0, (pt[3] - t0) / total_duration)) for pt in sub_traj]
+            times[0] = 0.0
+            times[-1] = 1.0
+            for ti in range(1, len(times)):
+                if times[ti] < times[ti - 1]:
+                    times[ti] = times[ti - 1]
+            key_times_attr = f'keyTimes="{"; ".join(f"{t:.4f}" for t in times)}"'
+            anim_dur = max(6.0, min(35.0, total_duration))
+        else:
+            key_times_attr = ""
+            anim_dur = max(6.0, min(30.0, len(traj) * 0.05))
+            
         trans_vals = "; ".join(f"{to_svg(pt[0], pt[1])[0]:.1f} {to_svg(pt[0], pt[1])[1]:.1f}" for pt in sub_traj)
         rot_vals = "; ".join(f"{-math.degrees(th):.1f}" for th in unwrapped_thetas)
-        
-        anim_dur = max(6.0, min(30.0, len(traj) * 0.05))
         
         rollout_svg = f'<circle cx="{final_sx:.1f}" cy="{final_sy:.1f}" r="3.5" fill="#6c757d" stroke="#fff" stroke-width="1.0" stroke-dasharray="2,1"/><text x="{final_sx+6:.1f}" y="{final_sy+3:.1f}" fill="#888888" font-size="9" font-family="sans-serif">Final Rest (+{rollout_dist_cm:.1f}cm rollout)</text>' if rollout_dist_cm > 4.0 else ''
         
@@ -396,8 +429,8 @@ def generate_trajectory_svg(trajectory_file):
     
     <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
     <g id="uct_mouse_robot">
-      <animateTransform attributeName="transform" type="translate" values="{trans_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
-      <animateTransform attributeName="transform" type="rotate" additive="sum" values="{rot_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate" values="{trans_vals}" {key_times_attr} dur="{anim_dur:.1f}s" repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate" additive="sum" values="{rot_vals}" {key_times_attr} dur="{anim_dur:.1f}s" repeatCount="indefinite" />
       <!-- Left & Right Wheels -->
       <rect x="{-wrad:.1f}" y="{-ww:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
       <rect x="{-wrad:.1f}" y="{ww-wth:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
