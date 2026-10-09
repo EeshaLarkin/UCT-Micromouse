@@ -251,7 +251,10 @@ class PhysicsSimulator:
             if "tof_sensors" in config:
                 self.sensor_offsets = []
                 for s in config["tof_sensors"]:
-                    self.sensor_offsets.append((s["x"], s["y"], s["theta"]))
+                    sx = s.get("offset_x", s.get("x", 0.05))
+                    sy = s.get("offset_y", s.get("y", 0.0))
+                    sth = s.get("yaw", s.get("theta", 0.0))
+                    self.sensor_offsets.append((sx, sy, sth))
             if "maze" in config:
                 mz = config["maze"]
                 self.grid_rows = mz.get("grid_rows", mz.get("grid_size", self.grid_rows))
@@ -628,6 +631,56 @@ def main():
     crashed = False
     rate_hz = 20 # Default sync rate
     dt = 1.0 / rate_hz
+    step_count = 0
+    
+    def write_json_log():
+        if not args.json_log:
+            return
+        try:
+            current_traj = list(sim.trajectory)
+            if not current_traj or math.hypot(sim.x - current_traj[-1][0], sim.y - current_traj[-1][1]) > 1e-4:
+                current_traj.append((sim.x, sim.y, sim.theta))
+                
+            start_x = current_traj[0][0] if current_traj else 0.0
+            start_y = current_traj[0][1] if current_traj else 0.0
+            final_x = sim.x
+            final_y = sim.y
+            final_theta = sim.theta
+            
+            max_displacement = 0.0
+            for pt in current_traj:
+                dist = math.hypot(pt[0] - start_x, pt[1] - start_y)
+                if dist > max_displacement:
+                    max_displacement = dist
+            
+            log_data = {
+                "start_x": start_x,
+                "start_y": start_y,
+                "final_x": final_x,
+                "final_y": final_y,
+                "final_theta": final_theta,
+                "max_displacement": max_displacement,
+                "time": sim.time,
+                "crashed": crashed,
+                "grid_rows": sim.grid_rows,
+                "grid_cols": sim.grid_cols,
+                "target_room": sim.target_room,
+                "trajectory": current_traj
+            }
+            with open(args.json_log, "w") as f:
+                json.dump(log_data, f, indent=2)
+        except Exception:
+            pass
+
+    import signal
+    def sig_handler(signum, frame):
+        write_json_log()
+        sys.exit(0)
+    try:
+        signal.signal(signal.SIGINT, sig_handler)
+        signal.signal(signal.SIGTERM, sig_handler)
+    except Exception:
+        pass
     
     # 1-to-1 parallel telemetry and trajectory logger state
     telemetry_records = []
@@ -911,6 +964,10 @@ def main():
                 }
                 trajectory_records.append(traj_entry)
             
+            step_count += 1
+            if step_count % 10 == 0:
+                write_json_log()
+            
             try:
                 conn.sendall(tx_str.encode('utf-8'))
             except (BrokenPipeError, ConnectionResetError):
@@ -919,6 +976,8 @@ def main():
     except Exception as e:
         print(f"[Simulator] Error encountered: {e}")
     finally:
+        # Guarantee JSON log is flushed immediately
+        write_json_log()
         # Cleanup
         print("[Simulator] Cleaning up socket connection...")
         try:

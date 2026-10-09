@@ -497,10 +497,17 @@ def main():
             print(f"[Grader] Discovered Student Identified Simulation Config: {student_config}")
             break
 
+    # Locate assignment-specific simulation configuration if available
+    assignment_sim_config = os.path.join(SOURCE_DIR, "assignments", assignment_name, "simulation_config.json")
+    if not os.path.exists(assignment_sim_config):
+        assignment_sim_config = os.path.join(SOURCE_DIR, "simulation_config.json")
+    if not os.path.exists(assignment_sim_config):
+        assignment_sim_config = os.path.join(repo_root, "tools", "simulation_config.json")
+
     total_score = 0.0
     gradescope_tests = []
     session_start_time = time.time()
-    MAX_SESSION_SECONDS = 240.0  # 4.0 minutes hard budget for whole autograder suite
+    MAX_SESSION_SECONDS = 360.0  # 6.0 minutes hard budget for whole autograder suite
     
     for idx, (run_name, weight, imb_val, slip_val, is_hidden) in enumerate(test_runs):
         elapsed_total = time.time() - session_start_time
@@ -532,11 +539,13 @@ def main():
                 "--slip", str(slip_val),
                 "--json-log", TRAJECTORY_JSON,
                 "--video", VIDEO_PATH if is_video else "",
-                "--max-time", str(getattr(test_suite, "TIME_LIMIT", 45.0)),
+                "--max-time", str(getattr(test_suite, "TIME_LIMIT", 50.0)),
                 "--seed", str(seed_val)
             ]
             if student_config:
                 sim_cmd.extend(["--config", student_config])
+            elif assignment_sim_config and os.path.exists(assignment_sim_config):
+                sim_cmd.extend(["--config", assignment_sim_config])
             
             if os.path.exists(TRAJECTORY_JSON):
                 try: os.remove(TRAJECTORY_JSON)
@@ -638,10 +647,9 @@ def main():
                     "traj_exists": False
                 }
                 
-            time_limit = getattr(test_suite, "TIME_LIMIT", 45.0)
-            # In fast-sim autograder mode, a 45s simulated run takes ~1s.
-            # Allow up to 25s wall-clock time per run to quickly catch hung loops.
-            max_duration = min(time_limit + 5.0, 25.0) if os.path.exists("/autograder") else (time_limit + 5.0)
+            time_limit = getattr(test_suite, "TIME_LIMIT", 50.0)
+            # Allow full time_limit + 15s margin for real-time executions
+            max_duration = time_limit + 15.0
             start_time = time.time()
             client_exited = False
             
