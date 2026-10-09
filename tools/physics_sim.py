@@ -180,7 +180,7 @@ def generate_random_maze(grid_rows=4, grid_cols=6, block_dim=0.20, seed=None, ta
     return segments, (cx, cy)
 
 class PhysicsSimulator:
-    def __init__(self, maze_type="empty", imbalance=0.0, slip=0.0, headless=False, seed=None, config=None):
+    def __init__(self, maze_type="empty", imbalance=0.0, slip=0.0, headless=False, seed=None, config=None, grid_rows=None, grid_cols=None):
         self.maze_type = maze_type
         self.headless = headless
         self.seed = seed
@@ -213,8 +213,8 @@ class PhysicsSimulator:
             (0.045, -0.02, -math.pi/2)  # Right ToF
         ]
         
-        self.grid_rows = 4
-        self.grid_cols = 6
+        self.grid_rows = grid_rows if grid_rows is not None else 4
+        self.grid_cols = grid_cols if grid_cols is not None else 6
         self.block_dim = 0.20
         self.wall_thickness = 0.006
         self.target_room = None
@@ -637,6 +637,8 @@ def main():
     parser.add_argument("--trajectory-log", type=str, default="", help="Path to save detailed simulation trajectory state JSONL log")
     parser.add_argument("--max-time", type=float, default=None, help="Maximum simulation time limit in seconds")
     parser.add_argument("--config", type=str, default="", help="Path to simulation JSON config file")
+    parser.add_argument("--rows", type=int, default=None, help="Maze grid rows (e.g. 4 or 8)")
+    parser.add_argument("--cols", type=int, default=None, help="Maze grid columns (e.g. 6 or 8)")
     args = parser.parse_args()
     
     # Load config file if specified, or try default location
@@ -656,7 +658,16 @@ def main():
     active_seed = args.seed if args.seed is not None else random.randint(1, 100000)
     print(f"[Simulator] Active Simulation Seed: {active_seed}")
             
-    sim = PhysicsSimulator(maze_type=args.map, imbalance=args.imbalance, slip=args.slip, headless=args.headless, seed=active_seed, config=config_data)
+    sim = PhysicsSimulator(
+        maze_type=args.map,
+        imbalance=args.imbalance,
+        slip=args.slip,
+        headless=args.headless,
+        seed=active_seed,
+        config=config_data,
+        grid_rows=args.rows,
+        grid_cols=args.cols
+    )
     
     # Initialize Pygame in dummy mode if headless
     if args.headless:
@@ -955,7 +966,7 @@ def main():
             delta_enc_r = int(sim.enc_r) - int(sim.last_enc_r)
             sim.last_enc_l = sim.enc_l
             sim.last_enc_r = sim.enc_r
-            tx_str = f'{{"tof_l":{tofs[0]}, "tof_c":{tofs[1]}, "tof_r":{tofs[2]}, "+lenc":{delta_enc_l}, "+renc":{delta_enc_r}, "gyro":{gyro_val:.4f}, "v_batt":6.0}}\r\n'
+            tx_str = f'{{"tof_l":{tofs[0]}, "tof_c":{tofs[1]}, "tof_r":{tofs[2]}, "+lenc":{delta_enc_l}, "+renc":{delta_enc_r}, "gyro":{gyro_val:.4f}, "rows":{sim.grid_rows}, "cols":{sim.grid_cols}, "v_batt":6.0}}\r\n'
             
             # Logger triggers on first motor command
             if not logging_started:
