@@ -18,31 +18,21 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 # Try importing dependencies, suppressing Objective-C duplicate class warnings on macOS
 try:
-    stderr_fd = sys.stderr.fileno()
-    saved_stderr_fd = os.dup(stderr_fd)
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
-    os.dup2(devnull_fd, stderr_fd)
-    try:
-        import numpy as np
-        import pygame
-        import cv2
-    finally:
-        os.dup2(saved_stderr_fd, stderr_fd)
-        os.close(devnull_fd)
-        os.close(saved_stderr_fd)
+    import numpy as np
+    import pygame
+except ImportError as e:
+    print("=========================================================")
+    print(f"ERROR: Missing required Python libraries for simulator: {e}")
+    print("Please install them by running:")
+    print("  pip install numpy pygame")
+    print("=========================================================")
+    sys.exit(1)
+
+try:
+    import cv2
 except Exception:
-    # Fallback to standard import if file descriptor redirection is not supported or fails
-    try:
-        import numpy as np
-        import pygame
-        import cv2
-    except ImportError:
-        print("=========================================================")
-        print("ERROR: Missing required Python libraries for simulator.")
-        print("Please install them by running:")
-        print("  pip install -r python/requirements.txt")
-        print("=========================================================")
-        sys.exit(1)
+    cv2 = None
+
 
 # Helper: Line-segment intersection math for ToF ray-casting
 def get_intersection(ray_start, ray_dir, line_start, line_end):

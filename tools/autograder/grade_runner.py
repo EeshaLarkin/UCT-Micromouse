@@ -162,51 +162,41 @@ def get_video_html(video_path):
     if not video_path or not os.path.exists(video_path):
         return ""
     try:
-        # Transcode using ffmpeg to standard H.264 Baseline Profile (YUV420p + faststart)
-        # Scaled to 400x400 @ 15fps with CRF 30 to produce lightweight ~100-150KB payload
-        # compatible across all browsers (Firefox, Chrome, Safari, Edge) without JSON truncation.
         ffmpeg_bin = shutil.which("ffmpeg")
-        if ffmpeg_bin:
-            opt_video = video_path + ".opt.mp4"
-            try:
-                cmd = [
-                    ffmpeg_bin, "-y", "-nostdin",
-                    "-i", video_path,
-                    "-vf", "scale=400:400",
-                    "-r", "15",
-                    "-c:v", "libx264",
-                    "-profile:v", "baseline",
-                    "-level", "3.0",
-                    "-pix_fmt", "yuv420p",
-                    "-crf", "30",
-                    "-preset", "faster",
-                    "-movflags", "+faststart",
-                    opt_video
-                ]
-                subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
-                if os.path.exists(opt_video) and os.path.getsize(opt_video) > 0:
-                    os.replace(opt_video, video_path)
-            except Exception as fe:
-                print(f"[Grader] Warning during video transcoding: {fe}")
-                if os.path.exists(opt_video):
-                    try: os.remove(opt_video)
-                    except Exception: pass
-                    
-        size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        if size_mb > 5.0:  # Cap to prevent Gradescope web UI issues
+        if not ffmpeg_bin:
             return ""
             
-        import base64
-        with open(video_path, "rb") as vf:
-            b64_data = base64.b64encode(vf.read()).decode("utf-8")
-            
-        return f'''<div style="margin: 15px 0;">
-  <h4 style="margin-bottom: 8px; color: #fff;">🎬 Simulation Run Playback Video:</h4>
-  <video width="480" height="480" controls autoplay loop muted playsinline style="max-width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;">
-    <source src="data:video/mp4;base64,{b64_data}" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+        gif_path = video_path + ".preview.gif"
+        try:
+            # Generate optimized lightweight animated GIF preview (360x360 @ 10fps, max 64 colors)
+            # Compatible across all browsers and Gradescope markdown sanitizers without being stripped
+            cmd = [
+                ffmpeg_bin, "-y", "-nostdin",
+                "-i", video_path,
+                "-vf", "fps=10,scale=360:360:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer",
+                "-loop", "0",
+                gif_path
+            ]
+            subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
+            if os.path.exists(gif_path) and os.path.getsize(gif_path) > 0:
+                size_mb = os.path.getsize(gif_path) / (1024 * 1024)
+                if size_mb <= 4.0:
+                    import base64
+                    with open(gif_path, "rb") as gf:
+                        b64_data = base64.b64encode(gf.read()).decode("utf-8")
+                    try: os.remove(gif_path)
+                    except Exception: pass
+                    return f'''<div style="margin: 15px 0;">
+  <h4 style="margin-bottom: 8px; color: #fff;">🎬 Simulation Run Playback Animation:</h4>
+  <img src="data:image/gif;base64,{b64_data}" alt="Simulation Run Playback" style="max-width: 480px; width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;" />
+  <p style="color:#888; font-size:11px; margin-top:4px;"><i>Visual playback animation generated from physics simulation.</i></p>
 </div>'''
+        except Exception as ge:
+            print(f"[Grader] Warning during GIF generation: {ge}")
+            if os.path.exists(gif_path):
+                try: os.remove(gif_path)
+                except Exception: pass
+        return ""
     except Exception as e:
         print(f"[Grader] Failed to process video HTML: {e}")
         return ""
@@ -343,22 +333,53 @@ def main():
         print(f"[Grader] Found code generation folder: {model_dir}")
         print(f"[Grader] Model name: {model_name}")
     else:
-        # Check for Python track by looking for <assignment_name>.py or main.py
+        # Check for Python track by scanning for assignment targets, main.py, or any valid student script
         main_candidates = []
         target_name = f"{assignment_name}.py"
         
+        # Build comprehensive list of possible file names for this assignment
+        assignment_aliases = [target_name, "main.py", "submission.py", "solution.py", "student.py"]
+        if "milestone1" in assignment_name:
+            assignment_aliases.extend(["milestone1.py", "task1_square.py", "task1.py", "square.py", "milestone_1.py", "Milestone1.py", "milestone1_square_solution.py", "milestone1_solution.py", "milestone1_square_reference.py"])
+        elif "milestone2" in assignment_name:
+            assignment_aliases.extend(["milestone2.py", "task2_maze.py", "task2.py", "maze.py", "milestone_2.py", "Milestone2.py", "milestone2_maze_solution.py", "milestone2_solution.py"])
+        elif "milestone0" in assignment_name:
+            assignment_aliases.extend(["milestone0.py", "verification.py", "milestone_0.py", "Milestone0.py"])
+
+        all_py_files = []
         for root, dirs, files in os.walk(SUBMISSION_DIR):
-            if target_name in files:
-                main_candidates.append(os.path.join(root, target_name))
-            if "main.py" in files:
-                main_candidates.append(os.path.join(root, "main.py"))
+            for f in files:
+                if f.endswith(".py"):
+                    full_p = os.path.join(root, f)
+                    if f in ["uct_mouse.py", "micromouse.py", "__init__.py", "pikalint.py"] or f.startswith("test_"):
+                        continue
+                    all_py_files.append(full_p)
+                    if f.lower() in [a.lower() for a in assignment_aliases]:
+                        main_candidates.append(full_p)
+
+        if not main_candidates and all_py_files:
+            # Look inside files for micromouse / uct_mouse / task keywords
+            for p in all_py_files:
+                try:
+                    with open(p, "r", encoding="utf-8", errors="ignore") as pf:
+                        content = pf.read()
+                        if any(kw in content for kw in ["uct_mouse", "set_motors", "run_square", "drive_straight", "turn_left_90", "solve_maze"]):
+                            main_candidates.append(p)
+                except Exception:
+                    pass
+            if not main_candidates:
+                # If only 1 python file submitted, fallback to it
+                if len(all_py_files) == 1:
+                    main_candidates.append(all_py_files[0])
+                else:
+                    main_candidates.extend(all_py_files)
                 
         if main_candidates:
             target_main = None
             
-            # 1. Prioritize files named exactly <assignment_name>.py
+            # 1. Prioritize files named exactly <assignment_name>.py or direct aliases
             for p in main_candidates:
-                if os.path.basename(p) == target_name:
+                if os.path.basename(p) == target_name or os.path.basename(p) in assignment_aliases:
                     target_main = p
                     break
                     
