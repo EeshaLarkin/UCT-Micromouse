@@ -81,25 +81,24 @@ Understanding the dual-rate sampling architecture between the physical sensor si
 
 ### A. Dual-Rate Architecture (Sensor Conversion vs Python Query)
 
-1. **Hardware Measurement Timing Budget (~10–30 Hz):**
-   * Each STMicroelectronics VL53L0X Time-of-Flight sensor operates continuously in hardware **Back-to-Back Ranging Mode** (`startContinuous(0)`).
-   * The sensor ASIC measurement timing budget is configured to **100 ms (10 Hz)** under the default long-range profile (`PreRange=18`, `FinalRange=14`) for reliable wall detection, with dynamic adaptation down to ~33 ms (30 Hz) under strong laser returns.
-   * During the physical measurement cycle (e.g. photon emission, SPAD photon counting, and on-chip distance calculation), the sensor's internal ranging flag remains unasserted.
+1. **Hardware Measurement Timing Budget (~50 Hz / ~20 ms per sensor):**
+   * Each STMicroelectronics VL53L0X Time-of-Flight sensor operates in hardware **Continuous Back-to-Back Ranging Mode** (`startContinuous(0)`).
+   * In continuous back-to-back mode, the sensor ASIC starts a new laser measurement cycle immediately upon completing the previous one, operating at a physical conversion rate of **~50 Hz (a new completed measurement every ~15–20 ms)**.
+   * During the physical photon emission and SPAD integration cycle, the sensor's hardware ranging interrupt flag (`RESULT_INTERRUPT_STATUS & 0x07`) remains unasserted.
 
 2. **C-Kernel Polling & Shadow Register (100 Hz):**
    * The microcontroller's base C-Kernel runs an asynchronous background tick loop at **100 Hz (every 10 ms)**.
-   * On every 10 ms tick, the kernel checks whether each sensor's hardware ranging flag (`RESULT_INTERRUPT_STATUS & 0x07`) has asserted.
-   * If a new measurement is ready, the kernel reads the distance and photon signal strength via I2C and writes them to an internal shadow state structure (`current_state.tof_l`, etc.).
-   * If no new measurement is completed yet, the kernel simply retains the **latest valid cached measurement** in memory with zero blocking delay.
+   * On every 10 ms tick, the kernel checks whether each sensor's hardware ranging flag has asserted.
+   * When a physical measurement finishes (~every 1–2 ticks), the kernel reads the distance and photon signal strength via I2C and writes them to the internal shadow state structure (`current_state.tof_l`, etc.).
+   * If a conversion is still in progress on that specific tick, the kernel retains the **latest valid cached measurement** in memory with zero blocking delay.
 
 3. **Zero-Overhead Userland Access (`uct_mouse.get_tof()`):**
-   * Calling `uct_mouse.get_tof()`, `get_tof_raw()`, `get_tof_signals()`, or `get_tof_detailed()` in Python does **not** trigger a blocking I2C bus transaction.
-   * Instead, it reads directly from the C-Kernel shadow state buffer in microcontroller RAM, returning in **< 1 microsecond**.
-   * Consequently, user code running a 10 ms (100 Hz) control loop will sample the shadow buffer 100 times per second. New physical laser readings arrive into that buffer at the sensor's physical conversion rate (~10–30 Hz per sensor), asynchronously staggered across the sensors on the I2C bus.
+   * Calling `uct_mouse.get_tof()`, `get_tof_raw()`, `get_tof_signals()`, or `get_tof_detailed()` in Python reads directly from the C-Kernel shadow state in RAM (< 1 µs execution time).
+   * In a 10 ms (100 Hz) control loop, you will receive approximately **50 genuine physical updates per second per sensor** (each reading holds for ~1 to 2 ticks).
 
 ### B. Recommendations for Student Signal Processing & Filtering
 
-* **State-Hold vs Rate-Change Detection:** Because `get_tof()` returns the latest shadow value instantly, reading the sensor at 100 Hz will output the same distance value for ~3 to 10 consecutive ticks until the physical laser completes its next ranging cycle.
-* **Detecting Fresh Samples:** If your filter (e.g. Kalman Filter or moving average) requires acting only on newly completed physical measurements, compare the returned tuple or signal strength against the previous tick's reading, or track changes using `uct_mouse.get_ticks_ms()`.
+* **Expected Update Frequency:** Plan filters (Kalman, complementary, or low-pass) for an effective physical sample rate of **~50 Hz per sensor** (new data every ~20 ms).
+* **Detecting Fresh Samples:** To run filter prediction/update steps strictly on fresh samples, compare incoming readings against the previous tick or monitor timestamp deltas with `uct_mouse.get_ticks_ms()`.
 * **Out-of-Range & Noise Handling:** Open air or absorption surfaces return `8190` mm (the out-of-range sentinel). `uct_mouse.get_tof()` automatically suppresses ambient SPAD optical noise below 150 kcps; for raw, unthresholded data, use `uct_mouse.get_tof_raw()` and `uct_mouse.get_tof_signals()`.
 
