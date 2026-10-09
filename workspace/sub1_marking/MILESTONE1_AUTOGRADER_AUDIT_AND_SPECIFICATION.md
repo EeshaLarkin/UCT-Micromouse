@@ -137,7 +137,7 @@ For each turn cluster $\mathcal{T}_j$, the integrated angular heading change is 
 
 ---
 
-### Criterion 3: Circuit Closure & Parking Accuracy (20.00 Points)
+### Criterion 3: Circuit Closure & Parking Accuracy (25.00 Points)
 
 **Gating Requirement:** To prevent non-functional or stationary scripts from earning unearned parking marks, Circuit Closure is strictly gated:
 $$\text{If } N_{\text{valid legs}} < 3 \quad \text{or} \quad D_{\text{total}} < 2.50\text{ m} \implies S_{\text{parking}} = 0.00\text{ pts}$$
@@ -146,13 +146,21 @@ When gated conditions are satisfied, candidate return points near the completion
 
 $$d_{\text{return}} = \min_{\mathbf{p} \in \text{Completion Window}} \| \mathbf{p} - \mathbf{p}_{\text{origin}} \|$$
 
+* **Public Baseline (Test 1):**
+  $$S_{\text{parking}} = \begin{cases} 25.00 & \text{if } d_{\text{return}} \le 0.05\text{ m} \\ \max\left(0, 25.00 - \frac{d_{\text{return}} - 0.05}{0.25} \times 25.00\right) & \text{if } d_{\text{return}} > 0.05\text{ m} \end{cases}$$
+* **Hidden Perturbations (Tests 2–6):**
+  $$S_{\text{parking}} = \max\left(0, 25.00 \times \left(1.0 - \frac{d_{\text{return}}}{0.18}\right)\right)$$
+
+* **Turn-Bounded Leg Segmentation & Startup Immunity:**
+  Leg segments are partitioned cleanly by detected corner turns ($\omega > 18.0^\circ/\text{s}$). Initial startup pauses (e.g. gyro drift calibration loops or encoder settling) and small speed dips during straight motion remain unified within the corresponding leg segment, preventing spurious 2 cm transient legs.
+
 * **Turn 4 Kinematic Detection Guarantee:**
   In early prototype grading scripts, turning detection required a transition to a subsequent translating leg, forcing students to inject an artificial forward nudge (~1 cm) after Turn 4 to get the final corner recognized. In this calibrated evaluator, **Turn 4 is detected purely from rotational kinematics ($\omega > 18.0^\circ/\text{s}$)**. There is zero requirement to move forward after Turn 4.
 
 * **Forward Rollout Immunity & Search Window:**
   Candidate completion points $\mathbf{p} \in \text{trajectory}$ are searched across all trajectory samples recorded after the mouse has traversed $\ge 2.50\text{ m}$ of perimeter distance:
   $$d_{\text{return}} = \min_{k \ge k_{2.5\text{m}}} \| \mathbf{p}_k - \mathbf{p}_{\text{origin}} \|$$
-  If a student's code coasts or rolls forward after Turn 4 (whether 1 cm or 15 cm), $d_{\text{return}}$ evaluates to the exact closest approach when completing the square at the origin, awarding **100% full credit ($20.00/20.00\text{ pts}$)** with **zero penalty** for the subsequent rollout.
+  If a student's code coasts or rolls forward after Turn 4 (whether 1 cm or 15 cm), $d_{\text{return}}$ evaluates to the exact closest approach when completing the square at the origin, awarding **100% full credit ($25.00/25.00\text{ pts}$)** with **zero penalty** for the subsequent rollout.
 
 * **Visual Trajectory Distinction:**
   The inline SVG map displays the **Square Complete Marker** at the evaluated return point $\mathbf{p}_{\text{completion}}$ with its measured offset. If the chassis rolled forward past the origin before halting, the final rest position is drawn as a distinct, subdued marker (`Final Rest (+X.X cm rollout)`), preventing any visual confusion between the final coasting stop and the evaluated square closure.
@@ -167,11 +175,9 @@ $$S_{\text{speed}} = \left( \begin{cases} 5.00 & \text{if } T_{\text{sim}} \le 3
 
 ---
 
-### Criterion 5: Collision Safety Bonus (5.00 Points)
+### Elimination of "Empty Arena" Collision Safety Bonus (0.00 Points)
 
-Rewards completing the square without crashing into arena boundaries:
-
-$$S_{\text{safety}} = \begin{cases} 0.00 & \text{if } \text{crashed} = \text{True} \\ 5.00 \times \min\left(1.0, \frac{D_{\text{total}}}{3.00\text{ m}}\right) & \text{if } \text{crashed} = \text{False} \end{cases}$$
+Because Milestone 1 runs on an empty open arena with no interior maze obstacles, a passive "no-crash" bonus awards unearned marks for simply sitting stationary or not colliding with boundary limits. That 5.00-point allocation has been completely eliminated and transferred into **Circuit Closure & Parking Accuracy (25.00 pts)**, making square closure the primary holistic metric of closed-loop odometry and heading control.
 
 ---
 

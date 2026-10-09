@@ -104,9 +104,42 @@ def evaluate_run(trajectory_file, is_hidden=False):
                 cur_pts = [trajectory[k]]
         clusters.append((cur_c, cur_pts))
         
-    # Extract significant leg and turn segments (filtering short transients < 3 steps)
-    leg_clusters = [pts for c_type, pts in clusters if c_type == 1 and len(pts) >= 3]
+    # Extract significant turn segments (filtering short transients < 3 steps)
     turn_clusters = [pts for c_type, pts in clusters if c_type == 2 and len(pts) >= 3]
+
+    # Segment translating legs between turns:
+    # Legs are the physical path intervals between turns, preventing startup hesitations from splitting legs.
+    leg_clusters = []
+    if not turn_clusters:
+        if len(trajectory) >= 3:
+            leg_clusters.append(trajectory)
+    else:
+        # Leg 1: Start of trajectory up to start of Turn 1
+        t0_start_idx = trajectory.index(turn_clusters[0][0])
+        if t0_start_idx >= 1:
+            leg_clusters.append(trajectory[:t0_start_idx + 1])
+        else:
+            leg_clusters.append(trajectory[:max(1, t0_start_idx)])
+            
+        # Intermediate legs between turns
+        for t_idx in range(len(turn_clusters) - 1):
+            if len(leg_clusters) >= 4:
+                break
+            t_prev_end_idx = trajectory.index(turn_clusters[t_idx][-1])
+            t_next_start_idx = trajectory.index(turn_clusters[t_idx + 1][0])
+            if t_next_start_idx > t_prev_end_idx:
+                leg_clusters.append(trajectory[t_prev_end_idx:t_next_start_idx + 1])
+                
+        # Final leg: After the last detected turn (if < 4 turns were detected)
+        if len(turn_clusters) < 4 and len(leg_clusters) < 4:
+            t_last_end_idx = trajectory.index(turn_clusters[-1][-1])
+            if len(trajectory) > t_last_end_idx:
+                leg_clusters.append(trajectory[t_last_end_idx:])
+        elif len(turn_clusters) >= 4 and len(leg_clusters) < 4:
+            t2_end_idx = trajectory.index(turn_clusters[2][-1])
+            t3_start_idx = trajectory.index(turn_clusters[3][0])
+            if t3_start_idx > t2_end_idx:
+                leg_clusters.append(trajectory[t2_end_idx:t3_start_idx + 1])
 
     # Evaluate the 4 Straight Line Segments (40 points total - 10.0 points per leg: 6.0 dist + 4.0 straightness)
     leg_scores = []
@@ -195,12 +228,12 @@ def evaluate_run(trajectory_file, is_hidden=False):
         turn_scores.append(t_score)
         feedback.append(f"  Corner {i+1} ({['E->N', 'N->W', 'W->S', 'S->E'][i]}): Turn Angle={turn_deg:.1f}° (err={turn_error:.1f}°) -> Score {t_score:.2f}/7.50")
 
-    # Return & Parking accuracy (20 points)
+    # Return & Parking accuracy (25 points)
     # GATED: Closure is only evaluated if the mouse completed at least 3 valid legs and total_dist >= 2.5m
     feedback.append("\n--- Circuit Closure & Parking Accuracy ---")
     if valid_legs_count < 3 or total_dist < 2.5:
         parking_score = 0.0
-        feedback.append(f"  Return Offset : Gated (0.00/20.00). Must traverse at least 3 legs and 2.5m of perimeter (traversed: {total_dist:.2f}m, valid legs: {valid_legs_count}).")
+        feedback.append(f"  Return Offset : Gated (0.00/25.00). Must traverse at least 3 legs and 2.5m of perimeter (traversed: {total_dist:.2f}m, valid legs: {valid_legs_count}).")
     else:
         # Search candidate points from 2.5m perimeter traversal onwards
         cum_dist = 0.0
@@ -215,45 +248,38 @@ def evaluate_run(trajectory_file, is_hidden=False):
 
         if not is_hidden:
             if d_e <= 0.05:
-                parking_score = 20.0
+                parking_score = 25.0
             else:
-                parking_score = max(0.0, 20.0 - (d_e - 0.05) / 0.25 * 20.0)
+                parking_score = max(0.0, 25.0 - (d_e - 0.05) / 0.25 * 25.0)
         else:
-            parking_score = max(0.0, 20.0 * (1.0 - d_e / 0.18))
+            parking_score = max(0.0, 25.0 * (1.0 - d_e / 0.18))
             
-        feedback.append(f"  Return Offset (at Square Completion): {d_e*100:.1f} cm -> Parking Score {parking_score:.2f}/20.00")
+        feedback.append(f"  Return Offset (at Square Completion): {d_e*100:.1f} cm -> Parking Score {parking_score:.2f}/25.00")
         if math.hypot(final_x - start_x, final_y - start_y) > d_e + 0.02:
             feedback.append("  [Info] Extra forward rollout beyond origin incurs 0 penalty.")
 
-    # Efficiency & Safety (10 points total - 5 pts speed, 5 pts safety)
-    feedback.append("\n--- Efficiency & Safety ---")
+    # Efficiency (5 points total speed score)
+    feedback.append("\n--- Efficiency ---")
     if sim_time <= 30.0:
         raw_speed = 5.00
     else:
         raw_speed = max(0.0, 5.00 - (sim_time - 30.0) / 20.0 * 5.00)
     speed_score = raw_speed * (valid_legs_count / 4.0)
         
-    if crashed:
-        safety_score = 0.0
-    else:
-        safety_score = 5.00 * min(1.0, total_dist / 3.0)
-        
     feedback.append(f"  Speed Score (time={sim_time:.1f}s, completion={valid_legs_count}/4): {speed_score:.2f}/5.00")
-    feedback.append(f"  Safety Score (crashed={crashed}, distance={total_dist:.2f}m): {safety_score:.2f}/5.00")
 
     # Final Grade Calculation
     base_legs = sum(leg_scores)
     base_turns = sum(turn_scores)
-    total_grade = base_legs + base_turns + parking_score + speed_score + safety_score
+    total_grade = base_legs + base_turns + parking_score + speed_score
     
     final_grade_rounded = round(total_grade)
 
     feedback.append("\n=== Score Arithmetic Breakdown ===")
     feedback.append(f"  Leg Segments (Length + Straightness): {base_legs:5.2f} / 40.00 pts")
     feedback.append(f"  Corner Turn Angles (90° accuracy)   : {base_turns:5.2f} / 30.00 pts")
-    feedback.append(f"  Circuit Closure (Return to start)   : {parking_score:5.2f} / 20.00 pts")
+    feedback.append(f"  Circuit Closure (Return to start)   : {parking_score:5.2f} / 25.00 pts")
     feedback.append(f"  Run Speed Efficiency (Completed)    : {speed_score:5.2f} /  5.00 pts")
-    feedback.append(f"  Safety Bonus (Traversed no-crash)   : {safety_score:5.2f} /  5.00 pts")
     feedback.append(f"  -------------------------------------------")
     feedback.append(f"  Calculated Grade                    : {total_grade:5.2f} / 100.00 pts")
     feedback.append(f"  GRADE: {final_grade_rounded}%")
