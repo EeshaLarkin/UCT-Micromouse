@@ -64,6 +64,137 @@ def generate_trajectory_svg(trajectory_file):
         if not traj or len(traj) < 2:
             return ""
         
+        # Check if this is a maze trajectory (Submission 4 / Milestone 2) vs a square (Milestone 1)
+        is_maze = ("target_room" in data and data["target_room"] is not None) or ("grid_rows" in data and data.get("grid_rows", 0) > 0)
+        
+        if is_maze:
+            grid_rows = data.get("grid_rows", 4)
+            grid_cols = data.get("grid_cols", 6)
+            cell_dim = 0.20
+            maze_w_m = grid_cols * cell_dim
+            maze_h_m = grid_rows * cell_dim
+            
+            # Target room coordinates
+            target_cx, target_cy = data.get("target_room", (4, 2))
+            t_room_min_x = (target_cx - 1) * cell_dim
+            t_room_max_x = (target_cx + 1) * cell_dim
+            t_room_min_y = (target_cy - 1) * cell_dim
+            t_room_max_y = (target_cy + 1) * cell_dim
+            
+            w, h = 520, 380
+            margin = 35
+            
+            span_x = maze_w_m + 0.10
+            span_y = maze_h_m + 0.10
+            scale_px = min((w - 2 * margin) / span_x, (h - 2 * margin) / span_y)
+            
+            def to_svg_m(x, y):
+                sx = margin + x * scale_px
+                sy = (h - margin) - y * scale_px
+                return sx, sy
+            
+            pts = [to_svg_m(pt[0], pt[1]) for pt in traj]
+            path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
+            anim_dur = max(10.0, min(45.0, len(traj) * 0.05))
+            
+            start_sx, start_sy = to_svg_m(traj[0][0], traj[0][1])
+            final_sx, final_sy = to_svg_m(traj[-1][0], traj[-1][1])
+            
+            # Start cell box
+            sc_x0, sc_y1 = to_svg_m(0, cell_dim)
+            sc_w = cell_dim * scale_px
+            sc_h = cell_dim * scale_px
+            
+            # Target room box
+            tr_x0, tr_y1 = to_svg_m(t_room_min_x, t_room_max_y)
+            tr_w = (t_room_max_x - t_room_min_x) * scale_px
+            tr_h = (t_room_max_y - t_room_min_y) * scale_px
+            
+            # Outer maze border
+            mb_x0, mb_y1 = to_svg_m(0, maze_h_m)
+            mb_w = maze_w_m * scale_px
+            mb_h = maze_h_m * scale_px
+            
+            # Grid lines
+            grid_svg = []
+            for r in range(grid_rows + 1):
+                p0 = to_svg_m(0, r * cell_dim)
+                p1 = to_svg_m(maze_w_m, r * cell_dim)
+                grid_svg.append(f'<line x1="{p0[0]:.1f}" y1="{p0[1]:.1f}" x2="{p1[0]:.1f}" y2="{p1[1]:.1f}" stroke="#2d3748" stroke-width="1" stroke-dasharray="2,2"/>')
+            for c in range(grid_cols + 1):
+                p0 = to_svg_m(c * cell_dim, 0)
+                p1 = to_svg_m(c * cell_dim, maze_h_m)
+                grid_svg.append(f'<line x1="{p0[0]:.1f}" y1="{p0[1]:.1f}" x2="{p1[0]:.1f}" y2="{p1[1]:.1f}" stroke="#2d3748" stroke-width="1" stroke-dasharray="2,2"/>')
+            grid_lines_str = "\n    ".join(grid_svg)
+            
+            # Physical mouse dimensions scaled to SVG coordinates
+            lf = 0.055 * scale_px
+            lr = 0.048 * scale_px
+            wc = 0.034 * scale_px
+            ww = 0.048 * scale_px
+            wrad = 0.0325 * scale_px
+            wth = 0.009 * scale_px
+            pcb_d = f"M {-lr:.1f},{-wc:.1f} L {lf-0.015*scale_px:.1f},{-wc:.1f} L {lf:.1f},{-wc*0.4:.1f} L {lf:.1f},{wc*0.4:.1f} L {lf-0.015*scale_px:.1f},{wc:.1f} L {-lr:.1f},{wc:.1f} Z"
+            
+            svg = f'''<div style="margin: 15px 0;">
+  <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory & Maze Solver Playback:</h4>
+  <svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" style="background:#141414; border:1px solid #444; border-radius:6px; max-width: 100%; height: auto;">
+    <rect width="100%" height="100%" fill="#141414"/>
+    
+    <!-- Maze Outer Boundary & Grid -->
+    <rect x="{mb_x0:.1f}" y="{mb_y1:.1f}" width="{mb_w:.1f}" height="{mb_h:.1f}" fill="#1a202c" stroke="#4a5568" stroke-width="2"/>
+    {grid_lines_str}
+    
+    <!-- Start Cell (0,0) -->
+    <rect x="{sc_x0:.1f}" y="{sc_y1:.1f}" width="{sc_w:.1f}" height="{sc_h:.1f}" fill="#00b4d8" fill-opacity="0.18" stroke="#00b4d8" stroke-width="1.5"/>
+    <text x="{sc_x0+4:.1f}" y="{sc_y1+14:.1f}" fill="#00b4d8" font-size="9" font-family="sans-serif" font-weight="bold">Start (0,0)</text>
+    
+    <!-- 2x2 Target Room Zone -->
+    <rect x="{tr_x0:.1f}" y="{tr_y1:.1f}" width="{tr_w:.1f}" height="{tr_h:.1f}" fill="#2ec4b6" fill-opacity="0.22" stroke="#2ec4b6" stroke-width="2" stroke-dasharray="4,3"/>
+    <text x="{tr_x0+6:.1f}" y="{tr_y1+16:.1f}" fill="#2ec4b6" font-size="10" font-family="sans-serif" font-weight="bold">🎯 2x2 Target Room</text>
+    
+    <!-- Actual Mouse Trajectory -->
+    <path d="{path_d}" fill="none" stroke="#ffd166" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    
+    <!-- Start & Final Position Markers -->
+    <circle cx="{start_sx:.1f}" cy="{start_sy:.1f}" r="4.5" fill="#2ec4b6" stroke="#fff" stroke-width="1.2"/>
+    <circle cx="{final_sx:.1f}" cy="{final_sy:.1f}" r="4.5" fill="#e71d36" stroke="#fff" stroke-width="1.2"/>
+    
+    <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
+    <g id="uct_mouse_robot">
+      <!-- Left & Right Wheels -->
+      <rect x="{-wrad:.1f}" y="{-ww:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
+      <rect x="{-wrad:.1f}" y="{ww-wth:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
+      <line x1="0" y1="{-ww:.1f}" x2="0" y2="{ww:.1f}" stroke="#6c757d" stroke-width="1.0"/>
+      <!-- DC Motor Gearboxes -->
+      <rect x="{-0.022*scale_px:.1f}" y="{-wc*0.95:.1f}" width="{0.030*scale_px:.1f}" height="{0.015*scale_px:.1f}" fill="#d4a373" stroke="#b08968" stroke-width="0.5"/>
+      <rect x="{-0.022*scale_px:.1f}" y="{wc*0.95-0.015*scale_px:.1f}" width="{0.030*scale_px:.1f}" height="{0.015*scale_px:.1f}" fill="#d4a373" stroke="#b08968" stroke-width="0.5"/>
+      <!-- Green PCB Mainboard with Chamfered Nose -->
+      <path d="{pcb_d}" fill="#134e2c" stroke="#d4af37" stroke-width="1.0"/>
+      <!-- STM32 MCU Chip (Diamond rotated 45 deg) -->
+      <rect x="{-0.010*scale_px:.1f}" y="{-0.010*scale_px:.1f}" width="{0.020*scale_px:.1f}" height="{0.020*scale_px:.1f}" transform="rotate(45)" fill="#111111" stroke="#ffd166" stroke-width="0.6"/>
+      <!-- OLED Display Breakout with Cyan Screen -->
+      <rect x="{0.008*scale_px:.1f}" y="{-0.013*scale_px:.1f}" width="{0.024*scale_px:.1f}" height="{0.026*scale_px:.1f}" rx="1.0" fill="#0077b6" stroke="#03045e" stroke-width="0.5"/>
+      <rect x="{0.012*scale_px:.1f}" y="{-0.009*scale_px:.1f}" width="{0.016*scale_px:.1f}" height="{0.018*scale_px:.1f}" fill="#000814" stroke="#00f5d4" stroke-width="0.6"/>
+      <!-- 3x ToF Distance Sensors (Left 45°, Center, Right -45°) -->
+      <circle cx="{lf:.1f}" cy="0" r="1.5" fill="#e63946" stroke="#ffffff" stroke-width="0.5"/>
+      <circle cx="{lf-0.007*scale_px:.1f}" cy="{-wc*0.75:.1f}" r="1.3" fill="#e63946" stroke="#ffffff" stroke-width="0.4"/>
+      <circle cx="{lf-0.007*scale_px:.1f}" cy="{wc*0.75:.1f}" r="1.3" fill="#e63946" stroke="#ffffff" stroke-width="0.4"/>
+      <!-- Forward Laser Guidance Beam -->
+      <line x1="{lf:.1f}" y1="0" x2="{lf+0.020*scale_px:.1f}" y2="0" stroke="#e63946" stroke-width="0.8" stroke-dasharray="2,2"/>
+      <!-- Motion Animation binding -->
+      <animateMotion path="{path_d}" dur="{anim_dur:.1f}s" repeatCount="indefinite" rotate="auto" />
+    </g>
+    
+    <!-- Legend -->
+    <text x="35" y="20" fill="#888888" font-size="10" font-family="sans-serif">Maze Grid: {grid_rows}×{grid_cols} ({maze_w_m:.1f}m × {maze_h_m:.1f}m)</text>
+    <text x="35" y="32" fill="#ffd166" font-size="10" font-family="sans-serif">── Trajectory Path (Explore, Pirouette, Return &amp; Sprint)</text>
+    <text x="{w-210}" y="20" fill="#48cae4" font-size="10" font-family="sans-serif">🎬 Replay: {anim_dur:.1f}s Loop</text>
+  </svg>
+</div>'''
+            return svg
+        
+        # Otherwise: Render Square trajectory (Milestone 1)
         start_x = data.get("start_x", traj[0][0])
         start_y = data.get("start_y", traj[0][1])
         th0 = traj[0][2]
