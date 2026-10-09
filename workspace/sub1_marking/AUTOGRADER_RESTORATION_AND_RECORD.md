@@ -62,10 +62,12 @@ Each test trial evaluates the recorded trajectory against 4 physical criteria:
 * **Zero Forward Motion Requirement:** Turn 4 is detected purely from rotational kinematics ($\omega > 18.0^\circ/\text{s}$) at the completion of Leg 4. Students are never required to nudge forward to trigger corner detection.
 * **Rollout Protection:** The return offset is searched across all trajectory samples from $D_{\text{cum}} \ge 2.50\text{ m}$ through completion. Extra coasting or forward movement past the origin incurs **$0$ penalty** and does not distort the evaluated parking accuracy.
 
-### C. DOMPurify-Safe Inline Vector Animation
+### C. DOMPurify-Safe Inline Vector Animation & Kinematic Accuracy
 * Video files and base64 GIFs are stripped by Gradescope's DOMPurify sanitizer.
 * The autograder embeds a native SMIL-animated SVG vector model directly into the feedback report.
 * Renders the authentic UCT Micromouse in **true 1:1 physical scale** ($105\text{ mm} \times 96\text{ mm}$, $65\text{ mm}$ wheels, dark green PCB, gold traces, OLED module, and 3x red ToF lasers) smoothly replaying the student's exact run.
+* **Dual SMIL `<animateTransform>` Engine:** Replaces `<animateMotion rotate="auto">` with decoupled `type="translate"` and `type="rotate" additive="sum"`. This guarantees that in-place turns, spins, and heading changes accurately reflect the vehicle's true unwrapped heading $\theta(t)$ without depending on path tangent derivatives $(\Delta y / \Delta x)$.
+* **Physical Time Fidelity via `keyTimes`:** Simulation timestamps $(t_k)$ are normalized and assigned to SMIL `keyTimes="0;...;1"`. This preserves exact physical speed variations, acceleration profiles, corner turning durations, and stationary pauses rather than forcing uniform spatial interpolation.
 
 ---
 
