@@ -132,11 +132,23 @@ def generate_trajectory_svg(trajectory_file):
         
         dir_label = "CCW (Left)" if dir_sign > 0 else "CW (Right)"
         
+        # Physical mouse dimensions scaled to SVG coordinates (Scale: (w - 70) / span px/meter)
+        scale_px = (w - 70) / span
+        lf = 0.055 * scale_px     # Forward nose from axle (~15 px)
+        lr = 0.048 * scale_px     # Rear tail from axle (~13 px)
+        wc = 0.034 * scale_px     # PCB half-width (~9.3 px)
+        ww = 0.048 * scale_px     # Outer wheel half-width (~13.1 px)
+        wrad = 0.0325 * scale_px  # Wheel radius (~8.9 px)
+        wth = 0.009 * scale_px    # Wheel thickness (~2.5 px)
+        
+        # PCB contour points: chamfered 45-deg nose for ToF sensor brackets
+        pcb_d = f"M {-lr:.1f},{-wc:.1f} L {lf-0.015*scale_px:.1f},{-wc:.1f} L {lf:.1f},{-wc*0.4:.1f} L {lf:.1f},{wc*0.4:.1f} L {lf-0.015*scale_px:.1f},{wc:.1f} L {-lr:.1f},{wc:.1f} Z"
+        
         path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
         anim_dur = max(6.0, min(30.0, len(traj) * 0.05))
         
         svg = f'''<div style="margin: 15px 0;">
-  <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory & Live Playback:</h4>
+  <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory & Micromouse Playback:</h4>
   <svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" style="background:#181818; border:1px solid #444; border-radius:6px; max-width: 100%; height: auto;">
     <rect width="100%" height="100%" fill="#181818"/>
     <!-- Grid Marks -->
@@ -151,16 +163,37 @@ def generate_trajectory_svg(trajectory_file):
     <circle cx="{end_sx:.1f}" cy="{end_sy:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
     <text x="{start_sx+8:.1f}" y="{start_sy+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start Origin ({traj[0][0]:.2f}, {traj[0][1]:.2f})</text>
     <text x="{end_sx+8:.1f}" y="{end_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">Stop ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
-    <!-- Animated Robot Playback Vehicle Marker -->
-    <g>
-      <circle r="6.5" fill="#ffb703" stroke="#ffffff" stroke-width="1.5"/>
-      <polygon points="8,0 -4,-5 -4,5" fill="#e71d36"/>
+    
+    <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
+    <g id="uct_mouse_robot">
+      <!-- Left & Right Wheels -->
+      <rect x="{-wrad:.1f}" y="{-ww:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
+      <rect x="{-wrad:.1f}" y="{ww-wth:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
+      <line x1="0" y1="{-ww:.1f}" x2="0" y2="{ww:.1f}" stroke="#6c757d" stroke-width="1.0"/>
+      <!-- DC Motor Gearboxes -->
+      <rect x="{-0.022*scale_px:.1f}" y="{-wc*0.95:.1f}" width="{0.030*scale_px:.1f}" height="{0.015*scale_px:.1f}" fill="#d4a373" stroke="#b08968" stroke-width="0.5"/>
+      <rect x="{-0.022*scale_px:.1f}" y="{wc*0.95-0.015*scale_px:.1f}" width="{0.030*scale_px:.1f}" height="{0.015*scale_px:.1f}" fill="#d4a373" stroke="#b08968" stroke-width="0.5"/>
+      <!-- Green PCB Mainboard with Chamfered Nose -->
+      <path d="{pcb_d}" fill="#134e2c" stroke="#d4af37" stroke-width="1.0"/>
+      <!-- STM32 MCU Chip (Diamond rotated 45 deg) -->
+      <rect x="{-0.010*scale_px:.1f}" y="{-0.010*scale_px:.1f}" width="{0.020*scale_px:.1f}" height="{0.020*scale_px:.1f}" transform="rotate(45)" fill="#111111" stroke="#ffd166" stroke-width="0.6"/>
+      <!-- OLED Display Breakout with Cyan Screen -->
+      <rect x="{0.008*scale_px:.1f}" y="{-0.013*scale_px:.1f}" width="{0.024*scale_px:.1f}" height="{0.026*scale_px:.1f}" rx="1.0" fill="#0077b6" stroke="#03045e" stroke-width="0.5"/>
+      <rect x="{0.012*scale_px:.1f}" y="{-0.009*scale_px:.1f}" width="{0.016*scale_px:.1f}" height="{0.018*scale_px:.1f}" fill="#000814" stroke="#00f5d4" stroke-width="0.6"/>
+      <!-- 3x ToF Distance Sensors (Left 45°, Center, Right -45°) -->
+      <circle cx="{lf:.1f}" cy="0" r="1.5" fill="#e63946" stroke="#ffffff" stroke-width="0.5"/>
+      <circle cx="{lf-0.007*scale_px:.1f}" cy="{-wc*0.75:.1f}" r="1.3" fill="#e63946" stroke="#ffffff" stroke-width="0.4"/>
+      <circle cx="{lf-0.007*scale_px:.1f}" cy="{wc*0.75:.1f}" r="1.3" fill="#e63946" stroke="#ffffff" stroke-width="0.4"/>
+      <!-- Forward Laser Guidance Beam -->
+      <line x1="{lf:.1f}" y1="0" x2="{lf+0.020*scale_px:.1f}" y2="0" stroke="#e63946" stroke-width="0.8" stroke-dasharray="2,2"/>
+      <!-- Motion Animation binding -->
       <animateMotion path="{path_d}" dur="{anim_dur:.1f}s" repeatCount="indefinite" rotate="auto" />
     </g>
+    
     <!-- Legend -->
     <text x="45" y="25" fill="#888888" font-size="10" font-family="sans-serif">--- Ideal Square (1m × 1m, {dir_label})</text>
     <text x="45" y="38" fill="#00b4d8" font-size="10" font-family="sans-serif">── Actual Trajectory</text>
-    <text x="45" y="51" fill="#48cae4" font-size="10" font-family="sans-serif">🎬 Live Playback: Vehicle Marker (🟡/🔺) traces trajectory ({anim_dur:.1f}s loop)</text>
+    <text x="45" y="51" fill="#48cae4" font-size="10" font-family="sans-serif">🎬 Live Playback: UCT Micromouse Model in true 1:1 scale ({anim_dur:.1f}s loop)</text>
     <text x="45" y="64" fill="#aaaaaa" font-size="9" font-family="sans-serif">Note: Parking is scored at square completion; extra forward rollout is not penalized.</text>
   </svg>
 </div>'''
