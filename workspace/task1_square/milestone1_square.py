@@ -22,6 +22,29 @@ import math
 
 TICK_DIST_M = (2.0 * math.pi * 0.031) / 8.0
 
+def calibrate_gyro():
+    """
+    Calibrates the gyroscope Z-axis bias while the mouse is stationary.
+    Collects 100 samples over 1.0 second (10ms intervals) to calculate average bias.
+    """
+    global GYRO_BIAS
+    print("  [Calibrating Gyro] Please keep the mouse still...")
+    
+    uct_mouse.set_motors(0, 0)
+    
+    # Sensor warm-up: let socket connection and telemetry stream stabilize (200ms)
+    for _ in range(20):
+        uct_mouse.delay_ms(10)
+        
+    GYRO_BIAS = 0.0  # Zero out bias during calibration run
+    samples = []
+    for _ in range(100):  # 100 samples at 10ms = 1.0 second
+        uct_mouse.delay_ms(10)
+        samples.append(uct_mouse.get_gyro())
+        
+    GYRO_BIAS = sum(samples) / len(samples)
+    print(f"  [Calibrating Gyro] Complete. Estimated bias: {GYRO_BIAS:.4f} dps")
+
 def drive_straight(distance_m):
     """
     TODO: Implement closed-loop straight line control.
@@ -63,7 +86,7 @@ def run_square():
             if len(lines) >= 4:
                 uct_mouse.set_encoder_polarity(int(lines[2]), int(lines[3]))
     except Exception:
-        uct_mouse.set_polarity(1, 1)
+        uct_mouse.set_polarity(-1, -1)
 
     print("--- Milestone 1: Run a Square ---")
 
