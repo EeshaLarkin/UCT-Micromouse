@@ -168,28 +168,28 @@ def get_video_html(video_path):
             
         gif_path = video_path + ".preview.gif"
         try:
-            # Generate optimized lightweight animated GIF preview (360x360 @ 10fps, max 64 colors)
+            # Generate optimized lightweight animated GIF preview (320x320 @ 8fps, max 32 colors)
             # Compatible across all browsers and Gradescope markdown sanitizers without being stripped
             cmd = [
                 ffmpeg_bin, "-y", "-nostdin",
                 "-i", video_path,
-                "-vf", "fps=10,scale=360:360:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer",
+                "-vf", "fps=8,scale=320:320:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=32[p];[s1][p]paletteuse=dither=bayer",
                 "-loop", "0",
                 gif_path
             ]
             subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
             if os.path.exists(gif_path) and os.path.getsize(gif_path) > 0:
                 size_mb = os.path.getsize(gif_path) / (1024 * 1024)
-                if size_mb <= 4.0:
+                if size_mb <= 5.0:
                     import base64
                     with open(gif_path, "rb") as gf:
                         b64_data = base64.b64encode(gf.read()).decode("utf-8")
                     try: os.remove(gif_path)
                     except Exception: pass
-                    return f'''<div style="margin: 15px 0;">
-  <h4 style="margin-bottom: 8px; color: #fff;">🎬 Simulation Run Playback Animation:</h4>
-  <img src="data:image/gif;base64,{b64_data}" alt="Simulation Run Playback" style="max-width: 480px; width: 100%; height: auto; border: 1px solid #444; border-radius: 6px; background: #000;" />
-  <p style="color:#888; font-size:11px; margin-top:4px;"><i>Visual playback animation generated from physics simulation.</i></p>
+                    return f'''<div style="margin: 15px 0; text-align: center; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333;">
+  <h4 style="margin: 0 0 8px 0; color: #4CAF50; font-family: sans-serif;">🎬 Simulation Run Playback</h4>
+  <img src="data:image/gif;base64,{b64_data}" alt="Simulation Run Playback" style="max-width: 380px; width: 100%; height: auto; border: 2px solid #555; border-radius: 4px;" />
+  <p style="color: #aaa; font-size: 11px; margin: 6px 0 0 0; font-family: sans-serif;">Visual playback animation of robot trajectory</p>
 </div>'''
         except Exception as ge:
             print(f"[Grader] Warning during GIF generation: {ge}")
@@ -538,10 +538,12 @@ def main():
                 "--imbalance", str(imb_val),
                 "--slip", str(slip_val),
                 "--json-log", TRAJECTORY_JSON,
-                "--video", VIDEO_PATH if is_video else "",
                 "--max-time", str(getattr(test_suite, "TIME_LIMIT", 50.0)),
                 "--seed", str(seed_val)
             ]
+            if is_video:
+                os.makedirs(os.path.dirname(os.path.abspath(VIDEO_PATH)), exist_ok=True)
+                sim_cmd.extend(["--video", VIDEO_PATH])
             if student_config:
                 sim_cmd.extend(["--config", student_config])
             elif assignment_sim_config and os.path.exists(assignment_sim_config):

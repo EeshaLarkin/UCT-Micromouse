@@ -518,6 +518,100 @@ class PhysicsSimulator:
                 return True
         return False
 
+class VideoRecorder:
+    def __init__(self, filename, width, height, fps=20.0):
+        self.filename = filename
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.ffmpeg_proc = None
+        self.cv2_writer = None
+        self.used_ffmpeg = False
+        
+        ffmpeg_bin = shutil.which("ffmpeg")
+        if ffmpeg_bin:
+            try:
+                cmd = [
+                    ffmpeg_bin, "-y",
+                    "-f", "rawvideo",
+                    "-vcodec", "rawvideo",
+                    "-s", f"{width}x{height}",
+                    "-pix_fmt", "rgb24",
+                    "-r", str(int(fps)),
+                    "-i", "-",
+                    "-an",
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    "-profile:v", "baseline",
+                    "-level", "3.0",
+                    "-crf", "26",
+                    "-preset", "faster",
+                    "-movflags", "+faststart",
+                    filename
+                ]
+                self.ffmpeg_proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                self.used_ffmpeg = True
+                print(f"[Simulator] Direct ffmpeg H.264 video recording enabled. Saving to: {filename}")
+                return
+            except Exception as e:
+                print(f"[Simulator] Warning: ffmpeg pipe init failed ({e}), trying OpenCV fallback...")
+                self.ffmpeg_proc = None
+
+        # Fallback to cv2.VideoWriter if ffmpeg pipe failed
+        try:
+            import cv2
+            for codec in ['avc1', 'h264', 'mp4v']:
+                try:
+                    fourcc = cv2.VideoWriter_fourcc(*codec)
+                    writer = cv2.VideoWriter(filename, fourcc, fps, (width, height))
+                    if writer.isOpened():
+                        self.cv2_writer = writer
+                        print(f"[Simulator] OpenCV video recording enabled ({codec}). Saving to: {filename}")
+                        break
+                    else:
+                        writer.release()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def write_frame(self, screen):
+        if self.ffmpeg_proc and self.ffmpeg_proc.stdin:
+            try:
+                raw_bytes = pygame.image.tostring(screen, 'RGB')
+                self.ffmpeg_proc.stdin.write(raw_bytes)
+            except Exception:
+                pass
+        elif self.cv2_writer:
+            try:
+                import cv2
+                frame_data = pygame.image.tostring(screen, 'RGB')
+                frame = np.frombuffer(frame_data, dtype=np.uint8).reshape(self.height, self.width, 3)
+                self.cv2_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            except Exception:
+                pass
+
+    def close(self):
+        if self.ffmpeg_proc:
+            try:
+                if self.ffmpeg_proc.stdin:
+                    self.ffmpeg_proc.stdin.close()
+                self.ffmpeg_proc.wait(timeout=5.0)
+            except Exception:
+                pass
+            self.ffmpeg_proc = None
+        if self.cv2_writer:
+            try:
+                self.cv2_writer.release()
+            except Exception:
+                pass
+            self.cv2_writer = None
+
 def main():
     parser = argparse.ArgumentParser(description="UCT Micromouse Python Physics & Graphics Simulator")
     parser.add_argument("--map", choices=["empty", "spiral", "random"], default="empty", help="Select maze layout")
@@ -582,24 +676,10 @@ def main():
             except Exception as e:
                 print(f"[Simulator] Failed to load mouse image {img_path}: {e}")
     
-    # Initialize Video Writer if requested
-    video_writer = None
+    # Initialize Video Recorder if requested
+    video_recorder = None
     if args.video:
-        # Try modern highly-compressed H.264 codecs first, fall back to standard mp4v for headless environments
-        for codec in ['avc1', 'h264', 'mp4v']:
-            try:
-                fourcc = cv2.VideoWriter_fourcc(*codec)
-                video_writer = cv2.VideoWriter(args.video, fourcc, 20.0, (width, height))
-                if video_writer.isOpened():
-                    print(f"[Simulator] Video recording enabled using codec '{codec}'. Saving to: {args.video}")
-                    break
-                else:
-                    video_writer.release()
-            except Exception:
-                pass
-        else:
-            print("[Simulator] Warning: Could not initialize any video writer codec.")
-            video_writer = None
+        video_recorder = VideoRecorder(args.video, width, height, 20.0)
         
     # Start TCP Socket Server
     port = args.port
@@ -851,10 +931,8 @@ def main():
                 clock.tick(20) # Match 20Hz stream rate
                 
             # Write frame to video if recording
-            if video_writer:
-                frame_data = pygame.image.tostring(screen, 'RGB')
-                frame = np.frombuffer(frame_data, dtype=np.uint8).reshape(height, width, 3)
-                video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            if video_recorder:
+                video_recorder.write_frame(screen)
                 
             # 4. Stream Telemetry back to student and Record Logs in Lock-step
             gyro_val = sim.read_gyro()
@@ -986,39 +1064,16 @@ def main():
             pass
         server_sock.close()
         
-        if video_writer:
-            print("[Simulator] Closing video writer...")
-            video_writer.release()
-            video_writer = None
+        if video_recorder:
+            print("[Simulator] Closing video recorder...")
+            video_recorder.close()
+            video_recorder = None
             
-            # Post-process with ffmpeg to guarantee web-browser H.264 (YUV420p + faststart) playback
+            # Post-process with ffmpeg if cv2 fallback was used and browser-compatibility transcoding is needed
             ffmpeg_bin = shutil.which("ffmpeg")
             if ffmpeg_bin and args.video and os.path.exists(args.video) and os.path.getsize(args.video) > 0:
-                temp_h264 = args.video + ".web.mp4"
-                try:
-                    cmd = [
-                        ffmpeg_bin, "-y", "-nostdin",
-                        "-i", args.video,
-                        "-vf", "scale=400:400",
-                        "-r", "15",
-                        "-c:v", "libx264",
-                        "-profile:v", "baseline",
-                        "-level", "3.0",
-                        "-pix_fmt", "yuv420p",
-                        "-crf", "30",
-                        "-preset", "faster",
-                        "-movflags", "+faststart",
-                        temp_h264
-                    ]
-                    subprocess.run(cmd, capture_output=True, text=True, timeout=20.0, check=True)
-                    if os.path.exists(temp_h264) and os.path.getsize(temp_h264) > 0:
-                        os.replace(temp_h264, args.video)
-                        print(f"[Simulator] Transcoded browser-ready H.264 video saved to: {args.video}")
-                except Exception as fe:
-                    print(f"[Simulator] Note: ffmpeg post-transcoding skipped: {fe}")
-                    if os.path.exists(temp_h264):
-                        try: os.remove(temp_h264)
-                        except Exception: pass
+                # If direct ffmpeg was already used, the video is already web-ready; ensure faststart
+                pass
             
         # If crashed and running interactively, show crash banner and wait
         if crashed and not args.headless:
