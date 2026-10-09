@@ -847,14 +847,14 @@ def main():
                 if not hasattr(sim, "stationary_time"):
                     sim.stationary_time = 0.0
                 sim.stationary_time += dt
-                if sim.stationary_time >= 3.0:
+                if sim.stationary_time >= 6.0:
                     start_x = sim.trajectory[0][0] if sim.trajectory else 0.0
                     start_y = sim.trajectory[0][1] if sim.trajectory else 0.0
                     max_disp = 0.0
                     for pt in sim.trajectory:
                         max_disp = max(max_disp, math.hypot(pt[0] - start_x, pt[1] - start_y))
                     if max_disp > 0.1:
-                        print(f"[Simulator] Auto-completing run: Mouse stopped for 3.0s after moving.")
+                        print(f"[Simulator] Auto-completing run: Mouse stopped for 6.0s after moving.")
                         running = False
             else:
                 sim.stationary_time = 0.0

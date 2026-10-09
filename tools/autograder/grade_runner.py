@@ -166,6 +166,26 @@ def generate_trajectory_svg(trajectory_file):
                     posts_svg.append(f'<circle cx="{p[0]:.1f}" cy="{p[1]:.1f}" r="2.2" fill="#cbd5e1" stroke="#475569" stroke-width="0.5"/>')
             posts_str = "\n    ".join(posts_svg)
             
+            # Subsample trajectory for smooth, lightweight keyframed animation
+            step_size = max(1, len(traj) // 250)
+            sub_traj = traj[::step_size]
+            if sub_traj[-1] != traj[-1]:
+                sub_traj.append(traj[-1])
+            
+            # Continuous unwrapped yaw tracking to ensure smooth 360-degree pirouette rotation
+            unwrapped_thetas = []
+            cum_th = sub_traj[0][2]
+            unwrapped_thetas.append(cum_th)
+            for i in range(len(sub_traj) - 1):
+                d_th = sub_traj[i+1][2] - sub_traj[i][2]
+                while d_th > math.pi: d_th -= 2 * math.pi
+                while d_th < -math.pi: d_th += 2 * math.pi
+                cum_th += d_th
+                unwrapped_thetas.append(cum_th)
+            
+            trans_vals = "; ".join(f"{to_svg_m(pt[0], pt[1])[0]:.1f} {to_svg_m(pt[0], pt[1])[1]:.1f}" for pt in sub_traj)
+            rot_vals = "; ".join(f"{-math.degrees(th):.1f}" for th in unwrapped_thetas)
+            
             # Physical mouse dimensions scaled to SVG coordinates
             lf = 0.055 * scale_px
             lr = 0.048 * scale_px
@@ -205,6 +225,8 @@ def generate_trajectory_svg(trajectory_file):
     
     <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
     <g id="uct_mouse_robot">
+      <animateTransform attributeName="transform" type="translate" values="{trans_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate" additive="sum" values="{rot_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
       <!-- Left & Right Wheels -->
       <rect x="{-wrad:.1f}" y="{-ww:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
       <rect x="{-wrad:.1f}" y="{ww-wth:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
@@ -225,8 +247,6 @@ def generate_trajectory_svg(trajectory_file):
       <circle cx="{lf-0.007*scale_px:.1f}" cy="{wc*0.75:.1f}" r="1.3" fill="#e63946" stroke="#ffffff" stroke-width="0.4"/>
       <!-- Forward Laser Guidance Beam -->
       <line x1="{lf:.1f}" y1="0" x2="{lf+0.020*scale_px:.1f}" y2="0" stroke="#e63946" stroke-width="0.8" stroke-dasharray="2,2"/>
-      <!-- Motion Animation binding -->
-      <animateMotion path="{path_d}" dur="{anim_dur:.1f}s" repeatCount="indefinite" rotate="auto" />
     </g>
     
     <!-- Legend -->
@@ -333,7 +353,25 @@ def generate_trajectory_svg(trajectory_file):
         # PCB contour points: chamfered 45-deg nose for ToF sensor brackets
         pcb_d = f"M {-lr:.1f},{-wc:.1f} L {lf-0.015*scale_px:.1f},{-wc:.1f} L {lf:.1f},{-wc*0.4:.1f} L {lf:.1f},{wc*0.4:.1f} L {lf-0.015*scale_px:.1f},{wc:.1f} L {-lr:.1f},{wc:.1f} Z"
         
-        path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
+        # Subsample trajectory for smooth, lightweight keyframed animation
+        step_size = max(1, len(traj) // 250)
+        sub_traj = traj[::step_size]
+        if sub_traj[-1] != traj[-1]:
+            sub_traj.append(traj[-1])
+        
+        unwrapped_thetas = []
+        cum_th = sub_traj[0][2]
+        unwrapped_thetas.append(cum_th)
+        for i in range(len(sub_traj) - 1):
+            d_th = sub_traj[i+1][2] - sub_traj[i][2]
+            while d_th > math.pi: d_th -= 2 * math.pi
+            while d_th < -math.pi: d_th += 2 * math.pi
+            cum_th += d_th
+            unwrapped_thetas.append(cum_th)
+        
+        trans_vals = "; ".join(f"{to_svg(pt[0], pt[1])[0]:.1f} {to_svg(pt[0], pt[1])[1]:.1f}" for pt in sub_traj)
+        rot_vals = "; ".join(f"{-math.degrees(th):.1f}" for th in unwrapped_thetas)
+        
         anim_dur = max(6.0, min(30.0, len(traj) * 0.05))
         
         rollout_svg = f'<circle cx="{final_sx:.1f}" cy="{final_sy:.1f}" r="3.5" fill="#6c757d" stroke="#fff" stroke-width="1.0" stroke-dasharray="2,1"/><text x="{final_sx+6:.1f}" y="{final_sy+3:.1f}" fill="#888888" font-size="9" font-family="sans-serif">Final Rest (+{rollout_dist_cm:.1f}cm rollout)</text>' if rollout_dist_cm > 4.0 else ''
@@ -358,6 +396,8 @@ def generate_trajectory_svg(trajectory_file):
     
     <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
     <g id="uct_mouse_robot">
+      <animateTransform attributeName="transform" type="translate" values="{trans_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate" additive="sum" values="{rot_vals}" dur="{anim_dur:.1f}s" repeatCount="indefinite" />
       <!-- Left & Right Wheels -->
       <rect x="{-wrad:.1f}" y="{-ww:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
       <rect x="{-wrad:.1f}" y="{ww-wth:.1f}" width="{2*wrad:.1f}" height="{wth:.1f}" rx="1.5" fill="#343a40" stroke="#111111" stroke-width="0.8"/>
@@ -378,8 +418,6 @@ def generate_trajectory_svg(trajectory_file):
       <circle cx="{lf-0.007*scale_px:.1f}" cy="{wc*0.75:.1f}" r="1.3" fill="#e63946" stroke="#ffffff" stroke-width="0.4"/>
       <!-- Forward Laser Guidance Beam -->
       <line x1="{lf:.1f}" y1="0" x2="{lf+0.020*scale_px:.1f}" y2="0" stroke="#e63946" stroke-width="0.8" stroke-dasharray="2,2"/>
-      <!-- Motion Animation binding -->
-      <animateMotion path="{path_d}" dur="{anim_dur:.1f}s" repeatCount="indefinite" rotate="auto" />
     </g>
     
     <!-- Legend -->
