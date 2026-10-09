@@ -123,12 +123,27 @@ def generate_trajectory_svg(trajectory_file):
         ideal_poly = " ".join(f"{x:.1f},{y:.1f}" for x, y in ideal_svg_pts)
         
         start_sx, start_sy = to_svg(traj[0][0], traj[0][1])
-        end_sx, end_sy = to_svg(traj[-1][0], traj[-1][1])
         
-        # Avoid label overlap if end marker is parked very close to start
-        end_text_y = end_sy + 4.0
-        if math.hypot(end_sx - start_sx, end_sy - start_sy) < 25.0:
-            end_text_y = end_sy - 10.0
+        # Calculate best circuit completion point (searching from 2.5m perimeter traversal onwards)
+        cum_dist = 0.0
+        k_search_start = 0
+        for k in range(1, len(traj)):
+            cum_dist += math.hypot(traj[k][0] - traj[k-1][0], traj[k][1] - traj[k-1][1])
+            if cum_dist >= 2.5 and k_search_start == 0:
+                k_search_start = k
+                
+        candidate_pts = traj[k_search_start:] if k_search_start > 0 else traj[-5:]
+        best_pt = min(candidate_pts, key=lambda p: math.hypot(p[0] - traj[0][0], p[1] - traj[0][1]))
+        ret_sx, ret_sy = to_svg(best_pt[0], best_pt[1])
+        final_sx, final_sy = to_svg(traj[-1][0], traj[-1][1])
+        
+        ret_offset_cm = math.hypot(best_pt[0] - traj[0][0], best_pt[1] - traj[0][1]) * 100.0
+        rollout_dist_cm = math.hypot(traj[-1][0] - best_pt[0], traj[-1][1] - best_pt[1]) * 100.0
+        
+        # Avoid label overlap if return marker is parked very close to start
+        ret_text_y = ret_sy + 4.0
+        if math.hypot(ret_sx - start_sx, ret_sy - start_sy) < 25.0:
+            ret_text_y = ret_sy - 10.0
         
         dir_label = "CCW (Left)" if dir_sign > 0 else "CW (Right)"
         
@@ -147,6 +162,8 @@ def generate_trajectory_svg(trajectory_file):
         path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
         anim_dur = max(6.0, min(30.0, len(traj) * 0.05))
         
+        rollout_svg = f'<circle cx="{final_sx:.1f}" cy="{final_sy:.1f}" r="3.5" fill="#6c757d" stroke="#fff" stroke-width="1.0" stroke-dasharray="2,1"/><text x="{final_sx+6:.1f}" y="{final_sy+3:.1f}" fill="#888888" font-size="9" font-family="sans-serif">Final Rest (+{rollout_dist_cm:.1f}cm rollout)</text>' if rollout_dist_cm > 4.0 else ''
+        
         svg = f'''<div style="margin: 15px 0;">
   <h4 style="margin-bottom: 8px; color: #fff;">📊 Recorded Trajectory & Micromouse Playback:</h4>
   <svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" style="background:#181818; border:1px solid #444; border-radius:6px; max-width: 100%; height: auto;">
@@ -158,11 +175,12 @@ def generate_trajectory_svg(trajectory_file):
     <polyline points="{ideal_poly}" fill="none" stroke="#666666" stroke-width="2" stroke-dasharray="5,5"/>
     <!-- Actual Mouse Trajectory -->
     <path d="{path_d}" fill="none" stroke="#00b4d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Start & Stop Markers -->
+    <!-- Start & Square Completion Markers -->
     <circle cx="{start_sx:.1f}" cy="{start_sy:.1f}" r="5" fill="#2ec4b6" stroke="#fff" stroke-width="1.5"/>
-    <circle cx="{end_sx:.1f}" cy="{end_sy:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="{ret_sx:.1f}" cy="{ret_sy:.1f}" r="5" fill="#e71d36" stroke="#fff" stroke-width="1.5"/>
     <text x="{start_sx+8:.1f}" y="{start_sy+4:.1f}" fill="#2ec4b6" font-size="11" font-family="sans-serif" font-weight="bold">Start Origin ({traj[0][0]:.2f}, {traj[0][1]:.2f})</text>
-    <text x="{end_sx+8:.1f}" y="{end_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">Stop ({traj[-1][0]:.2f}, {traj[-1][1]:.2f})</text>
+    <text x="{ret_sx+8:.1f}" y="{ret_text_y:.1f}" fill="#e71d36" font-size="11" font-family="sans-serif" font-weight="bold">Square Complete ({best_pt[0]:.2f}, {best_pt[1]:.2f}) [Offset: {ret_offset_cm:.1f}cm]</text>
+    {rollout_svg}
     
     <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
     <g id="uct_mouse_robot">

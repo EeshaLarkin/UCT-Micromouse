@@ -146,12 +146,16 @@ When gated conditions are satisfied, candidate return points near the completion
 
 $$d_{\text{return}} = \min_{\mathbf{p} \in \text{Completion Window}} \| \mathbf{p} - \mathbf{p}_{\text{origin}} \|$$
 
-* **Public Baseline (Test 1):**
-  $$S_{\text{parking}} = \begin{cases} 20.00 & \text{if } d_{\text{return}} \le 0.05\text{ m} (5\text{ cm}) \\ \max\left(0, 20.00 - \frac{d_{\text{return}} - 0.05}{0.25} \times 20.00\right) & \text{if } d_{\text{return}} > 0.05\text{ m} \end{cases}$$
-* **Hidden Perturbations (Tests 2–6):**
-  $$S_{\text{parking}} = \max\left(0, 20.00 \times \left(1.0 - \frac{d_{\text{return}}}{0.18}\right)\right)$$
+* **Turn 4 Kinematic Detection Guarantee:**
+  In early prototype grading scripts, turning detection required a transition to a subsequent translating leg, forcing students to inject an artificial forward nudge (~1 cm) after Turn 4 to get the final corner recognized. In this calibrated evaluator, **Turn 4 is detected purely from rotational kinematics ($\omega > 18.0^\circ/\text{s}$)**. There is zero requirement to move forward after Turn 4.
 
-*Forward Rollout Protection:* Extra forward coasting/rollout after completing the 4th corner does not penalize the parking score.
+* **Forward Rollout Immunity & Search Window:**
+  Candidate completion points $\mathbf{p} \in \text{trajectory}$ are searched across all trajectory samples recorded after the mouse has traversed $\ge 2.50\text{ m}$ of perimeter distance:
+  $$d_{\text{return}} = \min_{k \ge k_{2.5\text{m}}} \| \mathbf{p}_k - \mathbf{p}_{\text{origin}} \|$$
+  If a student's code coasts or rolls forward after Turn 4 (whether 1 cm or 15 cm), $d_{\text{return}}$ evaluates to the exact closest approach when completing the square at the origin, awarding **100% full credit ($20.00/20.00\text{ pts}$)** with **zero penalty** for the subsequent rollout.
+
+* **Visual Trajectory Distinction:**
+  The inline SVG map displays the **Square Complete Marker** at the evaluated return point $\mathbf{p}_{\text{completion}}$ with its measured offset. If the chassis rolled forward past the origin before halting, the final rest position is drawn as a distinct, subdued marker (`Final Rest (+X.X cm rollout)`), preventing any visual confusion between the final coasting stop and the evaluated square closure.
 
 ---
 

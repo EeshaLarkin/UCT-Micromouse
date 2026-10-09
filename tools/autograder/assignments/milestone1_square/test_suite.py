@@ -202,12 +202,15 @@ def evaluate_run(trajectory_file, is_hidden=False):
         parking_score = 0.0
         feedback.append(f"  Return Offset : Gated (0.00/20.00). Must traverse at least 3 legs and 2.5m of perimeter (traversed: {total_dist:.2f}m, valid legs: {valid_legs_count}).")
     else:
-        # Search candidate points after leg 4 (or near final trajectory)
-        last_leg = leg_clusters[-1] if leg_clusters else trajectory
-        candidate_points = [trajectory[-1]]
-        if len(last_leg) > 0:
-            candidate_points.extend(last_leg[max(0, len(last_leg) - 5):])
-            
+        # Search candidate points from 2.5m perimeter traversal onwards
+        cum_dist = 0.0
+        k_search_start = 0
+        for k in range(1, len(trajectory)):
+            cum_dist += math.hypot(trajectory[k][0] - trajectory[k-1][0], trajectory[k][1] - trajectory[k-1][1])
+            if cum_dist >= 2.5 and k_search_start == 0:
+                k_search_start = k
+                
+        candidate_points = trajectory[k_search_start:] if k_search_start > 0 else trajectory[-5:]
         d_e = min(math.hypot(p[0] - start_x, p[1] - start_y) for p in candidate_points)
 
         if not is_hidden:
