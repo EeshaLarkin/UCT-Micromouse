@@ -745,6 +745,8 @@ def main():
                 "grid_rows": sim.grid_rows,
                 "grid_cols": sim.grid_cols,
                 "target_room": sim.target_room,
+                "seed": sim.seed,
+                "walls": sim.walls,
                 "trajectory": current_traj
             }
             with open(args.json_log, "w") as f:
@@ -1134,6 +1136,8 @@ def main():
                     "grid_rows": sim.grid_rows,
                     "grid_cols": sim.grid_cols,
                     "target_room": sim.target_room,
+                    "seed": sim.seed,
+                    "walls": sim.walls,
                     "trajectory": sim.trajectory
                 }
                 with open(args.json_log, "w") as f:

@@ -61,8 +61,10 @@ def generate_trajectory_svg(trajectory_file):
         with open(trajectory_file, "r") as f:
             data = json.load(f)
         traj = data.get("trajectory", [])
-        if not traj or len(traj) < 2:
+        if not traj:
             return ""
+        if len(traj) == 1:
+            traj = [traj[0], traj[0]]
         
         # Check if this is a maze trajectory (Submission 4 / Milestone 2) vs a square (Milestone 1)
         is_maze = ("target_room" in data and data["target_room"] is not None) or ("grid_rows" in data and data.get("grid_rows", 0) > 0)
@@ -115,17 +117,54 @@ def generate_trajectory_svg(trajectory_file):
             mb_w = maze_w_m * scale_px
             mb_h = maze_h_m * scale_px
             
-            # Grid lines
+            # Resolve maze walls
+            walls = data.get("walls", [])
+            if not walls:
+                # Dynamically generate walls from seed if not embedded in log
+                seed = data.get("seed", 42)
+                try:
+                    import importlib.util
+                    for p in [os.path.join(SOURCE_DIR, "physics_sim.py"),
+                              os.path.join(os.path.dirname(__file__), "..", "physics_sim.py"),
+                              os.path.join(os.path.dirname(__file__), "physics_sim.py")]:
+                        if os.path.exists(p):
+                            spec = importlib.util.spec_from_file_location("physics_sim_mod", p)
+                            ps_mod = importlib.util.module_from_spec(spec)
+                            spec.loader.exec_module(ps_mod)
+                            walls, _ = ps_mod.generate_random_maze(grid_rows, grid_cols, cell_dim, seed=seed)
+                            break
+                except Exception:
+                    pass
+
+            # Faint background grid lines (open corridor guides)
             grid_svg = []
             for r in range(grid_rows + 1):
                 p0 = to_svg_m(0, r * cell_dim)
                 p1 = to_svg_m(maze_w_m, r * cell_dim)
-                grid_svg.append(f'<line x1="{p0[0]:.1f}" y1="{p0[1]:.1f}" x2="{p1[0]:.1f}" y2="{p1[1]:.1f}" stroke="#2d3748" stroke-width="1" stroke-dasharray="2,2"/>')
+                grid_svg.append(f'<line x1="{p0[0]:.1f}" y1="{p0[1]:.1f}" x2="{p1[0]:.1f}" y2="{p1[1]:.1f}" stroke="#232d3d" stroke-width="1" stroke-dasharray="2,2"/>')
             for c in range(grid_cols + 1):
                 p0 = to_svg_m(c * cell_dim, 0)
                 p1 = to_svg_m(c * cell_dim, maze_h_m)
-                grid_svg.append(f'<line x1="{p0[0]:.1f}" y1="{p0[1]:.1f}" x2="{p1[0]:.1f}" y2="{p1[1]:.1f}" stroke="#2d3748" stroke-width="1" stroke-dasharray="2,2"/>')
+                grid_svg.append(f'<line x1="{p0[0]:.1f}" y1="{p0[1]:.1f}" x2="{p1[0]:.1f}" y2="{p1[1]:.1f}" stroke="#232d3d" stroke-width="1" stroke-dasharray="2,2"/>')
             grid_lines_str = "\n    ".join(grid_svg)
+
+            # Solid Micromouse Maze Walls (White/light-gray vertical and horizontal barrier planks)
+            walls_svg = []
+            if walls:
+                for seg in walls:
+                    (x1, y1), (x2, y2) = seg
+                    p1 = to_svg_m(x1, y1)
+                    p2 = to_svg_m(x2, y2)
+                    walls_svg.append(f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" stroke="#e2e8f0" stroke-width="3.5" stroke-linecap="round"/>')
+            walls_str = "\n    ".join(walls_svg)
+
+            # Corner Lattice Posts (Standard Micromouse wooden/plastic peg junctions)
+            posts_svg = []
+            for r in range(grid_rows + 1):
+                for c in range(grid_cols + 1):
+                    p = to_svg_m(c * cell_dim, r * cell_dim)
+                    posts_svg.append(f'<circle cx="{p[0]:.1f}" cy="{p[1]:.1f}" r="2.2" fill="#cbd5e1" stroke="#475569" stroke-width="0.5"/>')
+            posts_str = "\n    ".join(posts_svg)
             
             # Physical mouse dimensions scaled to SVG coordinates
             lf = 0.055 * scale_px
@@ -141,24 +180,28 @@ def generate_trajectory_svg(trajectory_file):
   <svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" style="background:#141414; border:1px solid #444; border-radius:6px; max-width: 100%; height: auto;">
     <rect width="100%" height="100%" fill="#141414"/>
     
-    <!-- Maze Outer Boundary & Grid -->
-    <rect x="{mb_x0:.1f}" y="{mb_y1:.1f}" width="{mb_w:.1f}" height="{mb_h:.1f}" fill="#1a202c" stroke="#4a5568" stroke-width="2"/>
+    <!-- Maze Floor & Open Grid -->
+    <rect x="{mb_x0:.1f}" y="{mb_y1:.1f}" width="{mb_w:.1f}" height="{mb_h:.1f}" fill="#111827"/>
     {grid_lines_str}
     
-    <!-- Start Cell (0,0) -->
-    <rect x="{sc_x0:.1f}" y="{sc_y1:.1f}" width="{sc_w:.1f}" height="{sc_h:.1f}" fill="#00b4d8" fill-opacity="0.18" stroke="#00b4d8" stroke-width="1.5"/>
-    <text x="{sc_x0+4:.1f}" y="{sc_y1+14:.1f}" fill="#00b4d8" font-size="9" font-family="sans-serif" font-weight="bold">Start (0,0)</text>
+    <!-- Start Cell (0,0) Highlight -->
+    <rect x="{sc_x0:.1f}" y="{sc_y1:.1f}" width="{sc_w:.1f}" height="{sc_h:.1f}" fill="#00b4d8" fill-opacity="0.20" stroke="#00b4d8" stroke-width="1.2"/>
+    <text x="{sc_x0+4:.1f}" y="{sc_y1+13:.1f}" fill="#00b4d8" font-size="8.5" font-family="sans-serif" font-weight="bold">Start (0,0)</text>
     
-    <!-- 2x2 Target Room Zone -->
-    <rect x="{tr_x0:.1f}" y="{tr_y1:.1f}" width="{tr_w:.1f}" height="{tr_h:.1f}" fill="#2ec4b6" fill-opacity="0.22" stroke="#2ec4b6" stroke-width="2" stroke-dasharray="4,3"/>
-    <text x="{tr_x0+6:.1f}" y="{tr_y1+16:.1f}" fill="#2ec4b6" font-size="10" font-family="sans-serif" font-weight="bold">🎯 2x2 Target Room</text>
+    <!-- 2x2 Target Room Zone Highlight -->
+    <rect x="{tr_x0:.1f}" y="{tr_y1:.1f}" width="{tr_w:.1f}" height="{tr_h:.1f}" fill="#2ec4b6" fill-opacity="0.22" stroke="#2ec4b6" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <text x="{tr_x0+6:.1f}" y="{tr_y1+15:.1f}" fill="#2ec4b6" font-size="9.5" font-family="sans-serif" font-weight="bold">🎯 2x2 Target Room</text>
     
     <!-- Actual Mouse Trajectory -->
-    <path d="{path_d}" fill="none" stroke="#ffd166" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <path d="{path_d}" fill="none" stroke="#ffd166" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
     
     <!-- Start & Final Position Markers -->
     <circle cx="{start_sx:.1f}" cy="{start_sy:.1f}" r="4.5" fill="#2ec4b6" stroke="#fff" stroke-width="1.2"/>
     <circle cx="{final_sx:.1f}" cy="{final_sy:.1f}" r="4.5" fill="#e71d36" stroke="#fff" stroke-width="1.2"/>
+    
+    <!-- Solid Maze Walls & Corner Posts -->
+    {walls_str}
+    {posts_str}
     
     <!-- True 1:1 Scale UCT Micromouse Animated Vehicle -->
     <g id="uct_mouse_robot">
