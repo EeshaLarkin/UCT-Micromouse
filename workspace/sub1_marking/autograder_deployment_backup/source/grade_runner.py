@@ -54,7 +54,7 @@ def write_results(score, feedback, test_name="Autograder Evaluation"):
         json.dump(results, f, indent=2)
     print(f"[Grader] Results written to {RESULTS_FILE} with score {scaled_score}/60.0")
 
-def generate_trajectory_svg(trajectory_file):
+def generate_trajectory_svg(trajectory_file, assignment_name=""):
     try:
         if not trajectory_file or not os.path.exists(trajectory_file):
             return ""
@@ -67,7 +67,10 @@ def generate_trajectory_svg(trajectory_file):
             traj = [traj[0], traj[0]]
         
         # Check if this is a maze trajectory (Submission 4 / Milestone 2) vs a square (Milestone 1)
-        is_maze = ("target_room" in data and data["target_room"] is not None) or ("grid_rows" in data and data.get("grid_rows", 0) > 0)
+        if assignment_name:
+            is_maze = ("milestone2" in assignment_name) or ("maze" in assignment_name)
+        else:
+            is_maze = bool(data.get("target_room"))
         
         if is_maze:
             grid_rows = data.get("grid_rows", 4)
@@ -77,7 +80,7 @@ def generate_trajectory_svg(trajectory_file):
             maze_h_m = grid_rows * cell_dim
             
             # Target room coordinates
-            target_cx, target_cy = data.get("target_room", (4, 2))
+            target_cx, target_cy = data.get("target_room") or (4, 2)
             t_room_min_x = (target_cx - 1) * cell_dim
             t_room_max_x = (target_cx + 1) * cell_dim
             t_room_min_y = (target_cy - 1) * cell_dim
@@ -329,6 +332,7 @@ def generate_trajectory_svg(trajectory_file):
             return sx, sy
         
         pts = [to_svg(pt[0], pt[1]) for pt in traj]
+        path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
         polyline = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         
         ideal_svg_pts = [to_svg(c[0], c[1]) for c in ideal_pts]
@@ -461,7 +465,8 @@ def generate_trajectory_svg(trajectory_file):
   </svg>
 </div>'''
         return svg
-    except Exception:
+    except Exception as e:
+        print(f"[Grader Warning] SVG trajectory rendering failed: {e}")
         return ""
 
 def load_test_suite(assignment_name):
@@ -772,7 +777,20 @@ def main():
     session_start_time = time.time()
     MAX_SESSION_SECONDS = 360.0  # 6.0 minutes hard budget for whole autograder suite
     
-    for idx, (run_name, weight, imb_val, slip_val, is_hidden) in enumerate(test_runs):
+    for idx, run_info in enumerate(test_runs):
+        if len(run_info) >= 9:
+            run_name, weight, imb_val, slip_val, is_hidden, run_rows, run_cols, run_seed, run_max_time = run_info[:9]
+        elif len(run_info) >= 7:
+            run_name, weight, imb_val, slip_val, is_hidden, run_rows, run_cols = run_info[:7]
+            run_seed = 42 + idx
+            run_max_time = getattr(test_suite, "TIME_LIMIT", 120.0)
+        else:
+            run_name, weight, imb_val, slip_val, is_hidden = run_info[:5]
+            run_rows = getattr(test_suite, "MAZE_ROWS", 4)
+            run_cols = getattr(test_suite, "MAZE_COLS", 6)
+            run_seed = 42 + idx
+            run_max_time = getattr(test_suite, "TIME_LIMIT", 50.0)
+
         elapsed_total = time.time() - session_start_time
         if elapsed_total > MAX_SESSION_SECONDS:
             print(f"[Grader] Overall autograder time budget exceeded ({elapsed_total:.1f}s > {MAX_SESSION_SECONDS}s). Skipping {run_name}.")
@@ -789,9 +807,10 @@ def main():
             })
             continue
 
-        print(f"\n[Grader] === Executing {run_name} (Weight: {weight*100:.0f}%, Imbalance: {imb_val}, Slip: {slip_val}) ===")
+        print(f"\n[Grader] === Executing {run_name} (Weight: {weight*100:.0f}%, Imbalance: {imb_val}, Slip: {slip_val}, Grid: {run_rows}x{run_cols}) ===")
         
         def run_single_simulation(seed_val, is_video):
+            active_sim_seed = seed_val if seed_val is not None else run_seed
             sim_cmd = [
                 sys.executable,
                 "-u",
@@ -801,8 +820,10 @@ def main():
                 "--imbalance", str(imb_val),
                 "--slip", str(slip_val),
                 "--json-log", TRAJECTORY_JSON,
-                "--max-time", str(getattr(test_suite, "TIME_LIMIT", 50.0)),
-                "--seed", str(seed_val)
+                "--max-time", str(run_max_time),
+                "--seed", str(active_sim_seed),
+                "--rows", str(run_rows),
+                "--cols", str(run_cols)
             ]
             if is_video:
                 os.makedirs(os.path.dirname(os.path.abspath(VIDEO_PATH)), exist_ok=True)
@@ -1006,7 +1027,7 @@ def main():
         run_visibility = "after_due_date" if is_hidden else "visible"
         
         # Generate HTML visualizations
-        svg_html = generate_trajectory_svg(TRAJECTORY_JSON)
+        svg_html = generate_trajectory_svg(TRAJECTORY_JSON, assignment_name)
         
         import html
         escaped_feedback = html.escape(run_feedback)
@@ -1051,10 +1072,11 @@ def main():
     final_score = round(total_score, 2)
     final_percent = round((final_score / 60.0) * 100.0, 1)
     
+    assignment_display_title = assignment_name.replace("_", " ").title()
     results = {
         "score": final_score,
         "max_score": 60.0,
-        "output": f"<h3 style='margin-top:0;'>Milestone 1 Autograder Trajectory Score: {final_score:.2f} / 60.00 pts ({final_percent}%)</h3>",
+        "output": f"<h3 style='margin-top:0;'>{assignment_display_title} Autograder Trajectory Score: {final_score:.2f} / 60.00 pts ({final_percent}%)</h3>",
         "output_format": "html",
         "visibility": "visible",
         "tests": gradescope_tests

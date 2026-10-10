@@ -53,8 +53,9 @@ Each test trial evaluates the recorded trajectory against 4 physical criteria:
 
 ## 4. Key Algorithmic Guarantees
 
-### A. Turn-Bounded Leg Segmentation
-* Straight legs are segmented cleanly using detected corner turns ($\omega > 18.0^\circ/\text{s}$).
+### A. Turn-Bounded Leg Segmentation & PID Wobble Immunity
+* Straight legs are segmented cleanly using detected corner turns.
+* **Angular Change Filter ($\Delta\theta \ge 35^\circ$):** Candidate turn clusters must accumulate at least $35.0^\circ$ of net angular rotation. This prevents minor straight-line PID steering oscillations (which may briefly spike $\omega > 18^\circ/\text{s}$ for 3–4 simulation ticks with only $2^\circ\text{–}7^\circ$ total deflection) from being misclassified as square corners and collapsing intermediate straight legs.
 * **Startup Immunity:** Sensor calibration routines (e.g. 50-sample gyro drift loops) or initial ramp-ups before movement never create spurious $2\text{ cm}$ "mini-legs".
 * **Oscillation Immunity:** Intermediate speed dips or control loop hesitations during a leg remain grouped within that leg, guaranteeing exact 4-leg alignment.
 

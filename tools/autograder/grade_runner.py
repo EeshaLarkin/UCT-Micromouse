@@ -54,7 +54,7 @@ def write_results(score, feedback, test_name="Autograder Evaluation"):
         json.dump(results, f, indent=2)
     print(f"[Grader] Results written to {RESULTS_FILE} with score {scaled_score}/60.0")
 
-def generate_trajectory_svg(trajectory_file):
+def generate_trajectory_svg(trajectory_file, assignment_name=""):
     try:
         if not trajectory_file or not os.path.exists(trajectory_file):
             return ""
@@ -67,7 +67,10 @@ def generate_trajectory_svg(trajectory_file):
             traj = [traj[0], traj[0]]
         
         # Check if this is a maze trajectory (Submission 4 / Milestone 2) vs a square (Milestone 1)
-        is_maze = ("target_room" in data and data["target_room"] is not None) or ("grid_rows" in data and data.get("grid_rows", 0) > 0)
+        if assignment_name:
+            is_maze = ("milestone2" in assignment_name) or ("maze" in assignment_name)
+        else:
+            is_maze = bool(data.get("target_room"))
         
         if is_maze:
             grid_rows = data.get("grid_rows", 4)
@@ -77,7 +80,7 @@ def generate_trajectory_svg(trajectory_file):
             maze_h_m = grid_rows * cell_dim
             
             # Target room coordinates
-            target_cx, target_cy = data.get("target_room", (4, 2))
+            target_cx, target_cy = data.get("target_room") or (4, 2)
             t_room_min_x = (target_cx - 1) * cell_dim
             t_room_max_x = (target_cx + 1) * cell_dim
             t_room_min_y = (target_cy - 1) * cell_dim
@@ -329,6 +332,7 @@ def generate_trajectory_svg(trajectory_file):
             return sx, sy
         
         pts = [to_svg(pt[0], pt[1]) for pt in traj]
+        path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f} " + " ".join(f"L {x:.1f},{y:.1f}" for x, y in pts[1:])
         polyline = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         
         ideal_svg_pts = [to_svg(c[0], c[1]) for c in ideal_pts]
@@ -461,7 +465,8 @@ def generate_trajectory_svg(trajectory_file):
   </svg>
 </div>'''
         return svg
-    except Exception:
+    except Exception as e:
+        print(f"[Grader Warning] SVG trajectory rendering failed: {e}")
         return ""
 
 def load_test_suite(assignment_name):
@@ -1022,7 +1027,7 @@ def main():
         run_visibility = "after_due_date" if is_hidden else "visible"
         
         # Generate HTML visualizations
-        svg_html = generate_trajectory_svg(TRAJECTORY_JSON)
+        svg_html = generate_trajectory_svg(TRAJECTORY_JSON, assignment_name)
         
         import html
         escaped_feedback = html.escape(run_feedback)
