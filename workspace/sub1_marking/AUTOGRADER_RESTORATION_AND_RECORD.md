@@ -7,7 +7,7 @@
 ## 1. Fast Restoration & Deployment Reference
 
 * **Deployment ZIP Archive:** [`workspace/sub1_marking/autograder_deployment_backup/milestone1_square_autograder.zip`](file:///Users/nicolls/proj/eee3097s/2026/UCT-Micromouse/workspace/sub1_marking/autograder_deployment_backup/milestone1_square_autograder.zip) (also in `workspace/deploy/milestone1_square_autograder.zip`).
-* **Gradescope Assignment Target:** Course `1337806`, Assignment `8312193` (Milestone 1: 1m × 1m Square).
+* **Gradescope Assignment Target:** Course `1337806`, Assignment `8312189` (Milestone 1: 1m × 1m Square).
 * **Single Rebuild Command:** To recompile the autograder bundle from repository sources at any time:
   ```bash
   python tools/autograder/build_zip.py
