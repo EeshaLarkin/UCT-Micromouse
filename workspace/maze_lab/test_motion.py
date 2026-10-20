@@ -9,6 +9,7 @@
 #   python workspace/maze_lab/test_motion.py --seed 42             # tour every cell
 #   python workspace/maze_lab/test_motion.py --seed 42 --sprint    # fast run to room
 #   python workspace/maze_lab/test_motion.py --seed 48 --rows 8 --cols 8
+#   python workspace/maze_lab/test_motion.py --seed 42 --mission   # YOUR main.py, graded
 #   add --headless to skip the simulator window, --imbalance/--slip to stress it
 #
 # The script starts the simulator itself, runs the robot as a second process
@@ -54,7 +55,8 @@ def launch(a):
                "--map", "random", "--seed", str(a.seed),
                "--rows", str(a.rows), "--cols", str(a.cols),
                "--imbalance", str(a.imbalance), "--slip", str(a.slip),
-               "--json-log", TRAJ, "--max-time", "300",
+               "--json-log", TRAJ,
+               "--max-time", str(a.max_time if a.max_time else 300),
                "--config", sim_config(a.rows, a.cols)]
     if a.headless:
         sim_cmd.append("--headless")
@@ -85,7 +87,10 @@ def launch(a):
     env["PYTHONPATH"] = os.pathsep.join([FINAL, HERE, os.path.join(REPO, "python")])
     if a.headless:
         env["GRADESCOPE_AUTOGRADER"] = "1"     # run the sim as fast as possible
-    client = [sys.executable, os.path.abspath(__file__), "--client"] + sys.argv[1:]
+    if a.mission:
+        client = [sys.executable, os.path.join(FINAL, "main.py")]   # YOUR mission code
+    else:
+        client = [sys.executable, os.path.abspath(__file__), "--client"] + sys.argv[1:]
     subprocess.call(client, env=env, cwd=FINAL)
 
     try:
@@ -118,6 +123,9 @@ def launch(a):
             worst = max(worst, math.hypot(ox, oy))
     print("Worst stop offset from a cell centre: %.0f mm  (corner clearance ~30 mm)" % worst)
 
+    if a.mission:
+        grade(TRAJ)
+
     if a.sprint and d.get("target_room"):
         # Same measurement as the grader: leave 0.15 m of start -> within 0.28 m of room centre
         rx, ry = d["target_room"][0] * 0.2, d["target_room"][1] * 0.2
@@ -130,6 +138,18 @@ def launch(a):
                        for k in range(i0 + 1, i1 + 1))
             secs = max(0.5, pts[i1][3] - pts[i0][3])
             print("Grader-style sprint speed: %.3f m/s  (5 bonus pts at >= 0.30)" % (dist / secs))
+
+
+def grade(traj_file):
+    """Score the run with the course's own autograder scoring function."""
+    import importlib.util
+    path = os.path.join(REPO, "tools", "autograder", "assignments", "milestone2_maze", "test_suite.py")
+    spec = importlib.util.spec_from_file_location("sub4_test_suite", path)
+    suite = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(suite)
+    score, feedback = suite.evaluate_run(traj_file)
+    print("\n--- Course autograder scoring (test_suite.evaluate_run) ---")
+    print(feedback)
 
 
 # -------------------------------------------------------------------------
@@ -236,10 +256,13 @@ if __name__ == "__main__":
     p.add_argument("--accel", type=float, default=None, help="m/s^2 for straights")
     p.add_argument("--turnpwm", type=int, default=70, help="fast turn PWM")
     p.add_argument("--sprint", action="store_true")
+    p.add_argument("--mission", action="store_true",
+                   help="run workspace/final_task/main.py and score it like the autograder")
     p.add_argument("--headless", action="store_true")
     a = p.parse_args()
     if a.vmax is None:
         a.vmax = 0.38 if a.sprint else 0.25
+    a.max_time = (240.0 if a.rows >= 8 else 120.0) if a.mission else None
     if a.accel is None:
         a.accel = 2.5 if a.sprint else 1.2
     if a.client:
