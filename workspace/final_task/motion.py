@@ -175,7 +175,7 @@ class Motion:
     # ------------------------------------------------------------------
     # Pure wheel-speed control
     # ------------------------------------------------------------------
-    def _pwm_for(self, v_cmd, v_meas, integ):
+    def _pwm_for(self, v_cmd, v_meas, integ, sat=True):
         """Feed-forward (deadband + linear motor model) plus PI speed feedback.
 
         Feed-forward gets us close instantly; P reacts to disturbances; the
@@ -188,7 +188,7 @@ class Motion:
         integ = clamp(integ + K_VEL_I * err * DT, -25.0, 25.0)
         ff = DEAD_BAND + abs(v_cmd) / V_AT_FULL * (100.0 - DEAD_BAND)
         pwm = (ff if v_cmd > 0 else -ff) + K_VEL * err + integ
-        return clamp(pwm, -100, 100), integ
+        return (clamp(pwm, -100, 100) if sat else pwm), integ
 
     def _lateral_offset(self):
         """Offset from the corridor centre-line in metres (+ = left of centre),
@@ -278,9 +278,16 @@ class Motion:
 
             vl_cmd = v - omega * HALF_AXLE_M
             vr_cmd = v + omega * HALF_AXLE_M
-            pl, self.i_l = self._pwm_for(vl_cmd, self.v_l, self.i_l)
-            pr, self.i_r = self._pwm_for(vr_cmd, self.v_r, self.i_r)
-            dl, dr = self.tick(pl, pr)
+            pl, self.i_l = self._pwm_for(vl_cmd, self.v_l, self.i_l, sat=False)
+            pr, self.i_r = self._pwm_for(vr_cmd, self.v_r, self.i_r, sat=False)
+            # Desaturation: if a wheel would need >100% PWM (weak motor, flat
+            # battery, top speed), lower BOTH wheels by the excess. Their
+            # difference - the steering - is kept exactly; only speed is lost.
+            excess = max(pl, pr) - 100.0
+            if excess > 0:
+                pl -= excess
+                pr -= excess
+            dl, dr = self.tick(clamp(pl, -100, 100), clamp(pr, -100, 100))
             ds = (dl + dr) / 2.0 / TICKS_PER_M * self.odo_scale
             s += ds
             self.since_fix += ds
