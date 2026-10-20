@@ -48,7 +48,9 @@ def sim_config(rows, cols):
 
 
 def launch(a):
-    sim_cmd = [sys.executable, os.path.join(REPO, "tools", "physics_sim.py"),
+    # -u = unbuffered output, so the "Waiting for student script" line reaches
+    # the log file immediately (the course grade_runner does the same).
+    sim_cmd = [sys.executable, "-u", os.path.join(REPO, "tools", "physics_sim.py"),
                "--map", "random", "--seed", str(a.seed),
                "--rows", str(a.rows), "--cols", str(a.cols),
                "--imbalance", str(a.imbalance), "--slip", str(a.slip),
@@ -59,15 +61,24 @@ def launch(a):
     if os.path.exists(TRAJ):
         os.remove(TRAJ)
     log = open(SIMLOG, "w")
-    sim = subprocess.Popen(sim_cmd, stdout=log, stderr=log, cwd=REPO)
-    for _ in range(200):                       # wait until it's listening
+    env_sim = os.environ.copy()
+    env_sim["PYTHONUNBUFFERED"] = "1"
+    sim = subprocess.Popen(sim_cmd, stdout=log, stderr=log, cwd=REPO, env=env_sim)
+    ready = False
+    for _ in range(600):                       # wait up to 30 s for it to listen
         time.sleep(0.05)
         with open(SIMLOG) as f:
             if "Waiting for student script" in f.read():
+                ready = True
                 break
-    else:
-        print("Simulator did not start - see", SIMLOG)
+        if sim.poll() is not None:             # simulator exited (an error)
+            break
+    if not ready:
         sim.kill()
+        log.close()
+        print("Simulator did not start. Last lines of its log (%s):" % SIMLOG)
+        with open(SIMLOG) as f:
+            print("".join(f.readlines()[-20:]) or "   (log is empty)")
         return
 
     env = os.environ.copy()
