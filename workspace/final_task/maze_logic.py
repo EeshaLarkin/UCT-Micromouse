@@ -202,21 +202,28 @@ class MazeMap:
         interior walls and a solid 4th, so guessing gives false alarms.
 
         Returns a list of (x, y, openings, unknowns) where openings/unknowns
-        count the block's 8 perimeter walls known OPEN / not yet seen."""
+        count the block's 8 perimeter walls known OPEN / not yet seen.
+
+        Written as a tight loop with direct indexing (no helper tuples):
+        on the STM32 this runs after every cell, and the tuple-building
+        version took ~190 ms on an 8x8 maze."""
+        W = self.walls
         found = []
         for y in range(self.rows - 1):
+            row0 = W[y]
+            row1 = W[y + 1]
             for x in range(self.cols - 1):
-                ok = True
-                for cx, cy, d in self.room_interior_walls(x, y):
-                    if self.walls[cy][cx][d] != OPEN:
-                        ok = False
-                        break
-                if not ok:
+                a = row0[x]            # (x,   y)
+                b = row0[x + 1]        # (x+1, y)
+                c = row1[x]            # (x,   y+1)
+                if (a[EAST] != OPEN or a[NORTH] != OPEN or
+                        b[NORTH] != OPEN or c[EAST] != OPEN):
                     continue
+                d = row1[x + 1]        # (x+1, y+1)
                 openings = 0
                 unknowns = 0
-                for cx, cy, d in self.room_perimeter_walls(x, y):
-                    s = self.walls[cy][cx][d]
+                for s in (a[SOUTH], b[SOUTH], b[EAST], d[EAST],
+                          c[NORTH], d[NORTH], a[WEST], c[WEST]):
                     if s == OPEN:
                         openings += 1
                     elif s == UNKNOWN:
