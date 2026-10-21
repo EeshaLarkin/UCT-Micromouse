@@ -23,7 +23,7 @@ RETURN_V = 0.30
 RETURN_A = 1.5
 SPRINT_V = 0.38
 SPRINT_A = 1.5
-SPRINT_TURN_PWM = 70
+SPRINT_ARC_V = 0.22          # speed through curved corners (outer wheel ~1.5x this)
 
 VERBOSE = not ON_HARDWARE     # printing disturbs loop timing on the STM32
 
@@ -60,6 +60,19 @@ class MazeSolver:
             self.m.turn(turn_amount(self.heading, d), turn_pwm)
             self.heading = d
             self.m.move(n, v_max=v_max, accel=accel)
+        if path:
+            self.x, self.y = path[-1]
+
+    def sweep(self, path, v_max, v_arc, accel):
+        """Like drive_path, but corners are taken as curves without stopping."""
+        segs = MazeMap.compress(MazeMap.path_to_headings(path))
+        plan = []
+        h = self.heading
+        for d, n in segs:
+            plan.append((n, turn_amount(h, d)))
+            h = d
+        self.m.sweep_path(plan, v_max, v_arc, accel)
+        self.heading = h
         if path:
             self.x, self.y = path[-1]
 
@@ -124,7 +137,7 @@ class MazeSolver:
         sprint = self.maze.shortest_path((0, 0), self.maze.room_cells(*self.room), EAST)
         segs = MazeMap.compress(MazeMap.path_to_headings(sprint))
         log("[Phase 4] Sprint:", ", ".join("%s x%d" % (DIR_NAMES[d], n) for d, n in segs))
-        self.drive_path(sprint, SPRINT_V, SPRINT_A, SPRINT_TURN_PWM)
+        self.sweep(sprint, SPRINT_V, SPRINT_ARC_V, SPRINT_A)
         log("[Mission complete] Stopped inside the target room")
 
 
