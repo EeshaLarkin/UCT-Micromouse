@@ -13,13 +13,14 @@
 # Test 4 (spins 5 times - must be UNPLUGGED): make the drive's main.py
 #     import calibrate
 #     calibrate.run(4, to_file=True)
-#   unplug, press RESET, then plug back in and open calib.txt.
+#   unplug USB, switch the battery OFF then ON (= reset), put the mouse in
+#   the dead end during the 10 s countdown, then plug back in -> calib.txt
 #
 # TESTS
 #   1  Sensors   (motors OFF)  live ToF / gyro / encoder readout, ~45 s
 #   2  Motors    (creeps ~5 cm) polarity, encoder signs, deadband per wheel
 #   3  Straight  (drives toward a wall k cells ahead) ticks/m and speed
-#   4  Spin      (5 turns in a dead-end cell) gyro scale + half axle length
+#   4  Spin      (5 slow turns in a dead end, ~10 s) gyro scale + half axle
 # =========================================================================
 
 import sys
@@ -32,7 +33,7 @@ LOOP_MS = 10
 DT = 0.01
 
 # Starting guesses - each test prints what to put in motion.py instead.
-TICKS_PER_M = 5850.0     # test 3 at home: ~5940 (+/-2%); nominal 5730
+TICKS_PER_M = 6000.0     # test 3 at home: 6163-6431 (boxes); nominal 5730
 DEAD_BAND = 25.0         # test 2 on the real mouse: left 22, right 28
 DB_L, DB_R = 22.0, 28.0
 
@@ -297,48 +298,61 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
 # -------------------------------------------------------------------------
 # Test 4: spin in a dead-end cell -> gyro scale and half-axle length
 # -------------------------------------------------------------------------
-def test_spin(turns=5, pwm=70):
+def test_spin(turns=5, rate_dps=200.0):
     """Centre the mouse in a DEAD-END cell (walls left, front, right).
-    It spins anticlockwise `turns` times. Each time the front ToF faces a
-    wall squarely, its reading has a minimum - these happen exactly 90 deg
-    apart (180 deg across the open side). Comparing the gyro angle between
-    the first and last minimum with the true multiple of 90 deg gives the
-    gyro scale. Encoders over the same rotation give the half-axle length."""
-    say("=== TEST 4: spin x%d ===" % turns)
-    bias = gyro_bias()
-    countdown()
+    It spins anticlockwise `turns` times at a controlled ~rate_dps. Each time
+    the front ToF faces the walls its reading dips; the same dip returns once
+    per revolution, so the gyro angle between the first and last dip vs the
+    true multiple of 90 deg gives the gyro scale. Encoders over the same
+    rotation give the half-axle length.
 
+    Memory-safe: dips are found while spinning (nothing is stored), because
+    the STM32 has only 128 KB of RAM."""
+    say("=== TEST 4: spin x%d at ~%d deg/s ===" % (turns, rate_dps))
+    countdown(10)            # time to switch on / unplug, put it down, centre it
+    bias = gyro_bias()
+
+    hw = sys.implementation.name == "micropython"
+    near = 140 if hw else 100       # real sensors read ~45 mm high
+    pwm = (DB_L + DB_R) / 2.0 + 8.0  # start just above the deadband
     yaw = 0.0
+    max_rate = 0.0
     l0, r0 = uct_mouse.get_encoders()
-    hist = []                                    # (yaw, front_tof)
-    while yaw < 360.0 * turns + 30:
-        uct_mouse.set_motors(-pwm, pwm)
+    mins = []                       # centre angle of each dip
+    g_start = None                  # current dip: first and last angle
+    g_end = None
+    ticks = 0
+    limit = int((360.0 * turns + 60.0) / rate_dps * 100 * 2) + 500   # ~2x expected
+    while yaw < 360.0 * turns + 30.0 and ticks < limit:
+        uct_mouse.set_motors(int(-pwm), int(pwm))
         uct_mouse.delay_ms(LOOP_MS)
-        yaw += (uct_mouse.get_gyro() - bias) * DT
-        hist.append((yaw, uct_mouse.get_tof()[2]))
-        if len(hist) > 6000:
-            break
+        ticks += 1
+        rate = uct_mouse.get_gyro() - bias
+        yaw += rate * DT
+        if abs(rate) > max_rate:
+            max_rate = abs(rate)
+        # hold the spin rate: slow integral-style PWM adjustment
+        pwm += 0.02 * (rate_dps - rate) * DT * 10.0
+        pwm = max(DB_L, min(70.0, pwm))
+        d = uct_mouse.get_tof()[2]
+        if d < near:
+            if g_start is not None and yaw - g_end < 20.0:
+                g_end = yaw
+            else:
+                if g_start is not None and g_end - g_start > 5.0:
+                    mins.append((g_start + g_end) / 2.0)
+                g_start = g_end = yaw
+    if g_start is not None and g_end - g_start > 5.0:
+        mins.append((g_start + g_end) / 2.0)
     stop()
     l, r = uct_mouse.get_encoders()
+    say("spun %.0f deg by gyro in %.1f s, max rate %.0f deg/s, final PWM %.0f"
+        % (yaw, ticks * DT, max_rate, pwm))
+    if ticks >= limit:
+        say("!! Time limit hit - spin was slower than expected")
 
-    # Find the dips in the front reading (front ToF close to a wall).
-    # Noise can split one dip into fragments, so readings below `near` are
-    # grouped while they're within 20 deg of each other. Neighbouring walls
-    # may merge into one wide dip - that's fine: what matters is that the
-    # SAME dip comes back once per revolution, so any fixed offset cancels.
-    n = len(hist)
-    groups = []                                  # [first_yaw, last_yaw]
-    # real sensors read ~45 mm high (test 1: dead-end front = 75 mm)
-    near = 140 if sys.implementation.name == "micropython" else 100
-    for yw, d in hist:
-        if d < near:
-            if groups and yw - groups[-1][1] < 20.0:
-                groups[-1][1] = yw
-            else:
-                groups.append([yw, yw])
-    mins = [(g0 + g1) / 2.0 for g0, g1 in groups if g1 - g0 > 5.0]
     if len(mins) < 4:
-        say("!! Only %d wall minima seen - is the mouse centred in a dead end?" % len(mins))
+        say("!! Only %d wall dips seen - is the mouse centred in a dead end?" % len(mins))
         return
 
     true_total = 0
@@ -368,6 +382,7 @@ def test_spin(turns=5, pwm=70):
 def run(test, to_file=False, **options):
     global TICKS_PER_M, DEAD_BAND, TO_FILE, DB_L, DB_R
     TO_FILE = to_file
+    uct_mouse.set_motors(0, 0)
     if sys.implementation.name != "micropython":   # PC simulator check-run
         TICKS_PER_M, DEAD_BAND = 4400.0, 28.0
         DB_L = DB_R = 28.0
@@ -385,6 +400,13 @@ def run(test, to_file=False, **options):
         uct_mouse.set_polarity(1, 1)
         say("no polarity.txt - using set_polarity(1, 1)")
     uct_mouse.delay_ms(50)
-    (None, test_sensors, test_motors, test_straight, test_spin)[test](**options)
-    uct_mouse.set_motors(0, 0)
+    try:
+        (None, test_sensors, test_motors, test_straight, test_spin)[test](**options)
+    except Exception as e:
+        # never leave the motors running if something goes wrong
+        uct_mouse.set_motors(0, 0)
+        say("!! ERROR:", repr(e))
+        oled(1, "ERROR - see calib")
+    finally:
+        uct_mouse.set_motors(0, 0)
     say("done")
