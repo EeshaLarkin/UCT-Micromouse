@@ -115,6 +115,7 @@ class Motion:
         self.turn_err_max = 0.0
         self.arcs_done = 0
         self.v_cmd = 0.0          # forward speed currently commanded (m/s)
+        self.late = 0.0           # how far past a curve's ideal start we are (m)
 
     # ------------------------------------------------------------------
     # The 10 ms heartbeat
@@ -245,10 +246,14 @@ class Motion:
             # Zero-length straight (two curves back to back). Check the wall
             # ahead first: if we left the last curve early, drive the gap so
             # the next curve doesn't start early and cut the inner corner.
+            self.late = 0.0
             if not (use_front and self.tof_c < FRONT_TRUST_MM):
                 return
             s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
-            if abs(s_tof - s) > 0.08 or s_end - s_tof < 0.003:
+            if abs(s_tof - s) > 0.08:
+                return
+            if s_end - s_tof < 0.003:
+                self.late = s_tof - s_end      # past the ideal start: tighten
                 return
             s = s_tof
             self.since_fix = 0.0
@@ -308,6 +313,7 @@ class Motion:
             s += ds
             self.since_fix += ds
         self.v_cmd = v
+        self.late = max(0.0, s - s_end)        # how far past the handover point
         if v_end <= 0.0:
             self.stop()
             if front_fix:
@@ -344,7 +350,11 @@ class Motion:
         Wheel speeds: v * (1 -/+ HALF_AXLE/R) -> the outer wheel runs ~1.5x v,
         which is why v must be lower here than on straights.
         """
-        R = CELL_M / 2.0
+        # Started late by d? A radius of (R - d) still exits on the centre
+        # line of the new corridor (late distance + radius = same 100 mm),
+        # instead of swinging d mm closer to the outer wall.
+        R = CELL_M / 2.0 - clamp(self.late, 0.0, 0.04)
+        self.late = 0.0
         sign = -1.0 if quarter > 0 else 1.0        # right = clockwise = -
         yaw0 = self.target_yaw
         length = math.pi / 2.0 * R
