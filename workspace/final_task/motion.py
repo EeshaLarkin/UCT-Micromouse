@@ -113,6 +113,8 @@ class Motion:
         self.turns_done = 0
         self.turn_err_sum = 0.0   # heading error left after turns (deg)
         self.turn_err_max = 0.0
+        self.arcs_done = 0
+        self.v_cmd = 0.0          # forward speed currently commanded (m/s)
 
     # ------------------------------------------------------------------
     # The 10 ms heartbeat
@@ -141,6 +143,7 @@ class Motion:
 
     def stop(self, max_ticks=60):
         """Motors off, then wait until the wheels have actually stopped."""
+        self.v_cmd = 0.0
         for _ in range(max_ticks):
             self.tick(0, 0)
             if abs(self.v_l) < 0.005 and abs(self.v_r) < 0.005:
@@ -212,33 +215,49 @@ class Motion:
     # Straight moves
     # ------------------------------------------------------------------
     def move(self, cells, v_max=0.25, accel=ACCEL, use_front=True):
-        """Drive `cells` cells straight along target_yaw and stop at the centre.
+        """Drive `cells` cells straight along target_yaw and stop at the centre."""
+        self._drive(0.0, cells * CELL_M, cells * CELL_M, v_max, 0.0, accel, use_front)
 
-        Speed profile: v = min(v_max, accelerate-from-v_prev, sqrt(2*a*remaining))
-          - the last term is v^2 = 2*a*d: the fastest speed from which we
-            can still brake to zero in the remaining distance.
+    def _drive(self, s, s_end, s_cell, v_max, v_end, accel, use_front=True):
+        """Drive straight along target_yaw from s to s_end (metres, measured
+        from the centre of the cell this straight started in). s_cell is the
+        centre of the last cell of the straight. Arrive at speed v_end:
+        0 = stop there, >0 = hand over to a curved turn without stopping.
+
+        Speed profile: v = min(v_max, accelerate-from-v_prev, sqrt(v_end^2 + 2*a*remaining))
+          - the last term is v^2 = v_end^2 + 2*a*d: the fastest speed from
+            which we can still brake to v_end in the remaining distance.
         Steering (omega = turn rate):
           omega = K_HEADING * heading_error - K_LATERAL * offset_from_centre
           - gyro keeps us pointing along the corridor,
           - side walls pull us back to the centre line,
           - K_ALIGN slowly corrects the heading estimate so the gyro and the
             walls agree (removes drift and the hidden yaw slip after turns).
-        Front wall: if a wall is visible just ahead near the end of the move,
-        its distance replaces the encoder estimate (absolute position fix).
+        Front wall: if a wall is visible just ahead near the end, its distance
+        replaces the encoder estimate (absolute position fix).
         Wall edges ('posts'): walls only start/end on cell boundaries, which
-        lie 100, 300, 500... mm from where we started. A side sensor is 50 mm
-        ahead of the centre, so when a side reading jumps between 'wall' and
-        'open' the robot's centre must be at 50, 250, 450... mm. Snapping s to
-        that value removes the slip that the encoders can't see.
+        lie 100, 300, 500... mm from the starting cell centre. A side sensor is
+        50 mm ahead of the centre, so when a side reading jumps between 'wall'
+        and 'open' the robot's centre must be at 50, 250, 450... mm. Snapping
+        s to that value removes the slip that the encoders can't see.
         """
-        dist = cells * CELL_M
-        s = 0.0
-        v = 0.0
+        if s_end - s < 0.001:
+            # Zero-length straight (two curves back to back). Check the wall
+            # ahead first: if we left the last curve early, drive the gap so
+            # the next curve doesn't start early and cut the inner corner.
+            if not (use_front and self.tof_c < FRONT_TRUST_MM):
+                return
+            s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
+            if abs(s_tof - s) > 0.08 or s_end - s_tof < 0.003:
+                return
+            s = s_tof
+            self.since_fix = 0.0
+        v = self.v_cmd
         y_f = None                    # filtered lateral offset
         prev_l = self.tof_l < SIDE_VALID_MM
         prev_r = self.tof_r < SIDE_VALID_MM
         front_fix = False
-        for _ in range(int(20 * cells / max(v_max, 0.05)) + 300):
+        for _ in range(int(20 * (s_end - s) / 0.2 / max(v_max, 0.05)) + 300):
             now_l = self.tof_l < SIDE_VALID_MM
             now_r = self.tof_r < SIDE_VALID_MM
             if now_l != prev_l or now_r != prev_r:
@@ -258,17 +277,21 @@ class Motion:
                     s = s_edge
             prev_l, prev_r = now_l, now_r
 
-            rem = dist - s
-            if use_front and self.tof_c < FRONT_TRUST_MM and rem < 0.25:
-                rem_tof = (self.tof_c - FRONT_STOP_MM) / 1000.0
-                if abs(rem_tof - rem) < 0.08:
-                    rem = rem_tof
-                    dist = s + rem
+            # front wall of the last cell -> exact distance to its centre
+            if use_front and self.tof_c < FRONT_TRUST_MM and s_cell - s < 0.25:
+                s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
+                if abs(s_tof - s) < 0.08:
+                    s = s_tof
                     front_fix = True
+                    # This is a position fix too: restart the slip learner
+                    # from here, or the jump would be mistaken for slip.
+                    self.since_fix = 0.0
+            rem = s_end - s
             if rem <= 0.002:
                 break
 
-            v = min(v_max, v + accel * DT, math.sqrt(2.0 * accel * max(rem, 0.0)))
+            v = min(v_max, v + accel * DT,
+                    math.sqrt(v_end * v_end + 2.0 * accel * max(rem, 0.0)))
             v = max(v, V_MIN)
 
             yaw_err = math.radians(wrap180(self.target_yaw - self.yaw()))
@@ -281,24 +304,88 @@ class Motion:
                 omega -= K_LATERAL * y_f
                 self.yaw_corr += math.degrees(K_ALIGN * y_f * DT)
 
-            vl_cmd = v - omega * HALF_AXLE_M
-            vr_cmd = v + omega * HALF_AXLE_M
-            pl, self.i_l = self._pwm_for(vl_cmd, self.v_l, self.i_l, sat=False)
-            pr, self.i_r = self._pwm_for(vr_cmd, self.v_r, self.i_r, sat=False)
-            # Desaturation: if a wheel would need >100% PWM (weak motor, flat
-            # battery, top speed), lower BOTH wheels by the excess. Their
-            # difference - the steering - is kept exactly; only speed is lost.
-            excess = max(pl, pr) - 100.0
-            if excess > 0:
-                pl -= excess
-                pr -= excess
-            dl, dr = self.tick(clamp(pl, -100, 100), clamp(pr, -100, 100))
-            ds = (dl + dr) / 2.0 / TICKS_PER_M * self.odo_scale
+            ds = self._wheels(v, omega)
             s += ds
             self.since_fix += ds
-        self.stop()
-        if front_fix:
-            self.since_fix = 0.0      # we stopped at a measured distance from a wall
+        self.v_cmd = v
+        if v_end <= 0.0:
+            self.stop()
+            if front_fix:
+                self.since_fix = 0.0  # we stopped at a measured distance from a wall
+
+    def _wheels(self, v, omega):
+        """One tick of wheel-speed control for forward speed v (m/s) and turn
+        rate omega (rad/s). Returns the distance travelled (m)."""
+        vl_cmd = v - omega * HALF_AXLE_M
+        vr_cmd = v + omega * HALF_AXLE_M
+        pl, self.i_l = self._pwm_for(vl_cmd, self.v_l, self.i_l, sat=False)
+        pr, self.i_r = self._pwm_for(vr_cmd, self.v_r, self.i_r, sat=False)
+        # Desaturation: if a wheel would need >100% PWM (weak motor, flat
+        # battery, top speed), lower BOTH wheels by the excess. Their
+        # difference - the steering - is kept exactly; only speed is lost.
+        excess = max(pl, pr) - 100.0
+        if excess > 0:
+            pl -= excess
+            pr -= excess
+        dl, dr = self.tick(clamp(pl, -100, 100), clamp(pr, -100, 100))
+        return (dl + dr) / 2.0 / TICKS_PER_M * self.odo_scale
+
+    # ------------------------------------------------------------------
+    # Curved ("smooth") turns for the sprint
+    # ------------------------------------------------------------------
+    def arc(self, quarter, v):
+        """Sweep a 90 deg corner without stopping: a quarter circle of radius
+        R = half a cell around the inner corner post, from the boundary where
+        we enter the corner cell to the boundary where we leave it.
+
+        Physics: on a circle omega = v / R. The heading we SHOULD have is
+        start + (distance along arc) / R, so the gyro loop only corrects small
+        errors on top of that feed-forward. Path length = (pi/2) * R = 157 mm.
+        Wheel speeds: v * (1 -/+ HALF_AXLE/R) -> the outer wheel runs ~1.5x v,
+        which is why v must be lower here than on straights.
+        """
+        R = CELL_M / 2.0
+        sign = -1.0 if quarter > 0 else 1.0        # right = clockwise = -
+        yaw0 = self.target_yaw
+        length = math.pi / 2.0 * R
+        s = 0.0
+        for _ in range(int(length / max(v, 0.05) / DT) + 100):
+            if s >= length:
+                break
+            ref = yaw0 + sign * math.degrees(s / R)
+            omega = sign * v / R + K_HEADING * math.radians(wrap180(ref - self.yaw()))
+            s += self._wheels(v, omega)
+        self.target_yaw = yaw0 + sign * 90.0
+        self.v_cmd = v
+        self.arcs_done += 1
+
+    def sweep_path(self, segments, v_max, v_turn, accel):
+        """Drive a whole compressed path without stopping at corners.
+
+        segments: [(n_cells, quarter_turn_INTO_this_segment), ...]
+        Every straight is measured from the centre of its first cell: it
+        starts 100 mm in (we leave the previous arc at the cell boundary) and
+        ends 100 mm before the centre of its last cell (where the next arc
+        begins). The last straight ends at the cell centre and stops.
+        """
+        last = len(segments) - 1
+        for i in range(len(segments)):
+            n, q = segments[i]
+            if i == 0:
+                if q != 0:
+                    self.turn(q)                    # first heading: on the spot
+                s0 = 0.0
+            elif q in (1, -1):
+                self.arc(q, v_turn)
+                s0 = CELL_M / 2.0
+            else:                                    # U-turn (BFS paths never need one)
+                self.stop()
+                self.turn(q)
+                s0 = 0.0
+            if i == last:
+                self._drive(s0, n * CELL_M, n * CELL_M, v_max, 0.0, accel)
+            else:
+                self._drive(s0, n * CELL_M - CELL_M / 2.0, n * CELL_M, v_max, v_turn, accel)
 
     # ------------------------------------------------------------------
     # Turning on the spot (two-speed bang-bang on gyro angle)
