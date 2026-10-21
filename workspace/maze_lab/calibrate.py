@@ -6,6 +6,7 @@
 # Tests 1-3 (USB plugged in) - from the repo folder in PowerShell:
 #     mpremote resume exec "import calibrate; calibrate.run(1)"
 #   Test 3 needs the number of cells to the wall, e.g. calibrate.run(3, cells=2)
+#   or (outside the maze) the measured centre-to-wall distance: run(3, dist_mm=600)
 #   Results print in PowerShell. Nothing is written to the drive (writing
 #   from the mouse while Windows has the drive open can corrupt it).
 #
@@ -31,7 +32,7 @@ LOOP_MS = 10
 DT = 0.01
 
 # Starting guesses - each test prints what to put in motion.py instead.
-TICKS_PER_M = 5730.0
+TICKS_PER_M = 5850.0     # test 3 at home: ~5940 (+/-2%); nominal 5730
 DEAD_BAND = 25.0         # test 2 on the real mouse: left 22, right 28
 DB_L, DB_R = 22.0, 28.0
 
@@ -216,9 +217,10 @@ def test_motors():
 # -------------------------------------------------------------------------
 # Test 3: drive straight toward a wall -> ticks per metre and speed
 # -------------------------------------------------------------------------
-def test_straight(cells=2, pwm=50, dead_band=None):
+def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
     """Centre the mouse in a cell, facing a wall `cells` cells further on
-    (cells=2: two open cells ahead, then the wall). Long-range ToF readings
+    (cells=2: two open cells ahead, then the wall). Outside the maze, measure
+    the distance from the mouse's CENTRE to the wall and pass dist_mm=... Long-range ToF readings
     are unreliable (beyond ~400 mm they jump around), so the START distance
     comes from the maze geometry: a centred mouse reads FRONT_CENTRED mm when
     the wall is at the end of its own cell, +200 mm per extra cell. Only the
@@ -226,10 +228,17 @@ def test_straight(cells=2, pwm=50, dead_band=None):
     true distance = start - end;  ticks / true distance = ticks per metre."""
     if dead_band is None:
         dead_band = DEAD_BAND
-    say("=== TEST 3: straight run, PWM %d, wall %d cells ahead ===" % (pwm, cells))
     hw = sys.implementation.name == "micropython"
     front_centred = 75.0 if hw else 35.0          # test 1: centred dead-end reading
-    d1 = front_centred + 200.0 * cells
+    if dist_mm is None:
+        say("=== TEST 3: straight run, PWM %d, wall %d cells ahead ===" % (pwm, cells))
+        d1 = front_centred + 200.0 * cells
+    else:
+        # measured centre-of-mouse to wall; a centred mouse 100 mm from a
+        # wall reads front_centred, so readings = distance - (100 - that)
+        say("=== TEST 3: straight run, PWM %d, wall %d mm from mouse centre ===" % (pwm, dist_mm))
+        d1 = dist_mm - (100.0 - front_centred)
+        cells = (dist_mm - 100.0) / 200.0
     say("start distance from geometry: %.0f mm" % d1)
     bias = gyro_bias()
     countdown()
