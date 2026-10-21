@@ -27,10 +27,10 @@ TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.0          # MEASURE: calibrate test 4 (true deg per gyro deg)
-    TICKS_PER_M = 5850.0      # test 3 (home, ~60 cm): ~5940 +/-2%; nominal 5730. Re-measure in maze
+    TICKS_PER_M = 6000.0      # test 3 at home (boxes): 6163-6431, nominal 5730 -> re-measure in maze
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
-    V_AT_FULL = 1.0           # test 3: ~0.33 m/s at PWM 50 -> ~1.0 m/s at 100
+    V_AT_FULL = 0.95          # test 3: 0.88 / 0.95 / 0.99 m/s at PWM 100
     HALF_AXLE_M = 0.045       # MEASURE: calibrate test 4
 else:
     GYRO_SCALE = 1.0
@@ -84,8 +84,14 @@ K_VEL_I = 400.0     # PWM per (m/s * s): integral term, cancels motor imbalance
 ACCEL = 1.2         # m/s^2  speed-up / slow-down for straights
 V_MIN = 0.05        # m/s    crawl speed at the very end of a move
 
-TURN_FAST_PWM = 70
-TURN_SLOW_PWM = 45
+if ON_HARDWARE:
+    # real motors are ~2.4x faster than the simulator's: PWM 70 would spin at
+    # ~700 deg/s. These give roughly 300 / 120 deg/s - tune on the maze.
+    TURN_FAST_PWM = 45
+    TURN_SLOW_PWM = 33
+else:
+    TURN_FAST_PWM = 70
+    TURN_SLOW_PWM = 45
 TURN_SLOW_ZONE_DEG = 30.0     # switch to slow speed this far from the target
 TURN_LEAD_DEG = 3.0           # cut the motors this early (motor lag coasting)
 
@@ -285,7 +291,7 @@ class Motion:
                     if self.since_fix > 0.08:
                         ratio = 1.0 + (s_edge - s) / self.since_fix
                         self.odo_scale = clamp(self.odo_scale * (1.0 + 0.5 * (ratio - 1.0)),
-                                               0.85, 1.05)
+                                               0.85, 1.15)
                     self.since_fix = 0.0
                     self.edge_fixes += 1
                     self.edge_err_sum += abs(s_edge - s)
