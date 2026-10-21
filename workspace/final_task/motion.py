@@ -22,7 +22,8 @@ ON_HARDWARE = (sys.implementation.name == "micropython")
 # Chassis constants (sim values are derived from tools/simulation_config.json)
 # ---------------------------------------------------------------------------
 # Which of get_tof()'s 5 slots are the left / centre / right sensors
-TOF_L, TOF_C, TOF_R = 0, 2, 4          # MEASURE on hardware with calibrate test 1
+# (hardware confirmed by calibrate test 1: slots 1 and 3 always read 2000)
+TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.0          # MEASURE: calibrate test 4 (true deg per gyro deg)
@@ -48,18 +49,27 @@ CELL_M = 0.20
 # ahead of it; the front ToF is 65 mm ahead. In a centred cell:
 #   side wall  = 100 - 40 = 60 mm   (sim: walls are zero-thickness lines)
 #   front wall = 100 - 65 = 35 mm
-# Real walls have thickness, so the hardware numbers are smaller -> MEASURE.
+# The real VL53L0X sensors read ~45 mm MORE than the true distance (factory
+# offset, not calibrated per sensor). Only differences between readings
+# matter for control, so we simply use the measured readings.
+# Calibrate test 1 (dead end, centred): left 104, front 75, right 96
+#   (left + right = 200 -> consistent; mouse was ~4 mm right of centre)
+# Open cell: sides 280-850, front 265 / 440 (walls 1-2 cells further on)
 # ---------------------------------------------------------------------------
 if ON_HARDWARE:
-    SIDE_NOMINAL_MM = 57.0    # MEASURE: side reading when centred
-    FRONT_STOP_MM = 32.0      # MEASURE: front reading when centred
+    SIDE_NOMINAL_MM = 100.0   # side reading when centred  (test 1: 104 / 96)
+    FRONT_STOP_MM = 75.0      # front reading when centred (test 1: 73-77)
+    SIDE_WALL_MM = 180.0      # reading below this at a cell centre = wall
+    FRONT_WALL_MM = 180.0     #   (walls read 75-104, open reads >= 265)
+    SIDE_VALID_MM = 150.0     # use a side wall for centring only if this close
+    FRONT_TRUST_MM = 300.0    # front wall close enough to correct the odometry
 else:
     SIDE_NOMINAL_MM = 60.0
     FRONT_STOP_MM = 35.0
-SIDE_WALL_MM = 120.0          # reading below this at a cell centre = wall
-FRONT_WALL_MM = 120.0
-SIDE_VALID_MM = 95.0          # use a side wall for centring only if this close
-FRONT_TRUST_MM = 230.0        # front wall close enough to correct the odometry
+    SIDE_WALL_MM = 120.0
+    FRONT_WALL_MM = 120.0
+    SIDE_VALID_MM = 95.0
+    FRONT_TRUST_MM = 230.0
 SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 EDGE_SNAP_MM = 45.0           # max odometry error a wall edge may correct
 
