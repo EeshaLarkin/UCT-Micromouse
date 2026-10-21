@@ -31,7 +31,7 @@ DT = 0.01
 
 # Starting guesses - each test prints what to put in motion.py instead.
 TICKS_PER_M = 5730.0
-DEAD_BAND = 58.0
+DEAD_BAND = 25.0         # test 2 on the real mouse: left 22, right 28
 
 
 def say(*parts):
@@ -181,7 +181,7 @@ def test_motors():
 # -------------------------------------------------------------------------
 # Test 3: drive straight toward a wall -> ticks per metre and speed
 # -------------------------------------------------------------------------
-def test_straight(pwm=75, dead_band=None, drive_m=0.40):
+def test_straight(pwm=50, dead_band=None, drive_m=0.40):
     """Centre the mouse in a straight corridor at least 3 cells long that
     ENDS IN A WALL, facing that wall. The front ToF measures the true
     distance travelled (start reading - end reading), the encoders count
@@ -197,6 +197,8 @@ def test_straight(pwm=75, dead_band=None, drive_m=0.40):
     bias = gyro_bias()
     countdown()
 
+    # stop well before the wall (real sensors read ~45 mm high)
+    stop_mm = 200 if sys.implementation.name == "micropython" else 120
     l0, r0 = uct_mouse.get_encoders()
     target = drive_m * TICKS_PER_M
     yaw = 0.0
@@ -213,7 +215,7 @@ def test_straight(pwm=75, dead_band=None, drive_m=0.40):
         if i >= 40:                                       # skip the speed-up
             speeds.append(((l - lp) + (r - rp)) / 2.0 / DT)
         lp, rp = l, r
-        if ((l - l0) + (r - r0)) / 2.0 >= target or uct_mouse.get_tof()[2] < 120:
+        if ((l - l0) + (r - r0)) / 2.0 >= target or uct_mouse.get_tof()[2] < stop_mm:
             break
     stop()
     l, r = uct_mouse.get_encoders()
