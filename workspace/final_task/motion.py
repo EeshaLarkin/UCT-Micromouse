@@ -14,6 +14,7 @@
 
 import sys
 import math
+import time
 import uct_mouse
 
 ON_HARDWARE = (sys.implementation.name == "micropython")
@@ -121,6 +122,8 @@ class Motion:
         self.i_r = 0.0
         self.tof_l = self.tof_c = self.tof_r = 8190.0
         self.ticks = 0            # time in control periods
+        self.t_last = time.ticks_us() if ON_HARDWARE else 0
+        self.dt_sum = 0.0         # hardware: real seconds spent in tick()
         self.odo_scale = ODO_SCALE_START  # learnt ground-metres per encoder-metre (slip)
         self.since_fix = 0.0      # ground distance driven since last position fix
         # diagnostics (counters only - lists would grow and eat the STM32's RAM)
@@ -141,14 +144,26 @@ class Motion:
         uct_mouse.delay_ms(LOOP_MS)
         self.ticks += 1
 
+        # On the STM32 a loop is 10 ms of delay PLUS the time our own code
+        # takes, so integrating the gyro with a fixed 0.01 s would under-count
+        # every turn (by ~10% if the code takes 1 ms). Measure the real period.
+        # The simulator runs in lock-step 10 ms steps, so it keeps DT.
+        dt = DT
+        if ON_HARDWARE:
+            now = time.ticks_us()
+            dt = time.ticks_diff(now, self.t_last) / 1e6
+            self.t_last = now
+            dt = clamp(dt, 0.005, 0.05)
+            self.dt_sum += dt
+
         l, r = uct_mouse.get_encoders()
         dl, dr = l - self.lenc, r - self.renc
         self.lenc, self.renc = l, r
         # low-passed wheel speeds (encoder counts are coarse at 10 ms)
-        self.v_l += 0.4 * (dl / TICKS_PER_M / DT - self.v_l)
-        self.v_r += 0.4 * (dr / TICKS_PER_M / DT - self.v_r)
+        self.v_l += 0.4 * (dl / TICKS_PER_M / dt - self.v_l)
+        self.v_r += 0.4 * (dr / TICKS_PER_M / dt - self.v_r)
 
-        self.theta += (uct_mouse.get_gyro() - self.gyro_bias) * DT * GYRO_SCALE
+        self.theta += (uct_mouse.get_gyro() - self.gyro_bias) * dt * GYRO_SCALE
 
         t = uct_mouse.get_tof()
         self.tof_l, self.tof_c, self.tof_r = t[TOF_L], t[TOF_C], t[TOF_R]
@@ -180,6 +195,8 @@ class Motion:
         self.gyro_bias = total / samples
         self.theta = 0.0
         self.lenc, self.renc = uct_mouse.get_encoders()
+        if ON_HARDWARE:
+            self.t_last = time.ticks_us()
 
     # ------------------------------------------------------------------
     # Wall sensing (call while stopped at a cell centre)
