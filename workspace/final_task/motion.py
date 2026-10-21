@@ -29,7 +29,7 @@ if ON_HARDWARE:
     GYRO_SCALE = 1.0          # MEASURE: calibrate test 4 (true deg per gyro deg)
     TICKS_PER_M = 5730.0      # MEASURE: calibrate test 3 (nominal 1170/(2*pi*0.0325))
     ODO_SCALE_START = 1.0     # learnt online from wall edges
-    DEAD_BAND = 58.0          # MEASURE: calibrate test 2
+    DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
     V_AT_FULL = 0.40          # MEASURE: calibrate test 3
     HALF_AXLE_M = 0.045       # MEASURE: calibrate test 4
 else:
