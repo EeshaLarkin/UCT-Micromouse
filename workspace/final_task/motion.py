@@ -21,13 +21,18 @@ ON_HARDWARE = (sys.implementation.name == "micropython")
 # ---------------------------------------------------------------------------
 # Chassis constants (sim values are derived from tools/simulation_config.json)
 # ---------------------------------------------------------------------------
+# Which of get_tof()'s 5 slots are the left / centre / right sensors
+TOF_L, TOF_C, TOF_R = 0, 2, 4          # MEASURE on hardware with calibrate test 1
+
 if ON_HARDWARE:
-    TICKS_PER_M = 5730.0      # 1170 ticks/rev / (2*pi*0.0325 m wheel radius)
+    GYRO_SCALE = 1.0          # MEASURE: calibrate test 4 (true deg per gyro deg)
+    TICKS_PER_M = 5730.0      # MEASURE: calibrate test 3 (nominal 1170/(2*pi*0.0325))
     ODO_SCALE_START = 1.0     # learnt online from wall edges
-    DEAD_BAND = 58.0          # PWM below which the wheels don't move (measured)
-    V_AT_FULL = 0.40          # m/s at PWM 100  -> MEASURE ON HARDWARE
-    HALF_AXLE_M = 0.045       # half the wheel spacing -> MEASURE ON HARDWARE
+    DEAD_BAND = 58.0          # MEASURE: calibrate test 2
+    V_AT_FULL = 0.40          # MEASURE: calibrate test 3
+    HALF_AXLE_M = 0.045       # MEASURE: calibrate test 4
 else:
+    GYRO_SCALE = 1.0
     TICKS_PER_M = 4400.0      # 470 ticks/rev / (2*pi*0.017 m wheel radius)
     ODO_SCALE_START = 0.96    # sim wheel slip makes encoders over-read ~4%
     DEAD_BAND = 28.0
@@ -124,10 +129,10 @@ class Motion:
         self.v_l += 0.4 * (dl / TICKS_PER_M / DT - self.v_l)
         self.v_r += 0.4 * (dr / TICKS_PER_M / DT - self.v_r)
 
-        self.theta += (uct_mouse.get_gyro() - self.gyro_bias) * DT
+        self.theta += (uct_mouse.get_gyro() - self.gyro_bias) * DT * GYRO_SCALE
 
         t = uct_mouse.get_tof()
-        self.tof_l, self.tof_c, self.tof_r = t[0], t[2], t[4]
+        self.tof_l, self.tof_c, self.tof_r = t[TOF_L], t[TOF_C], t[TOF_R]
         return dl, dr
 
     def yaw(self):
