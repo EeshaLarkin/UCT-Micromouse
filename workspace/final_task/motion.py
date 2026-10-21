@@ -145,15 +145,18 @@ class Motion:
         uct_mouse.set_motors(int(pwm_l), int(pwm_r))
         dt = DT
         if ON_HARDWARE:
-            # The STM32 needs ~10 ms of its own per loop (memcheck: 19.5 ms
-            # average with a fixed 10 ms delay), so only wait for whatever is
-            # LEFT of the 10 ms period, then measure the real period and use
-            # it everywhere (gyro, speeds, ramps). A fixed 0.01 s would have
-            # under-counted every turn by ~49%.
+            # Only wait for whatever is LEFT of the 10 ms period (our own
+            # code also takes time), then measure the real period and use it
+            # everywhere (gyro, speeds, ramps). With a fixed delay the loop
+            # averaged 19.5 ms, and a fixed 0.01 s would have under-counted
+            # every turn by ~49%.
             # The simulator runs in lock-step 10 ms steps, so it keeps DT.
-            rem = LOOP_MS - time.ticks_diff(time.ticks_us(), self.t_last) // 1000
-            if rem > 0:
-                uct_mouse.delay_ms(rem)
+            # uct_mouse.delay_ms() overshoots on the real mouse (memcheck:
+            # delay_ms(10) took 17.4 ms - background interrupts steal time),
+            # so wait by watching the microsecond clock instead.
+            period_us = LOOP_MS * 1000
+            while time.ticks_diff(time.ticks_us(), self.t_last) < period_us:
+                pass
             now = time.ticks_us()
             dt = time.ticks_diff(now, self.t_last) / 1e6
             self.t_last = now
