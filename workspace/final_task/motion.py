@@ -26,12 +26,12 @@ ON_HARDWARE = (sys.implementation.name == "micropython")
 TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
-    GYRO_SCALE = 1.0          # MEASURE: calibrate test 4 (true deg per gyro deg)
+    GYRO_SCALE = 1.0          # test 4 at home (boxes) gave 1.018 but unreliable -> re-test in maze
     TICKS_PER_M = 6000.0      # test 3 at home (boxes): 6163-6431, nominal 5730 -> re-measure in maze
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
     V_AT_FULL = 0.95          # test 3: 0.88 / 0.95 / 0.99 m/s at PWM 100
-    HALF_AXLE_M = 0.045       # MEASURE: calibrate test 4
+    HALF_AXLE_M = 0.054       # chassis value (course example config); home test 0.099 = wheel slip
 else:
     GYRO_SCALE = 1.0
     TICKS_PER_M = 4400.0      # 470 ticks/rev / (2*pi*0.017 m wheel radius)
@@ -85,10 +85,10 @@ ACCEL = 1.2         # m/s^2  speed-up / slow-down for straights
 V_MIN = 0.05        # m/s    crawl speed at the very end of a move
 
 if ON_HARDWARE:
-    # real motors are ~2.4x faster than the simulator's: PWM 70 would spin at
-    # ~700 deg/s. These give roughly 300 / 120 deg/s - tune on the maze.
-    TURN_FAST_PWM = 45
-    TURN_SLOW_PWM = 33
+    # test 4: spinning on the spot at ~200 deg/s needed PWM ~60 (scrubbing
+    # friction). Tune on the maze.
+    TURN_FAST_PWM = 60
+    TURN_SLOW_PWM = 45
 else:
     TURN_FAST_PWM = 70
     TURN_SLOW_PWM = 45
