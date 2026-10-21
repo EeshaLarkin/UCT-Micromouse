@@ -13,6 +13,7 @@
 # =========================================================================
 
 import sys
+import gc
 import math
 import time
 import uct_mouse
@@ -124,6 +125,7 @@ class Motion:
         self.ticks = 0            # time in control periods
         self.t_last = time.ticks_us() if ON_HARDWARE else 0
         self.dt_sum = 0.0         # hardware: real seconds spent in tick()
+        self.dt = DT              # length of the last control period (s)
         self.odo_scale = ODO_SCALE_START  # learnt ground-metres per encoder-metre (slip)
         self.since_fix = 0.0      # ground distance driven since last position fix
         # diagnostics (counters only - lists would grow and eat the STM32's RAM)
@@ -141,20 +143,26 @@ class Motion:
     # ------------------------------------------------------------------
     def tick(self, pwm_l=0, pwm_r=0):
         uct_mouse.set_motors(int(pwm_l), int(pwm_r))
-        uct_mouse.delay_ms(LOOP_MS)
-        self.ticks += 1
-
-        # On the STM32 a loop is 10 ms of delay PLUS the time our own code
-        # takes, so integrating the gyro with a fixed 0.01 s would under-count
-        # every turn (by ~10% if the code takes 1 ms). Measure the real period.
-        # The simulator runs in lock-step 10 ms steps, so it keeps DT.
         dt = DT
         if ON_HARDWARE:
+            # The STM32 needs ~10 ms of its own per loop (memcheck: 19.5 ms
+            # average with a fixed 10 ms delay), so only wait for whatever is
+            # LEFT of the 10 ms period, then measure the real period and use
+            # it everywhere (gyro, speeds, ramps). A fixed 0.01 s would have
+            # under-counted every turn by ~49%.
+            # The simulator runs in lock-step 10 ms steps, so it keeps DT.
+            rem = LOOP_MS - time.ticks_diff(time.ticks_us(), self.t_last) // 1000
+            if rem > 0:
+                uct_mouse.delay_ms(rem)
             now = time.ticks_us()
             dt = time.ticks_diff(now, self.t_last) / 1e6
             self.t_last = now
-            dt = clamp(dt, 0.005, 0.05)
+            dt = clamp(dt, 0.005, 0.1)
             self.dt_sum += dt
+        else:
+            uct_mouse.delay_ms(LOOP_MS)
+        self.dt = dt
+        self.ticks += 1
 
         l, r = uct_mouse.get_encoders()
         dl, dr = l - self.lenc, r - self.renc
@@ -180,6 +188,12 @@ class Motion:
             self.tick(0, 0)
             if abs(self.v_l) < 0.005 and abs(self.v_r) < 0.005:
                 break
+        if ON_HARDWARE:
+            # Every float calculation leaves a little garbage; MicroPython
+            # pauses to clean it up when memory fills. Clean up now, while
+            # standing still, rather than in the middle of the next move.
+            gc.collect()
+            self.t_last = time.ticks_us()     # don't count the cleanup as a tick
 
     # ------------------------------------------------------------------
     # Start-up
@@ -227,7 +241,7 @@ class Motion:
         if abs(v_cmd) < 1e-4:
             return 0, integ
         err = v_cmd - v_meas
-        integ = clamp(integ + K_VEL_I * err * DT, -25.0, 25.0)
+        integ = clamp(integ + K_VEL_I * err * self.dt, -25.0, 25.0)
         ff = DEAD_BAND + abs(v_cmd) / V_AT_FULL * (100.0 - DEAD_BAND)
         pwm = (ff if v_cmd > 0 else -ff) + K_VEL * err + integ
         return (clamp(pwm, -100, 100) if sat else pwm), integ
@@ -328,7 +342,7 @@ class Motion:
             if rem <= 0.002:
                 break
 
-            v = min(v_max, v + accel * DT,
+            v = min(v_max, v + accel * self.dt,
                     math.sqrt(v_end * v_end + 2.0 * accel * max(rem, 0.0)))
             v = max(v, V_MIN)
 
@@ -340,7 +354,7 @@ class Motion:
             else:
                 y_f = y if y_f is None else y_f + 0.3 * (y - y_f)
                 omega -= K_LATERAL * y_f
-                self.yaw_corr += math.degrees(K_ALIGN * y_f * DT)
+                self.yaw_corr += math.degrees(K_ALIGN * y_f * self.dt)
 
             ds = self._wheels(v, omega)
             s += ds
