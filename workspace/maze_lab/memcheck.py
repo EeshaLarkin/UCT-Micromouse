@@ -50,51 +50,82 @@ for name in ("maze_logic", "motion", "mission"):
     except ImportError as e:
         print("!! could not import", name, ":", e)
 
-# 2. maze map size and planning speed
+# 2. maze map size and planning speed (each step separately, so a
+#    MemoryError says exactly where it happened)
 try:
     from maze_logic import MazeMap, OPEN
-    for rows, cols in ((4, 6), (8, 8), (16, 16)):
-        before = free()
-        m = MazeMap(rows, cols)
-        for y in range(rows):                    # open every interior wall:
-            for x in range(cols):                # worst case for BFS
-                for d in range(4):
-                    m.set_wall(x, y, d, OPEN)
-        after = free()
-        t0 = time.ticks_ms()
-        m.bfs((0, 0), lambda x, y: False)        # unreachable goal = visit all
-        t_bfs = time.ticks_diff(time.ticks_ms(), t0)
-        t0 = time.ticks_ms()
-        m.room_candidates()
-        t_room = time.ticks_diff(time.ticks_ms(), t0)
-        print("%2dx%-2d map %6d bytes | full BFS %4d ms | room scan %4d ms"
-              % (rows, cols, before - after, t_bfs, t_room))
-        del m
-except MemoryError:
-    print("!! MemoryError building/planning the map")
+except ImportError:
+    MazeMap = None
+if MazeMap:
+    for rows, cols in ((4, 6), (8, 8), (10, 10), (16, 16)):
+        step = "build"
+        try:
+            before = free()
+            m = MazeMap(rows, cols)
+            step = "open walls"
+            for y in range(rows):                # open every interior wall:
+                for x in range(cols):            # worst case for BFS
+                    for d in range(4):
+                        m.set_wall(x, y, d, OPEN)
+            size = before - free()
+            step = "BFS"
+            t0 = time.ticks_ms()
+            m.bfs((0, 0), lambda x, y: False)    # unreachable goal = visit all
+            t_bfs = time.ticks_diff(time.ticks_ms(), t0)
+            step = "room scan"
+            t0 = time.ticks_ms()
+            m.room_candidates()
+            t_room = time.ticks_diff(time.ticks_ms(), t0)
+            print("%2dx%-2d map %6d bytes | full BFS %4d ms | room scan %4d ms"
+                  % (rows, cols, size, t_bfs, t_room))
+        except MemoryError:
+            print("%2dx%-2d !! MemoryError during %s (free %d)" % (rows, cols, step, gc.mem_free()))
+        m = None
+        free()
 
-# 3. real control-loop period (motors OFF)
+# 3. where does the time go in one control loop? (motors OFF)
 try:
     import uct_mouse
     import motion
     uct_mouse.init()
     uct_mouse.set_motors(0, 0)
+
+    def per_call(label, fn, n=100):
+        free()
+        t0 = time.ticks_us()
+        for _ in range(n):
+            fn()
+        us = time.ticks_diff(time.ticks_us(), t0) / n
+        print("  %-22s %7.2f ms per call" % (label, us / 1000))
+
+    print("time per call:")
+    per_call("set_motors(0, 0)", lambda: uct_mouse.set_motors(0, 0))
+    per_call("get_encoders()", uct_mouse.get_encoders)
+    per_call("get_gyro()", uct_mouse.get_gyro)
+    per_call("get_tof()", uct_mouse.get_tof)
+    per_call("delay_ms(1)", lambda: uct_mouse.delay_ms(1), 50)
+    per_call("delay_ms(10)", lambda: uct_mouse.delay_ms(10), 30)
+
+    # the real loop, with motion.py's new 'wait only what's left' timing
     mo = motion.Motion()
+    free()
+    mo.t_last = time.ticks_us()
     mo.dt_sum = 0.0
-    n = 200
+    n = 300
     worst = 0
+    over = 0
     t_prev = time.ticks_us()
     for _ in range(n):
         mo.tick(0, 0)
         t = time.ticks_us()
-        worst = max(worst, time.ticks_diff(t, t_prev))
+        d = time.ticks_diff(t, t_prev)
+        worst = max(worst, d)
+        if d > 15000:
+            over += 1
         t_prev = t
     avg_ms = mo.dt_sum / n * 1000
-    print("control loop: average %.2f ms, worst %.2f ms (10 ms is the ideal)"
-          % (avg_ms, worst / 1000))
-    if avg_ms > 0:
-        print("  -> a fixed 0.01 s would under-count gyro turns by %.1f%%"
-              % ((1 - 10.0 / avg_ms) * 100))
+    print("control loop: average %.2f ms, worst %.2f ms, %d of %d loops over 15 ms"
+          % (avg_ms, worst / 1000, over, n))
     uct_mouse.set_motors(0, 0)
 except MemoryError:
     print("!! MemoryError during the loop test")
