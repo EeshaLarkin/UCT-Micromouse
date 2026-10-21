@@ -260,14 +260,16 @@ def test_spin(turns=5, pwm=70):
     l, r = uct_mouse.get_encoders()
 
     # Find the dips in the front reading (front ToF close to a wall).
-    # Noise can split one dip into fragments, so readings below 100 mm are
+    # Noise can split one dip into fragments, so readings below `near` are
     # grouped while they're within 20 deg of each other. Neighbouring walls
     # may merge into one wide dip - that's fine: what matters is that the
     # SAME dip comes back once per revolution, so any fixed offset cancels.
     n = len(hist)
     groups = []                                  # [first_yaw, last_yaw]
+    # real sensors read ~45 mm high (test 1: dead-end front = 75 mm)
+    near = 140 if sys.implementation.name == "micropython" else 100
     for yw, d in hist:
-        if d < 100:
+        if d < near:
             if groups and yw - groups[-1][1] < 20.0:
                 groups[-1][1] = yw
             else:
