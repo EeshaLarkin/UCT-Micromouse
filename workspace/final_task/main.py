@@ -14,7 +14,7 @@
 
 import uct_mouse
 from maze_logic import MazeMap, EAST, DIR_NAMES
-from motion import Motion, ON_HARDWARE
+from motion import Motion, ON_HARDWARE, TURN_FAST_PWM
 
 # Speeds (m/s) and accelerations (m/s^2) for each phase
 EXPLORE_V = 0.25
@@ -52,7 +52,7 @@ class MazeSolver:
     # ------------------------------------------------------------------
     # Driving along a planned path
     # ------------------------------------------------------------------
-    def drive_path(self, path, v_max, accel, turn_pwm=70):
+    def drive_path(self, path, v_max, accel, turn_pwm=TURN_FAST_PWM):
         """Follow a list of cells, merging straight runs into single moves:
         [E,E,E,N] becomes 'turn, drive 3 cells, turn, drive 1 cell'."""
         segs = MazeMap.compress(MazeMap.path_to_headings(path))
@@ -147,8 +147,10 @@ def main():
     uct_mouse.set_polarity(1, 1)
     uct_mouse.delay_ms(20)        # let the first sensor packet arrive
     rows, cols = uct_mouse.get_maze_dimensions()
-    MazeSolver(rows, cols).solve()
-    uct_mouse.set_motors(0, 0)
+    try:
+        MazeSolver(rows, cols).solve()
+    finally:
+        uct_mouse.set_motors(0, 0)   # never leave the motors running after an error
 
 
 if __name__ == "__main__":
