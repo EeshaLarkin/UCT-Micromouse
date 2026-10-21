@@ -4,7 +4,8 @@
 # Lives in maze_lab (NOT part of the submission). Copy it to UCT_MMOUSE.
 #
 # Tests 1-3 (USB plugged in) - from the repo folder in PowerShell:
-#     mpremote exec "import calibrate; calibrate.run(1)"
+#     mpremote resume exec "import calibrate; calibrate.run(1)"
+#   Test 3 needs the number of cells to the wall, e.g. calibrate.run(3, cells=2)
 #   Results print in PowerShell. Nothing is written to the drive (writing
 #   from the mouse while Windows has the drive open can corrupt it).
 #
@@ -16,7 +17,7 @@
 # TESTS
 #   1  Sensors   (motors OFF)  live ToF / gyro / encoder readout, ~45 s
 #   2  Motors    (creeps ~5 cm) polarity, encoder signs, deadband per wheel
-#   3  Straight  (drives ~40 cm toward a wall) ticks/m and speed per PWM
+#   3  Straight  (drives toward a wall k cells ahead) ticks/m and speed
 #   4  Spin      (5 turns in a dead-end cell) gyro scale + half axle length
 # =========================================================================
 
@@ -32,6 +33,7 @@ DT = 0.01
 # Starting guesses - each test prints what to put in motion.py instead.
 TICKS_PER_M = 5730.0
 DEAD_BAND = 25.0         # test 2 on the real mouse: left 22, right 28
+DB_L, DB_R = 22.0, 28.0
 
 
 def say(*parts):
@@ -76,13 +78,46 @@ def gyro_bias(samples=200):
 
 
 def avg_tof(samples=20):
-    acc = [0.0] * 5
+    """Median of the VALID readings per sensor. The firmware reports 8190
+    ('nothing seen') when the reflection is weak - beyond ~450 mm this
+    happens randomly, and averaging those in ruins the number. 2000 = no
+    valid reading at all."""
+    vals = [[], [], [], [], []]
     for _ in range(samples):
         uct_mouse.delay_ms(LOOP_MS)
         t = uct_mouse.get_tof()
         for i in range(5):
-            acc[i] += min(t[i], 2000)
-    return [a / samples for a in acc]
+            if t[i] < 8000:
+                vals[i].append(t[i])
+    out = []
+    for v in vals:
+        v.sort()
+        out.append(v[len(v) // 2] if v else 2000)
+    return out
+
+
+def front_distance(samples=60):
+    """Front distance for test 3: median of valid filtered readings, or of
+    the unfiltered get_tof_raw() if the filtered ones are mostly dropouts.
+    Returns (mm, how many valid filtered samples)."""
+    good = []
+    raw = []
+    for _ in range(samples):
+        uct_mouse.delay_ms(LOOP_MS)
+        d = uct_mouse.get_tof()[2]
+        if d < 8000:
+            good.append(d)
+        try:
+            r = uct_mouse.get_tof_raw()[2]
+            if r < 8000:
+                raw.append(r)
+        except Exception:
+            pass
+    src = good if len(good) >= samples // 3 else raw
+    if not src:
+        return 9999, 0
+    src.sort()
+    return src[len(src) // 2], len(good)
 
 
 # -------------------------------------------------------------------------
@@ -181,56 +216,72 @@ def test_motors():
 # -------------------------------------------------------------------------
 # Test 3: drive straight toward a wall -> ticks per metre and speed
 # -------------------------------------------------------------------------
-def test_straight(pwm=50, dead_band=None, drive_m=0.40):
-    """Centre the mouse in a straight corridor at least 3 cells long that
-    ENDS IN A WALL, facing that wall. The front ToF measures the true
-    distance travelled (start reading - end reading), the encoders count
-    ticks over the same distance -> ticks per metre, no ruler needed."""
+def test_straight(cells=2, pwm=50, dead_band=None):
+    """Centre the mouse in a cell, facing a wall `cells` cells further on
+    (cells=2: two open cells ahead, then the wall). Long-range ToF readings
+    are unreliable (beyond ~400 mm they jump around), so the START distance
+    comes from the maze geometry: a centred mouse reads FRONT_CENTRED mm when
+    the wall is at the end of its own cell, +200 mm per extra cell. Only the
+    END reading (close to the wall, reliable) is measured.
+    true distance = start - end;  ticks / true distance = ticks per metre."""
     if dead_band is None:
         dead_band = DEAD_BAND
-    say("=== TEST 3: straight run, PWM %d ===" % pwm)
-    d1 = avg_tof(30)[2]
-    say("front wall at start: %.0f mm" % d1)
-    if d1 > 1000:
-        say("!! No wall seen ahead (needs < 1 m). Face a wall 2-4 cells away.")
-        return
+    say("=== TEST 3: straight run, PWM %d, wall %d cells ahead ===" % (pwm, cells))
+    hw = sys.implementation.name == "micropython"
+    front_centred = 75.0 if hw else 35.0          # test 1: centred dead-end reading
+    d1 = front_centred + 200.0 * cells
+    say("start distance from geometry: %.0f mm" % d1)
     bias = gyro_bias()
     countdown()
 
-    # stop well before the wall (real sensors read ~45 mm high)
-    stop_mm = 200 if sys.implementation.name == "micropython" else 120
+    stop_mm = 200 if hw else 120
     l0, r0 = uct_mouse.get_encoders()
-    target = drive_m * TICKS_PER_M
+    limit = (cells * 0.2 + 0.05) * TICKS_PER_M     # encoder safety limit
     yaw = 0.0
     speeds = []
     lp, rp = l0, r0
-    for i in range(1000):
-        # gentle heading hold so the ToF keeps pointing at the wall
-        # yaw > 0 means we drifted left (CCW) -> speed up left, slow right
-        corr = max(-10, min(10, 2.0 * yaw))
-        uct_mouse.set_motors(int(pwm + corr), int(pwm - corr))
+    veered = False
+    for i in range(2000):
+        # Each wheel gets its own deadband added, so both receive the same
+        # 'useful' PWM; then a heading hold (yaw > 0 = drifted left, CCW).
+        corr = max(-20.0, min(20.0, 4.0 * yaw))
+        uct_mouse.set_motors(int(DB_L + (pwm - dead_band) + corr),
+                             int(DB_R + (pwm - dead_band) - corr))
         uct_mouse.delay_ms(LOOP_MS)
         yaw += (uct_mouse.get_gyro() - bias) * DT
+        if abs(yaw) > 15.0:
+            veered = True
+            break
         l, r = uct_mouse.get_encoders()
         if i >= 40:                                       # skip the speed-up
             speeds.append(((l - lp) + (r - rp)) / 2.0 / DT)
         lp, rp = l, r
-        if ((l - l0) + (r - r0)) / 2.0 >= target or uct_mouse.get_tof()[2] < stop_mm:
+        if ((l - l0) + (r - r0)) / 2.0 >= limit:
+            break
+        d = uct_mouse.get_tof()[2]
+        if d < stop_mm:
             break
     stop()
+    if veered:
+        say("!! Turned %+.0f deg - stopped. Re-centre and run again." % yaw)
+        return
     l, r = uct_mouse.get_encoders()
     ticks = ((l - l0) + (r - r0)) / 2.0
-    d2 = avg_tof(30)[2]
+    d2, ok2 = front_distance()
+    if d2 > 300:
+        say("!! End reading %.0f mm is too far to trust - is the wall %d cells ahead?" % (d2, cells))
+        return
     true_m = (d1 - d2) / 1000.0
     tpm = ticks / true_m if true_m > 0.05 else 0
-    say("front wall at end: %.0f mm -> moved %.3f m, %d ticks" % (d2, true_m, ticks))
+    say("front wall at end: %.0f mm (%d of 60 valid) -> moved %.3f m, %d ticks, heading %+.1f deg"
+        % (d2, ok2, true_m, ticks, yaw))
     if tpm:
         say(">>> TICKS_PER_M = %.0f" % tpm)
         if speeds:
             v = sum(speeds) / len(speeds) / tpm
             v_full = v * (100.0 - dead_band) / (pwm - dead_band)
             say("cruise speed at PWM %d: %.3f m/s" % (pwm, v))
-            say(">>> V_AT_FULL = %.2f   (uses DEAD_BAND %d from test 2)" % (v_full, dead_band))
+            say(">>> V_AT_FULL = %.2f   (uses DEAD_BAND %d)" % (v_full, dead_band))
         oled(1, "TPM %.0f" % tpm)
 
 
@@ -305,11 +356,12 @@ def test_spin(turns=5, pwm=70):
     oled(2, "HA %.4f" % half_axle)
 
 
-def run(test, to_file=False):
-    global TICKS_PER_M, DEAD_BAND, TO_FILE
+def run(test, to_file=False, **options):
+    global TICKS_PER_M, DEAD_BAND, TO_FILE, DB_L, DB_R
     TO_FILE = to_file
     if sys.implementation.name != "micropython":   # PC simulator check-run
         TICKS_PER_M, DEAD_BAND = 4400.0, 28.0
+        DB_L = DB_R = 28.0
     if not uct_mouse.init():
         print("init failed")
         return
@@ -324,6 +376,6 @@ def run(test, to_file=False):
         uct_mouse.set_polarity(1, 1)
         say("no polarity.txt - using set_polarity(1, 1)")
     uct_mouse.delay_ms(50)
-    (None, test_sensors, test_motors, test_straight, test_spin)[test]()
+    (None, test_sensors, test_motors, test_straight, test_spin)[test](**options)
     uct_mouse.set_motors(0, 0)
     say("done")
