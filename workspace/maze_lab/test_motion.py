@@ -206,10 +206,11 @@ def client(a):
         path = truth.shortest_path((0, 0), truth.room_cells(*room), EAST)
         segs = MazeMap.compress(MazeMap.path_to_headings(path))
         print("Sprint plan:", ", ".join("%s x%d" % (DIR_NAMES[d], n) for d, n in segs))
+        plan = []
         for d, n in segs:
-            m.turn(turn_amount(heading, d), fast_pwm=a.turnpwm)
+            plan.append((n, turn_amount(heading, d)))
             heading = d
-            m.move(n, v_max=a.vmax, accel=a.accel)
+        m.sweep_path(plan, a.vmax, a.arcv, a.accel)    # curved corners, like main.py
         secs = (m.ticks - t0) * 0.01
         print("Sprint: %d cells in %.1f s -> average %.3f m/s (grader wants >= 0.30)"
               % (len(path) - 1, secs, (len(path) - 1) * 0.2 / secs))
@@ -254,7 +255,7 @@ if __name__ == "__main__":
     p.add_argument("--slip", type=float, default=0.04)
     p.add_argument("--vmax", type=float, default=None, help="cruise speed m/s")
     p.add_argument("--accel", type=float, default=None, help="m/s^2 for straights")
-    p.add_argument("--turnpwm", type=int, default=70, help="fast turn PWM")
+    p.add_argument("--arcv", type=float, default=0.22, help="speed through curved corners")
     p.add_argument("--sprint", action="store_true")
     p.add_argument("--mission", action="store_true",
                    help="run workspace/final_task/main.py and score it like the autograder")
@@ -264,7 +265,7 @@ if __name__ == "__main__":
         a.vmax = 0.38 if a.sprint else 0.25
     a.max_time = (240.0 if a.rows >= 8 else 120.0) if a.mission else None
     if a.accel is None:
-        a.accel = 2.5 if a.sprint else 1.2
+        a.accel = 1.5 if a.sprint else 1.2
     if a.client:
         client(a)
     else:
