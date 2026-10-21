@@ -27,10 +27,10 @@ TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.0          # MEASURE: calibrate test 4 (true deg per gyro deg)
-    TICKS_PER_M = 5730.0      # MEASURE: calibrate test 3 (nominal 1170/(2*pi*0.0325))
+    TICKS_PER_M = 5850.0      # test 3 (home, ~60 cm): ~5940 +/-2%; nominal 5730. Re-measure in maze
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
-    V_AT_FULL = 0.40          # MEASURE: calibrate test 3
+    V_AT_FULL = 1.0           # test 3: ~0.33 m/s at PWM 50 -> ~1.0 m/s at 100
     HALF_AXLE_M = 0.045       # MEASURE: calibrate test 4
 else:
     GYRO_SCALE = 1.0
