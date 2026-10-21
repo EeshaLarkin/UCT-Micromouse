@@ -1,22 +1,20 @@
 # =========================================================================
 # calibrate.py  -  Measure the real mouse's constants for motion.py
 # =========================================================================
-# Each test prints its results, shows the key number on the OLED, and
-# appends everything to calib.txt on the UCT_MMOUSE drive, so tests can run
-# with or without the USB cable.
-#
 # Lives in maze_lab (NOT part of the submission). Copy it to UCT_MMOUSE.
-# HOW TO RUN:
-#   Tethered (tests 1-3):  mpremote repl, then type
-#                          >>> import calibrate
-#                          >>> calibrate.run(1)
-#   Untethered (test 4 spins 5 times - the cable would wind up):
-#     put this 2-line main.py on the drive, unplug USB, press RESET:
-#         import calibrate
-#         calibrate.run(4)
+#
+# Tests 1-3 (USB plugged in) - from the repo folder in PowerShell:
+#     mpremote exec "import calibrate; calibrate.run(1)"
+#   Results print in PowerShell. Nothing is written to the drive (writing
+#   from the mouse while Windows has the drive open can corrupt it).
+#
+# Test 4 (spins 5 times - must be UNPLUGGED): make the drive's main.py
+#     import calibrate
+#     calibrate.run(4, to_file=True)
+#   unplug, press RESET, then plug back in and open calib.txt.
 #
 # TESTS
-#   1  Sensors   (motors OFF)  live ToF / gyro / encoder readout, ~20 s
+#   1  Sensors   (motors OFF)  live ToF / gyro / encoder readout, ~45 s
 #   2  Motors    (creeps ~5 cm) polarity, encoder signs, deadband per wheel
 #   3  Straight  (drives ~40 cm toward a wall) ticks/m and speed per PWM
 #   4  Spin      (5 turns in a dead-end cell) gyro scale + half axle length
@@ -27,6 +25,7 @@ import math
 import uct_mouse
 
 LOG_FILE = "calib.txt"
+TO_FILE = False          # only write calib.txt when running unplugged (test 4)
 LOOP_MS = 10
 DT = 0.01
 
@@ -38,6 +37,8 @@ DEAD_BAND = 58.0
 def say(*parts):
     line = " ".join(str(p) for p in parts)
     print(line)
+    if not TO_FILE:
+        return
     try:
         with open(LOG_FILE, "a") as f:
             f.write(line + "\n")
@@ -87,7 +88,7 @@ def avg_tof(samples=20):
 # -------------------------------------------------------------------------
 # Test 1: sensors only (motors OFF)
 # -------------------------------------------------------------------------
-def test_sensors(seconds=20):
+def test_sensors(seconds=45):
     """Prints a reading every 0.5 s. While it runs:
       a) centre the mouse in a DEAD-END cell (walls left, front, right)
          -> which of the 5 ToF slots react? note the side + front values
@@ -300,8 +301,9 @@ def test_spin(turns=5, pwm=70):
     oled(2, "HA %.4f" % half_axle)
 
 
-def run(test):
-    global TICKS_PER_M, DEAD_BAND
+def run(test, to_file=False):
+    global TICKS_PER_M, DEAD_BAND, TO_FILE
+    TO_FILE = to_file
     if sys.implementation.name != "micropython":   # PC simulator check-run
         TICKS_PER_M, DEAD_BAND = 4400.0, 28.0
     if not uct_mouse.init():
