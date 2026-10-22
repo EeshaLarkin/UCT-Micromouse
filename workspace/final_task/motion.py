@@ -60,7 +60,9 @@ CELL_M = 0.20
 # ---------------------------------------------------------------------------
 if ON_HARDWARE:
     SIDE_NOMINAL_MM = 100.0   # side reading when centred  (test 1: 104 / 96)
-    FRONT_STOP_MM = 75.0      # front reading when centred (test 1: 73-77)
+    FRONT_STOP_MM = 40.0      # front reading when centred. Mouse is 14 cm long in a 19 cm cell
+                              # -> ~2.5 cm gap each end. drivetest stopped at ~77 with the nose
+                              # ~6-7 cm away = ~3.8 cm short. (test 1's 75 was hand-placed)
     SIDE_WALL_MM = 180.0      # reading below this at a cell centre = wall
     FRONT_WALL_MM = 180.0     #   (walls read 75-104, open reads >= 265)
     SIDE_VALID_MM = 150.0     # use a side wall for centring only if this close
@@ -87,7 +89,7 @@ if ON_HARDWARE:
     # speed feedback lets the controller actually brake (negative PWM).
     K_VEL = 150.0       # PWM per (m/s) of wheel-speed error
     STOP_LEAD_M = 0.008 # drivetest 2: still ~10-20 mm past centre -> end 8 mm early
-    FRONT_EMERGENCY_MM = FRONT_STOP_MM - 15.0   # past the centre: stop NOW
+    FRONT_EMERGENCY_MM = FRONT_STOP_MM - 12.0   # past the centre: stop NOW
     # drivetest showed NO slowing before the stop (v_cmd 200 -> 0 in one
     # step) and then a ~30 mm coast. So on the real mouse:
     DECEL = 0.25        # m/s^2 for slowing down: starts ~80 mm before a stop
