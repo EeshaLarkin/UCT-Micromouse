@@ -32,6 +32,20 @@ def _setup():
     return m
 
 
+def _print_log(m):
+    """Every 3rd control tick of the last move, plus the final ticks."""
+    lg = m.log
+    if not lg:
+        return
+    n = len(lg) // 5
+    print("  tick  v_cmd  v_real  front  pwmL  pwmR   (speeds mm/s, front mm)")
+    for i in range(n):
+        if i % 3 == 0 or i >= n - 6:
+            k = 5 * i
+            print("  %4d  %5d  %6d  %5d  %4d  %4d"
+                  % (i, lg[k], lg[k + 1], lg[k + 2], lg[k + 3], lg[k + 4]))
+
+
 def _report(m, label):
     l, f, r = m.read_walls()
     print("%s done in %.1f s" % (label, m.dt_sum))
@@ -40,7 +54,8 @@ def _report(m, label):
     print("  walls seen  left %s  front %s  right %s" % (l, f, r))
     print("  heading error %+.1f deg   wall heading correction %+.1f deg"
           % (m.target_yaw - m.yaw(), m.yaw_corr))
-    print("  odometry scale %.3f   wall-edge fixes %d" % (m.odo_scale, m.edge_fixes))
+    print("  odometry scale %.3f   wall-edge fixes %d   emergency stops %d"
+          % (m.odo_scale, m.edge_fixes, m.emergency_stops))
     if m.turns_done:
         print("  turns: %d, mean error %.1f deg, worst %.1f deg"
               % (m.turns_done, m.turn_err_sum / m.turns_done, m.turn_err_max))
@@ -51,8 +66,11 @@ def move(cells=1, v=0.20):
     m = None
     try:
         m = _setup()
+        m.log = []
         m.move(cells, v_max=v, accel=0.8)
+        uct_mouse.set_motors(0, 0)
         _report(m, "move(%d)" % cells)
+        _print_log(m)
     finally:
         uct_mouse.set_motors(0, 0)
 
