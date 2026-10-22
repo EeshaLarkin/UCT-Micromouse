@@ -509,7 +509,23 @@ if __name__ == "__main__":
         action="store_true",
         help="Inspect and display version identifiers and build watermarks for all compiled firmware binaries."
     )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Optional path to a specific Python script or directory to deploy."
+    )
     args = parser.parse_args()
+
+    # Automatically map positional target to script or src-dir
+    if args.target:
+        if os.path.isfile(args.target):
+            args.script = args.target
+            if args.engine == "pikascript" and args.target.endswith(".py"):
+                if find_micropython_drive():
+                    args.engine = "micropython"
+        elif os.path.isdir(args.target):
+            args.src_dir = args.target
 
     # Dynamically resolve paths so the script can be run from anywhere
     script_dir = os.path.dirname(os.path.abspath(__file__))
