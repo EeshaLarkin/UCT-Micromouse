@@ -1,4 +1,6 @@
-#define MICROPY_HW_BOARD_NAME       "UCT-MICROMOUSE"
+#include "firmware_version.h"
+
+#define MICROPY_HW_BOARD_NAME       "UCT-MICROMOUSE " UCT_FW_VERSION_STR
 #define MICROPY_HW_MCU_NAME         "STM32L476VE"
 #define MICROPY_HW_FLASH_FS_LABEL   "UCT_MMOUSE"
 

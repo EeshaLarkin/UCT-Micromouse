@@ -1,4 +1,5 @@
 #include "micromouse_kernel.h"
+#include "firmware_version.h"
 #include "ZD25WQ80C.h"
 #include "stm32l4xx_hal.h"
 #include <stdio.h>
@@ -249,15 +250,15 @@ void kernel_logger_tick(void) {
     if (!header_written) {
         uint32_t *uid = (uint32_t*)STM32L4_UID_ADDR;
         uint32_t code_hash = compute_code_hash();
-        char header_buf[160];
+        char header_buf[256];
         const char *board_str = has_ext_flash ? "2026" : "2025";
         extern int getIMUType(void);
         int imu_t = getIMUType();
         const char *imu_str = (imu_t == 2) ? "LSM6DS3" : 
                               (imu_t == 1) ? "ICM42605" : "UNKNOWN";
         snprintf(header_buf, sizeof(header_buf), 
-                 "{\"log_header\":1,\"board\":\"%s\",\"imu\":\"%s\",\"uid\":\"%08X%08X%08X\",\"hash\":%lu,\"ext\":%d}\n", 
-                 board_str, imu_str,
+                 "{\"log_header\":1,\"board\":\"%s\",\"imu\":\"%s\",\"fw\":\"%s\",\"uid\":\"%08X%08X%08X\",\"hash\":%lu,\"ext\":%d}\n", 
+                 board_str, imu_str, UCT_FW_VERSION_STR,
                  (unsigned int)uid[0], (unsigned int)uid[1], (unsigned int)uid[2], 
                  (unsigned long)code_hash, has_ext_flash ? 1 : 0);
         append_to_log(header_buf);
