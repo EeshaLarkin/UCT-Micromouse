@@ -340,13 +340,18 @@ def test_spin(turns=5, rate_dps=200.0):
     bias = gyro_bias()
 
     hw = sys.implementation.name == "micropython"
-    near = 140 if hw else 100       # real sensors read ~45 mm high
+    # The OPEN side of the dead end is the sharpest feature: once per turn
+    # the front sensor looks out of the dead end and reads far (or drops out
+    # to 8190). The three close walls blur into one ragged stretch instead.
+    # Test 1: walls of the dead end read 75-120, the open side reads 265+
+    # (a wall one cell further on) -> split at 180. Simulator: 35-76 vs 235.
+    far = 180 if hw else 150
     pwm = (DB_L + DB_R) / 2.0 + 8.0  # start just above the deadband
     yaw = 0.0
     max_rate = 0.0
     l0, r0 = uct_mouse.get_encoders()
-    mins = []                       # centre angle of each dip
-    g_start = None                  # current dip: first and last angle
+    mins = []                       # centre angle of each open-side gap
+    g_start = None                  # current gap: first and last angle
     g_end = None
     ticks = 0
     clk = Clock()
@@ -362,17 +367,19 @@ def test_spin(turns=5, rate_dps=200.0):
             max_rate = abs(rate)
         # hold the spin rate: slow integral-style PWM adjustment
         pwm += 0.02 * (rate_dps - rate) * dt * 10.0
-        pwm = max(DB_L, min(70.0, pwm))
+        pwm = max(DB_L, min(85.0, pwm))
         d = uct_mouse.get_tof()[2]
-        if d < near:
-            if g_start is not None and yaw - g_end < 20.0:
+        if d > far:
+            # everything within 120 deg is the same opening (it can break up
+            # as the beam passes the next cell's posts); a new opening only
+            # comes round once per turn. Record its LEADING edge: the moment
+            # the beam slips past the end of the side wall - a sharp, fixed
+            # angle that repeats exactly every turn.
+            if g_start is not None and yaw - g_end < 120.0:
                 g_end = yaw
             else:
-                if g_start is not None and g_end - g_start > 5.0:
-                    mins.append((g_start + g_end) / 2.0)
+                mins.append(yaw)
                 g_start = g_end = yaw
-    if g_start is not None and g_end - g_start > 5.0:
-        mins.append((g_start + g_end) / 2.0)
     stop()
     l, r = uct_mouse.get_encoders()
     say("spun %.0f deg by gyro in %.1f s, max rate %.0f deg/s, final PWM %.0f"
@@ -380,24 +387,27 @@ def test_spin(turns=5, rate_dps=200.0):
     if ticks >= limit:
         say("!! Time limit hit - spin was slower than expected")
 
-    if len(mins) < 4:
-        say("!! Only %d wall dips seen - is the mouse centred in a dead end?" % len(mins))
+    if len(mins) < 3:
+        say("!! Only %d open-side gaps seen - is the mouse centred in a dead end?" % len(mins))
         return
 
+    # the first edge can be cut short if we started facing the opening
+    if len(mins) > 4:
+        mins = mins[1:]
     true_total = 0
     for k in range(1, len(mins)):
-        true_total += 90 * max(1, round((mins[k] - mins[k - 1]) / 90.0))
+        true_total += 360 * max(1, round((mins[k] - mins[k - 1]) / 360.0))
     gyro_total = mins[-1] - mins[0]
     scale = true_total / gyro_total
-    # quality: every gap, rescaled, should land on a multiple of 90 deg
+    # quality: every edge-to-edge gap, rescaled, should be a whole turn
     worst = 0.0
     for k in range(1, len(mins)):
         g = (mins[k] - mins[k - 1]) * scale
-        worst = max(worst, abs(g - 90 * round(g / 90.0)))
-    say("wall dips: %d, gyro saw %.1f deg, true rotation %d deg, worst misfit %.1f deg"
+        worst = max(worst, abs(g - 360 * round(g / 360.0)))
+    say("open-side gaps: %d, gyro saw %.1f deg, true rotation %d deg, worst misfit %.1f deg"
         % (len(mins), gyro_total, true_total, worst))
     if worst > 10:
-        say("!! Dips are inconsistent - re-centre the mouse in the dead end and repeat")
+        say("!! Turns are inconsistent - re-centre the mouse in the dead end and repeat")
     say(">>> GYRO_SCALE = %.4f   (true deg per gyro deg)" % scale)
 
     true_rad = math.radians(yaw * scale)
