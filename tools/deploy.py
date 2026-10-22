@@ -463,15 +463,21 @@ def get_cmake_toolchain_flags(required=True):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="UCT Micromouse Firmware and Script Deployer")
     parser.add_argument(
-        "--engine", "-e",
+        "--engine", "--method", "-e", "-m",
         choices=["pikascript", "micropython", "simulink"],
         default="pikascript",
+        dest="engine",
         help="Select the firmware engine to deploy (default: pikascript)"
     )
     parser.add_argument(
         "--flash", "-f",
         action="store_true",
         help="Flash the engine's compiled C firmware binary onto the board using the ST-Link drive (always happens for pikascript and simulink)."
+    )
+    parser.add_argument(
+        "--compile", "--build", "-c",
+        action="store_true",
+        help="Compile the firmware from C source code (requires arm-none-eabi-gcc). By default, deploy.py flashes the verified precompiled release binary."
     )
     parser.add_argument(
         "--script-only", "-o",
@@ -754,47 +760,54 @@ if __name__ == "__main__":
             untracked_bin_path = os.path.join(repo_root, "build", "bin", "micropython.bin")
             tracked_bin_path = os.path.join(repo_root, "firmware", "binaries", "micropython.bin")
             
-            # Try compiling the firmware
-            sync_firmware_version_header(repo_root)
-            print("    -> Compiling MicroPython firmware...")
-            mpy_ports_dir = os.path.join(repo_root, "external", "micropython", "ports", "stm32")
-            symlink_path = os.path.join(mpy_ports_dir, "boards", "UCT_MICROMOUSE")
-            
-            created_symlink = False
-            build_success = False
-            try:
-                if not os.path.exists(symlink_path):
-                    # Create symlink: boards/UCT_MICROMOUSE -> ../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE
-                    target_rel_path = os.path.join("..", "..", "..", "..", "..", "firmware", "src", "micropython", "boards", "UCT_MICROMOUSE")
-                    os.symlink(target_rel_path, symlink_path)
-                    created_symlink = True
+            should_compile = getattr(args, 'compile', False)
+            if not os.path.exists(tracked_bin_path) and not os.path.exists(untracked_bin_path):
+                should_compile = True
+
+            active_bin_path = None
+            if should_compile:
+                # Try compiling the firmware from source
+                sync_firmware_version_header(repo_root)
+                print("    -> Compiling MicroPython firmware from source...")
+                mpy_ports_dir = os.path.join(repo_root, "external", "micropython", "ports", "stm32")
+                symlink_path = os.path.join(mpy_ports_dir, "boards", "UCT_MICROMOUSE")
                 
-                subprocess.run(["make", "BOARD=UCT_MICROMOUSE"], cwd=mpy_ports_dir, check=True)
-                build_success = True
-            except Exception as e:
-                print(f"Compilation failed: {e}")
-                print("Checking for existing precompiled binaries...")
-            finally:
-                if created_symlink and os.path.exists(symlink_path):
-                    try:
-                        os.remove(symlink_path)
-                    except Exception:
-                        pass
-                        
-            if build_success and os.path.exists(mpy_bin_path):
-                os.makedirs(os.path.dirname(untracked_bin_path), exist_ok=True)
-                shutil.copy(mpy_bin_path, untracked_bin_path)
-                shutil.copy(mpy_bin_path, tracked_bin_path)
-                print(f"    -> Copied compiled firmware to {untracked_bin_path} and {tracked_bin_path}")
-                active_bin_path = untracked_bin_path
-            else:
-                # Fallback checks
-                if os.path.exists(untracked_bin_path):
-                    print(f"Using locally cached build: {untracked_bin_path}")
+                created_symlink = False
+                build_success = False
+                try:
+                    if not os.path.exists(symlink_path):
+                        # Create symlink: boards/UCT_MICROMOUSE -> ../../../../../firmware/src/micropython/boards/UCT_MICROMOUSE
+                        target_rel_path = os.path.join("..", "..", "..", "..", "..", "firmware", "src", "micropython", "boards", "UCT_MICROMOUSE")
+                        os.symlink(target_rel_path, symlink_path)
+                        created_symlink = True
+                    
+                    subprocess.run(["make", "BOARD=UCT_MICROMOUSE"], cwd=mpy_ports_dir, check=True)
+                    build_success = True
+                except Exception as e:
+                    print(f"Compilation failed: {e}")
+                finally:
+                    if created_symlink and os.path.exists(symlink_path):
+                        try:
+                            os.remove(symlink_path)
+                        except Exception:
+                            pass
+                            
+                if build_success and os.path.exists(mpy_bin_path):
+                    os.makedirs(os.path.dirname(untracked_bin_path), exist_ok=True)
+                    shutil.copy(mpy_bin_path, untracked_bin_path)
+                    shutil.copy(mpy_bin_path, tracked_bin_path)
+                    print(f"    -> Copied compiled firmware to {untracked_bin_path} and {tracked_bin_path}")
                     active_bin_path = untracked_bin_path
-                elif os.path.exists(tracked_bin_path):
-                    print(f"Using precompiled release binary: {tracked_bin_path}")
+                else:
+                    print("Falling back to existing precompiled binaries...")
+
+            if not active_bin_path:
+                if os.path.exists(tracked_bin_path):
+                    print(f"    -> Using precompiled release binary: {tracked_bin_path}")
                     active_bin_path = tracked_bin_path
+                elif os.path.exists(untracked_bin_path):
+                    print(f"    -> Using locally cached build: {untracked_bin_path}")
+                    active_bin_path = untracked_bin_path
                 else:
                     print("Error: No MicroPython binary found to flash!")
                     sys.exit(1)
