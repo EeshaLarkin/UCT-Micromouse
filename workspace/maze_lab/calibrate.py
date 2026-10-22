@@ -25,12 +25,34 @@
 
 import sys
 import math
+import time
 import uct_mouse
 
 LOG_FILE = "calib.txt"
 TO_FILE = False          # only write calib.txt when running unplugged (test 4)
 LOOP_MS = 10
 DT = 0.01
+HW = sys.implementation.name == "micropython"
+
+
+class Clock:
+    """Real time between calls. On the mouse delay_ms(10) can take much
+    longer than 10 ms (memcheck: 17 ms with USB connected), so integrating
+    the gyro or computing speeds with a fixed 0.01 s would be wrong. The
+    simulator steps exactly 10 ms, so it uses DT."""
+    def __init__(self):
+        self.t = time.ticks_us() if HW else 0
+        self.total = 0.0
+
+    def dt(self):
+        if not HW:
+            self.total += DT
+            return DT
+        now = time.ticks_us()
+        d = time.ticks_diff(now, self.t) / 1e6
+        self.t = now
+        self.total += d
+        return d
 
 # Starting guesses - each test prints what to put in motion.py instead.
 TICKS_PER_M = 6000.0     # test 3 at home: 6163-6431 (boxes); nominal 5730
@@ -190,10 +212,11 @@ def test_motors():
     # so the gyro must go NEGATIVE.
     uct_mouse.delay_ms(500)
     yaw = 0.0
+    clk = Clock()
     for _ in range(40):
         uct_mouse.set_motors(75, 0)
         uct_mouse.delay_ms(LOOP_MS)
-        yaw += (uct_mouse.get_gyro() - bias) * DT
+        yaw += (uct_mouse.get_gyro() - bias) * clk.dt()
     stop()
     say("left wheel only -> gyro turned %+.1f deg %s"
         % (yaw, "(OK: clockwise is negative)" if yaw < 0 else "(SIGN WRONG - motion.py needs GYRO_SIGN = -1)"))
@@ -248,9 +271,11 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
     l0, r0 = uct_mouse.get_encoders()
     limit = (cells * 0.2 + 0.05) * TICKS_PER_M     # encoder safety limit
     yaw = 0.0
-    speeds = []
+    cruise_ticks = 0.0
+    cruise_time = 0.0
     lp, rp = l0, r0
     veered = False
+    clk = Clock()
     for i in range(2000):
         # Each wheel gets its own deadband added, so both receive the same
         # 'useful' PWM; then a heading hold (yaw > 0 = drifted left, CCW).
@@ -258,13 +283,15 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
         uct_mouse.set_motors(int(DB_L + (pwm - dead_band) + corr),
                              int(DB_R + (pwm - dead_band) - corr))
         uct_mouse.delay_ms(LOOP_MS)
-        yaw += (uct_mouse.get_gyro() - bias) * DT
+        dt = clk.dt()
+        yaw += (uct_mouse.get_gyro() - bias) * dt
         if abs(yaw) > 15.0:
             veered = True
             break
         l, r = uct_mouse.get_encoders()
         if i >= 40:                                       # skip the speed-up
-            speeds.append(((l - lp) + (r - rp)) / 2.0 / DT)
+            cruise_ticks += ((l - lp) + (r - rp)) / 2.0
+            cruise_time += dt
         lp, rp = l, r
         if ((l - l0) + (r - r0)) / 2.0 >= limit:
             break
@@ -287,8 +314,8 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
         % (d2, ok2, true_m, ticks, yaw))
     if tpm:
         say(">>> TICKS_PER_M = %.0f" % tpm)
-        if speeds:
-            v = sum(speeds) / len(speeds) / tpm
+        if cruise_time > 0.1:
+            v = cruise_ticks / cruise_time / tpm
             v_full = v * (100.0 - dead_band) / (pwm - dead_band)
             say("cruise speed at PWM %d: %.3f m/s" % (pwm, v))
             say(">>> V_AT_FULL = %.2f   (uses DEAD_BAND %d)" % (v_full, dead_band))
@@ -322,17 +349,19 @@ def test_spin(turns=5, rate_dps=200.0):
     g_start = None                  # current dip: first and last angle
     g_end = None
     ticks = 0
+    clk = Clock()
     limit = int((360.0 * turns + 60.0) / rate_dps * 100 * 2) + 500   # ~2x expected
     while yaw < 360.0 * turns + 30.0 and ticks < limit:
         uct_mouse.set_motors(int(-pwm), int(pwm))
         uct_mouse.delay_ms(LOOP_MS)
         ticks += 1
         rate = uct_mouse.get_gyro() - bias
-        yaw += rate * DT
+        dt = clk.dt()
+        yaw += rate * dt
         if abs(rate) > max_rate:
             max_rate = abs(rate)
         # hold the spin rate: slow integral-style PWM adjustment
-        pwm += 0.02 * (rate_dps - rate) * DT * 10.0
+        pwm += 0.02 * (rate_dps - rate) * dt * 10.0
         pwm = max(DB_L, min(70.0, pwm))
         d = uct_mouse.get_tof()[2]
         if d < near:
@@ -347,7 +376,7 @@ def test_spin(turns=5, rate_dps=200.0):
     stop()
     l, r = uct_mouse.get_encoders()
     say("spun %.0f deg by gyro in %.1f s, max rate %.0f deg/s, final PWM %.0f"
-        % (yaw, ticks * DT, max_rate, pwm))
+        % (yaw, clk.total, max_rate, pwm))
     if ticks >= limit:
         say("!! Time limit hit - spin was slower than expected")
 
