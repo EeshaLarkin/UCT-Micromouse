@@ -17,13 +17,24 @@ from maze_logic import MazeMap, EAST, DIR_NAMES
 from motion import Motion, ON_HARDWARE, TURN_FAST_PWM
 
 # Speeds (m/s) and accelerations (m/s^2) for each phase
-EXPLORE_V = 0.25
-EXPLORE_A = 1.2
-RETURN_V = 0.30
-RETURN_A = 1.5
-SPRINT_V = 0.38
-SPRINT_A = 1.5
-SPRINT_ARC_V = 0.22          # speed through curved corners (outer wheel ~1.5x this)
+if ON_HARDWARE:
+    # real mouse tops out at ~0.41 m/s (calibrate test 3): leave headroom
+    # for steering. Start gentle; raise once driving is proven on the maze.
+    EXPLORE_V = 0.20
+    EXPLORE_A = 0.8
+    RETURN_V = 0.25
+    RETURN_A = 1.0
+    SPRINT_V = 0.32
+    SPRINT_A = 1.0
+    SPRINT_ARC_V = 0.18
+else:
+    EXPLORE_V = 0.25
+    EXPLORE_A = 1.2
+    RETURN_V = 0.30
+    RETURN_A = 1.5
+    SPRINT_V = 0.38
+    SPRINT_A = 1.5
+    SPRINT_ARC_V = 0.22          # speed through curved corners (outer wheel ~1.5x this)
 
 VERBOSE = not ON_HARDWARE     # printing disturbs loop timing on the STM32
 
