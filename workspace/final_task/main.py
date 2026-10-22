@@ -12,6 +12,7 @@
 #   Phase 4  pause 3.0 s, then sprint along the shortest path into the room
 # =========================================================================
 
+import sys
 import uct_mouse
 from maze_logic import MazeMap, EAST, DIR_NAMES
 from motion import Motion, ON_HARDWARE, TURN_FAST_PWM
@@ -49,6 +50,14 @@ VERBOSE = not ON_HARDWARE     # printing disturbs loop timing on the STM32
 def log(*args):
     if VERBOSE:
         print(*args)
+
+
+def oled(text):
+    """Show the current phase on OLED row 1 (we can't print on the mouse)."""
+    try:
+        uct_mouse.display_text(1, text[:18])
+    except Exception:
+        pass
 
 
 def turn_amount(heading, d):
@@ -131,14 +140,17 @@ class MazeSolver:
     def solve(self):
         self.m.calibrate_gyro()
 
+        oled("1 Explore %dx%d" % (self.rows, self.cols))
         log("[Phase 1] Exploring a %dx%d maze..." % (self.rows, self.cols))
         self.explore()
         if self.room is None:
             log("[Phase 1] No target room found - returning to start")
         else:
+            oled("2 Pirouette")
             log("[Phase 2] Target recognised - 360 deg pirouette")
             self.m.pirouette()
 
+        oled("3 Return")
         log("[Phase 3] Returning to (0,0)")
         back = self.maze.shortest_path((self.x, self.y), [(0, 0)], self.heading)
         if back is not None:
@@ -148,6 +160,7 @@ class MazeSolver:
         if self.room is None:
             return
 
+        oled("4 Pause 3s")
         log("[Phase 4] Pausing 3.0 s")
         for _ in range(300):
             self.m.tick(0, 0)         # keep the gyro integrating while we wait
@@ -159,23 +172,41 @@ class MazeSolver:
             self.sweep(sprint, SPRINT_V, SPRINT_ARC_V, SPRINT_A)
         else:
             self.drive_path(sprint, SPRINT_V, SPRINT_A)
+        oled("Done!")
         log("[Mission complete] Stopped inside the target room")
 
 
 def main():
-    if not uct_mouse.init():
-        return
+    uct_mouse.init()               # (returns None on the real mouse)
+    uct_mouse.set_motors(0, 0)
     uct_mouse.set_polarity(1, 1)
     uct_mouse.delay_ms(20)        # let the first sensor packet arrive
     for sec in range(START_COUNTDOWN_S, 0, -1):
+        oled("Start in %d..." % sec)
+        uct_mouse.delay_ms(1000)
+    oled("Calibrating")
+    try:
+        rows, cols = uct_mouse.get_maze_dimensions()
+        if rows < 2 or cols < 2:
+            rows, cols = 4, 6
+        MazeSolver(rows, cols).solve()
+    except Exception as e:
+        # never fail silently: show it on the OLED and save the details
+        uct_mouse.set_motors(0, 0)
+        oled("ERROR: see file")
+        if hasattr(sys, "print_exception"):
+            sys.print_exception(e)                 # shows in mpremote over USB
         try:
-            uct_mouse.display_text(1, "Start in %d..." % sec)
+            with open("mission_error.txt", "w") as f:
+                if hasattr(sys, "print_exception"):
+                    sys.print_exception(e, f)      # MicroPython
+                else:
+                    import traceback
+                    traceback.print_exc(file=f)
         except Exception:
             pass
-        uct_mouse.delay_ms(1000)
-    rows, cols = uct_mouse.get_maze_dimensions()
-    try:
-        MazeSolver(rows, cols).solve()
+        if VERBOSE:
+            raise
     finally:
         uct_mouse.set_motors(0, 0)   # never leave the motors running after an error
 
