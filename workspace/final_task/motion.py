@@ -86,12 +86,24 @@ if ON_HARDWARE:
     # didn't slow down when told to (drivetest: ~25 mm overshoot). Stronger
     # speed feedback lets the controller actually brake (negative PWM).
     K_VEL = 150.0       # PWM per (m/s) of wheel-speed error
-    STOP_LEAD_M = 0.015 # end the move this early to allow for coasting
+    STOP_LEAD_M = 0.0   # (active braking below replaces a fixed lead)
     FRONT_EMERGENCY_MM = FRONT_STOP_MM - 15.0   # past the centre: stop NOW
+    # drivetest showed NO slowing before the stop (v_cmd 200 -> 0 in one
+    # step) and then a ~30 mm coast. So on the real mouse:
+    DECEL = 0.4         # m/s^2 for slowing down: starts ~50 mm before a stop
+    FRONT_BLEND = 0.4   # blend in front-ToF fixes gradually (sensor jitter)
+    BRAKE_GAIN = 300.0  # active brake: reverse PWM per m/s of wheel speed...
+    BRAKE_MAX = 35.0    # ...but never more than this
+    STALL_TICKS = 100   # ~1 s at under a third of commanded speed -> give up
 else:
     K_VEL = 60.0
     STOP_LEAD_M = 0.0
     FRONT_EMERGENCY_MM = -1.0                  # (not used in the simulator)
+    DECEL = None        # simulator: brake at the move's own accel
+    FRONT_BLEND = 1.0
+    BRAKE_GAIN = 0.0
+    BRAKE_MAX = 0.0
+    STALL_TICKS = 100000
 K_VEL_I = 400.0     # PWM per (m/s * s): integral term, cancels motor imbalance
 ACCEL = 1.2         # m/s^2  speed-up / slow-down for straights
 V_MIN = 0.05        # m/s    crawl speed at the very end of a move
@@ -148,6 +160,7 @@ class Motion:
         self.v_cmd = 0.0          # forward speed currently commanded (m/s)
         self.log = None           # drivetest sets this to an array to record
         self.emergency_stops = 0
+        self.stalls = 0
         self.late = 0.0           # how far past a curve's ideal start we are (m)
 
     # ------------------------------------------------------------------
@@ -200,12 +213,22 @@ class Motion:
         """Motors off, then wait until the wheels have actually stopped."""
         self.v_cmd = 0.0
         for _ in range(max_ticks):
-            self.tick(0, 0)
+            # Real mouse: brake each wheel actively (gentle reverse PWM in
+            # proportion to its own speed) - just cutting the power let it
+            # coast ~30 mm, and the two wheels coasted differently (= a turn).
+            pl = pr = 0
+            if BRAKE_GAIN > 0.0:
+                if self.v_l > 0.02:
+                    pl = -clamp(BRAKE_GAIN * self.v_l, 0.0, BRAKE_MAX)
+                if self.v_r > 0.02:
+                    pr = -clamp(BRAKE_GAIN * self.v_r, 0.0, BRAKE_MAX)
+            self.tick(pl, pr)
             if self.log is not None and len(self.log) < 1500:
                 self.log.extend((0, int((self.v_l + self.v_r) * 500),
-                                 int(min(self.tof_c, 9999)), 0, 0))
+                                 int(min(self.tof_c, 9999)), int(pl), int(pr)))
             if abs(self.v_l) < 0.005 and abs(self.v_r) < 0.005:
                 break
+        uct_mouse.set_motors(0, 0)
         if ON_HARDWARE:
             # Every float calculation leaves a little garbage; MicroPython
             # pauses to clean it up when memory fills. Clean up now, while
@@ -323,6 +346,8 @@ class Motion:
             s = s_tof
             self.since_fix = 0.0
         v = self.v_cmd
+        decel = accel if DECEL is None else min(accel, DECEL)
+        stall = 0
         y_f = None                    # filtered lateral offset
         prev_l = self.tof_l < SIDE_VALID_MM
         prev_r = self.tof_r < SIDE_VALID_MM
@@ -351,7 +376,7 @@ class Motion:
             if use_front and self.tof_c < FRONT_TRUST_MM and s_cell - s < 0.25:
                 s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
                 if abs(s_tof - s) < 0.08:
-                    s = s_tof
+                    s += FRONT_BLEND * (s_tof - s)
                     front_fix = True
                     # This is a position fix too: restart the slip learner
                     # from here, or the jump would be mistaken for slip.
@@ -364,8 +389,18 @@ class Motion:
                 break
 
             v = min(v_max, v + accel * self.dt,
-                    math.sqrt(v_end * v_end + 2.0 * accel * max(rem, 0.0)))
+                    math.sqrt(v_end * v_end + 2.0 * decel * max(rem, 0.0)))
             v = max(v, V_MIN)
+
+            # stall: wheels far slower than commanded for ~1 s (stuck cable,
+            # pushing a wall) -> stop instead of cooking the motors
+            if v > 0.1 and (self.v_l + self.v_r) < 0.66 * v:
+                stall += 1
+                if stall > STALL_TICKS:
+                    self.stalls += 1
+                    break
+            else:
+                stall = 0
 
             yaw_err = math.radians(wrap180(self.target_yaw - self.yaw()))
             omega = K_HEADING * yaw_err
