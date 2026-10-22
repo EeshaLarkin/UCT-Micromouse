@@ -81,7 +81,17 @@ EDGE_SNAP_MM = 45.0           # max odometry error a wall edge may correct
 K_HEADING = 7.0     # rad/s of turn per rad of heading error
 K_LATERAL = 40.0    # rad/s of turn per metre of offset from corridor centre
 K_ALIGN = 1.5       # how fast walls re-align the heading estimate (rad/s per m)
-K_VEL = 60.0        # PWM per (m/s) of wheel-speed error
+if ON_HARDWARE:
+    # Real motors keep rolling below the from-rest deadband, so the mouse
+    # didn't slow down when told to (drivetest: ~25 mm overshoot). Stronger
+    # speed feedback lets the controller actually brake (negative PWM).
+    K_VEL = 150.0       # PWM per (m/s) of wheel-speed error
+    STOP_LEAD_M = 0.015 # end the move this early to allow for coasting
+    FRONT_EMERGENCY_MM = FRONT_STOP_MM - 15.0   # past the centre: stop NOW
+else:
+    K_VEL = 60.0
+    STOP_LEAD_M = 0.0
+    FRONT_EMERGENCY_MM = -1.0                  # (not used in the simulator)
 K_VEL_I = 400.0     # PWM per (m/s * s): integral term, cancels motor imbalance
 ACCEL = 1.2         # m/s^2  speed-up / slow-down for straights
 V_MIN = 0.05        # m/s    crawl speed at the very end of a move
@@ -136,6 +146,8 @@ class Motion:
         self.turn_err_max = 0.0
         self.arcs_done = 0
         self.v_cmd = 0.0          # forward speed currently commanded (m/s)
+        self.log = None           # drivetest sets this to an array to record
+        self.emergency_stops = 0
         self.late = 0.0           # how far past a curve's ideal start we are (m)
 
     # ------------------------------------------------------------------
@@ -189,6 +201,9 @@ class Motion:
         self.v_cmd = 0.0
         for _ in range(max_ticks):
             self.tick(0, 0)
+            if self.log is not None and len(self.log) < 1500:
+                self.log.extend((0, int((self.v_l + self.v_r) * 500),
+                                 int(min(self.tof_c, 9999)), 0, 0))
             if abs(self.v_l) < 0.005 and abs(self.v_r) < 0.005:
                 break
         if ON_HARDWARE:
@@ -342,7 +357,10 @@ class Motion:
                     # from here, or the jump would be mistaken for slip.
                     self.since_fix = 0.0
             rem = s_end - s
-            if rem <= 0.002:
+            if self.tof_c < FRONT_EMERGENCY_MM:
+                self.emergency_stops += 1          # too close to a wall: stop
+                break
+            if rem <= 0.002 + (STOP_LEAD_M if v_end <= 0.0 else 0.0):
                 break
 
             v = min(v_max, v + accel * self.dt,
@@ -383,7 +401,14 @@ class Motion:
         if excess > 0:
             pl -= excess
             pr -= excess
-        dl, dr = self.tick(clamp(pl, -100, 100), clamp(pr, -100, 100))
+        pl = clamp(pl, -100, 100)
+        pr = clamp(pr, -100, 100)
+        dl, dr = self.tick(pl, pr)
+        if self.log is not None and len(self.log) < 1500:
+            # recorder for drivetest: commanded vs measured speed (mm/s),
+            # front ToF (mm) and the PWMs actually sent - 5 numbers per tick
+            self.log.extend((int(v * 1000), int((self.v_l + self.v_r) * 500),
+                             int(min(self.tof_c, 9999)), int(pl), int(pr)))
         return (dl + dr) / 2.0 / TICKS_PER_M * self.odo_scale
 
     # ------------------------------------------------------------------
