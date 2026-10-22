@@ -49,7 +49,7 @@ def _print_log(m):
 def _report(m, label):
     l, f, r = m.read_walls()
     print("%s done in %.1f s" % (label, m.dt_sum))
-    print("  ToF now  L %d  C %d  R %d   (centred: sides ~100, dead-end front ~75)"
+    print("  ToF now  L %d  C %d  R %d   (centred: sides ~100, dead-end front ~40)"
           % (m.tof_l, m.tof_c, m.tof_r))
     print("  walls seen  left %s  front %s  right %s" % (l, f, r))
     print("  heading error %+.1f deg   wall heading correction %+.1f deg"
