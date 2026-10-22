@@ -54,8 +54,8 @@ def _report(m, label):
     print("  walls seen  left %s  front %s  right %s" % (l, f, r))
     print("  heading error %+.1f deg   wall heading correction %+.1f deg"
           % (m.target_yaw - m.yaw(), m.yaw_corr))
-    print("  odometry scale %.3f   wall-edge fixes %d   emergency stops %d"
-          % (m.odo_scale, m.edge_fixes, m.emergency_stops))
+    print("  odometry scale %.3f   wall-edge fixes %d   emergency stops %d   stalls %d"
+          % (m.odo_scale, m.edge_fixes, m.emergency_stops, m.stalls))
     if m.turns_done:
         print("  turns: %d, mean error %.1f deg, worst %.1f deg"
               % (m.turns_done, m.turn_err_sum / m.turns_done, m.turn_err_max))
