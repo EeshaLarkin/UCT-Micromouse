@@ -22,7 +22,7 @@
 #endif
 
 #ifndef UCT_FW_GIT_HASH
-#define UCT_FW_GIT_HASH "48fd04a-dirty"
+#define UCT_FW_GIT_HASH "56b7cae-dirty"
 #endif
 
 #ifndef UCT_FW_BUILD_DATE
