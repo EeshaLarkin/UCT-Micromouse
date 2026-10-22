@@ -28,12 +28,12 @@ ON_HARDWARE = (sys.implementation.name == "micropython")
 TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
-    GYRO_SCALE = 1.0          # test 4 at home (boxes) gave 1.018 but unreliable -> re-test in maze
+    GYRO_SCALE = 1.018        # test 4 in the maze: 1.0179 (misfit 3.7 deg)
     TICKS_PER_M = 6000.0      # test 3 in the maze: 6144 / 5893 / 5979 (mean 6005)
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
     V_AT_FULL = 0.41          # test 3 in the maze, real timing: 0.40 / 0.41 / 0.42 m/s
-    HALF_AXLE_M = 0.052       # test 4 in the maze: 0.051; chassis value 0.054
+    HALF_AXLE_M = 0.052       # test 4 in the maze: 0.051 / 0.0521; chassis value 0.054
 else:
     GYRO_SCALE = 1.0
     TICKS_PER_M = 4400.0      # 470 ticks/rev / (2*pi*0.017 m wheel radius)
