@@ -86,15 +86,17 @@ if ON_HARDWARE:
     # didn't slow down when told to (drivetest: ~25 mm overshoot). Stronger
     # speed feedback lets the controller actually brake (negative PWM).
     K_VEL = 150.0       # PWM per (m/s) of wheel-speed error
-    STOP_LEAD_M = 0.0   # (active braking below replaces a fixed lead)
+    STOP_LEAD_M = 0.008 # drivetest 2: still ~10-20 mm past centre -> end 8 mm early
     FRONT_EMERGENCY_MM = FRONT_STOP_MM - 15.0   # past the centre: stop NOW
     # drivetest showed NO slowing before the stop (v_cmd 200 -> 0 in one
     # step) and then a ~30 mm coast. So on the real mouse:
-    DECEL = 0.4         # m/s^2 for slowing down: starts ~50 mm before a stop
+    DECEL = 0.25        # m/s^2 for slowing down: starts ~80 mm before a stop
     FRONT_BLEND = 0.4   # blend in front-ToF fixes gradually (sensor jitter)
     BRAKE_GAIN = 300.0  # active brake: reverse PWM per m/s of wheel speed...
     BRAKE_MAX = 35.0    # ...but never more than this
     STALL_TICKS = 100   # ~1 s at under a third of commanded speed -> give up
+    BRAKE_HOLD = 2.0    # PWM per degree of heading error while braking (max 15)
+    BRAKE_FF_CUT = 0.04 # m/s too fast -> drop the forward PWM, let feedback brake
 else:
     K_VEL = 60.0
     STOP_LEAD_M = 0.0
@@ -104,6 +106,8 @@ else:
     BRAKE_GAIN = 0.0
     BRAKE_MAX = 0.0
     STALL_TICKS = 100000
+    BRAKE_HOLD = 0.0
+    BRAKE_FF_CUT = None
 K_VEL_I = 400.0     # PWM per (m/s * s): integral term, cancels motor imbalance
 ACCEL = 1.2         # m/s^2  speed-up / slow-down for straights
 V_MIN = 0.05        # m/s    crawl speed at the very end of a move
@@ -222,6 +226,12 @@ class Motion:
                     pl = -clamp(BRAKE_GAIN * self.v_l, 0.0, BRAKE_MAX)
                 if self.v_r > 0.02:
                     pr = -clamp(BRAKE_GAIN * self.v_r, 0.0, BRAKE_MAX)
+                if pl or pr:
+                    # hold the heading while braking: the motors aren't equally
+                    # strong, so equal braking twisted the mouse 3-5 deg
+                    h = clamp(BRAKE_HOLD * wrap180(self.target_yaw - self.yaw()), -15.0, 15.0)
+                    pl -= h
+                    pr += h
             self.tick(pl, pr)
             if self.log is not None and len(self.log) < 1500:
                 self.log.extend((0, int((self.v_l + self.v_r) * 500),
@@ -284,6 +294,11 @@ class Motion:
         err = v_cmd - v_meas
         integ = clamp(integ + K_VEL_I * err * self.dt, -25.0, 25.0)
         ff = DEAD_BAND + abs(v_cmd) / V_AT_FULL * (100.0 - DEAD_BAND)
+        if BRAKE_FF_CUT is not None and err < -BRAKE_FF_CUT:
+            # Real mouse: drivetest showed v_real ~170 when asked for ~70,
+            # because the feed-forward kept ~35 PWM pushing forward. When
+            # clearly too fast, drop it and let the feedback term brake.
+            ff = 0.0
         pwm = (ff if v_cmd > 0 else -ff) + K_VEL * err + integ
         return (clamp(pwm, -100, 100) if sat else pwm), integ
 
