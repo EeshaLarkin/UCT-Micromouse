@@ -125,6 +125,17 @@ else:
 TURN_SLOW_ZONE_DEG = 30.0     # switch to slow speed this far from the target
 TURN_LEAD_DEG = 3.0           # cut the motors this early (motor lag coasting)
 
+# Real mouse: bang-bang turns coasted ~13 deg past the target (drivetest),
+# so turns use a speed profile through the wheel-speed controller instead:
+# spin up, slow down smoothly (w = sqrt(2 * alpha * angle left)), then nudge
+# to within TURN_DONE_DEG. The simulator keeps the proven bang-bang turns.
+PROFILED_TURNS = ON_HARDWARE
+TURN_W_MAX = 200.0            # deg/s top spin rate
+TURN_ALPHA = 600.0            # deg/s^2 slow-down: starts ~33 deg before the end
+TURN_W_MIN = 30.0             # deg/s crawl near the end
+TURN_DONE_DEG = 1.5           # finished when this close...
+TURN_DONE_RATE = 25.0         # ...and turning slower than this (deg/s)
+
 
 def clamp(v, lo, hi):
     return lo if v < lo else (hi if v > hi else v)
@@ -168,6 +179,7 @@ class Motion:
         self.emergency_stops = 0
         self.stalls = 0
         self.late = 0.0           # how far past a curve's ideal start we are (m)
+        self.rate = 0.0           # gyro turn rate, deg/s (CCW +)
 
     # ------------------------------------------------------------------
     # The 10 ms heartbeat
@@ -205,7 +217,8 @@ class Motion:
         self.v_l += 0.4 * (dl / TICKS_PER_M / dt - self.v_l)
         self.v_r += 0.4 * (dr / TICKS_PER_M / dt - self.v_r)
 
-        self.theta += (uct_mouse.get_gyro() - self.gyro_bias) * dt * GYRO_SCALE
+        self.rate = (uct_mouse.get_gyro() - self.gyro_bias) * GYRO_SCALE   # deg/s
+        self.theta += self.rate * dt
 
         t = uct_mouse.get_tof()
         self.tof_l, self.tof_c, self.tof_r = t[TOF_L], t[TOF_C], t[TOF_R]
@@ -224,10 +237,12 @@ class Motion:
             # coast ~30 mm, and the two wheels coasted differently (= a turn).
             pl = pr = 0
             if BRAKE_GAIN > 0.0:
-                if self.v_l > 0.02:
-                    pl = -clamp(BRAKE_GAIN * self.v_l, 0.0, BRAKE_MAX)
-                if self.v_r > 0.02:
-                    pr = -clamp(BRAKE_GAIN * self.v_r, 0.0, BRAKE_MAX)
+                # brake against whichever way each wheel is rolling (during
+                # a turn one wheel runs backwards)
+                if abs(self.v_l) > 0.02:
+                    pl = -clamp(BRAKE_GAIN * self.v_l, -BRAKE_MAX, BRAKE_MAX)
+                if abs(self.v_r) > 0.02:
+                    pr = -clamp(BRAKE_GAIN * self.v_r, -BRAKE_MAX, BRAKE_MAX)
                 if pl or pr:
                     # hold the heading while braking: the motors aren't equally
                     # strong, so equal braking twisted the mouse 3-5 deg
@@ -296,10 +311,11 @@ class Motion:
         err = v_cmd - v_meas
         integ = clamp(integ + K_VEL_I * err * self.dt, -25.0, 25.0)
         ff = DEAD_BAND + abs(v_cmd) / V_AT_FULL * (100.0 - DEAD_BAND)
-        if BRAKE_FF_CUT is not None and err < -BRAKE_FF_CUT:
+        if BRAKE_FF_CUT is not None and (err * v_cmd) < 0 and abs(err) > BRAKE_FF_CUT:
             # Real mouse: drivetest showed v_real ~170 when asked for ~70,
-            # because the feed-forward kept ~35 PWM pushing forward. When
-            # clearly too fast, drop it and let the feedback term brake.
+            # because the feed-forward kept ~35 PWM pushing forward. When a
+            # wheel is clearly too fast (either direction), drop it and let
+            # the feedback term brake.
             ff = 0.0
         pwm = (ff if v_cmd > 0 else -ff) + K_VEL * err + integ
         return (clamp(pwm, -100, 100) if sat else pwm), integ
@@ -527,7 +543,38 @@ class Motion:
     # ------------------------------------------------------------------
     # Turning on the spot (two-speed bang-bang on gyro angle)
     # ------------------------------------------------------------------
+    def _rotate_profiled(self, yaw_target, timeout_ticks=500):
+        """Turn on the spot to yaw_target with a planned spin rate:
+        w = min(W_MAX, accelerate, sqrt(2 * alpha * angle_left)), sent to the
+        wheel-speed controller as omega (which brakes actively if needed).
+        Near the end it crawls at W_MIN and may nudge back if it overshot."""
+        w = 0.0
+        settled = 0
+        for _ in range(timeout_ticks):
+            err = yaw_target - self.yaw()       # deg (can be up to 360 for the pirouette)
+            a = abs(err)
+            if a < TURN_DONE_DEG and abs(self.rate) < TURN_DONE_RATE:
+                settled += 1
+                if settled >= 3:
+                    break
+            else:
+                settled = 0
+            w_mag = min(TURN_W_MAX, abs(w) + TURN_ALPHA * 2.0 * self.dt,
+                        math.sqrt(2.0 * TURN_ALPHA * a))
+            w_mag = max(w_mag, TURN_W_MIN) if a > TURN_DONE_DEG else 0.0
+            w = w_mag if err > 0 else -w_mag
+            self._wheels(0.0, math.radians(w))
+        self.stop()
+
     def _rotate_to(self, yaw_target, fast_pwm=TURN_FAST_PWM, timeout_ticks=400):
+        if PROFILED_TURNS:
+            self._rotate_profiled(yaw_target, timeout_ticks + 100)
+            if yaw_target == self.target_yaw:
+                e = abs(self.target_yaw - self.yaw())
+                self.turns_done += 1
+                self.turn_err_sum += e
+                self.turn_err_max = max(self.turn_err_max, e)
+            return
         for _ in range(timeout_ticks):
             err = yaw_target - self.yaw()
             if abs(err) < TURN_LEAD_DEG:
