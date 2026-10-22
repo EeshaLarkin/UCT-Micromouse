@@ -27,6 +27,11 @@ if ON_HARDWARE:
     SPRINT_V = 0.32
     SPRINT_A = 1.0
     SPRINT_ARC_V = 0.18
+    # The curved corners were tuned on the simulator's 7 cm-radius body; the
+    # real mouse is 14 x 12 cm, so it sprints with stop-and-turn corners
+    # until curves are proven on the real maze.
+    SPRINT_CURVES = False
+    START_COUNTDOWN_S = 5        # time to put the mouse down after power-on
 else:
     EXPLORE_V = 0.25
     EXPLORE_A = 1.2
@@ -35,6 +40,8 @@ else:
     SPRINT_V = 0.38
     SPRINT_A = 1.5
     SPRINT_ARC_V = 0.22          # speed through curved corners (outer wheel ~1.5x this)
+    SPRINT_CURVES = True
+    START_COUNTDOWN_S = 0
 
 VERBOSE = not ON_HARDWARE     # printing disturbs loop timing on the STM32
 
@@ -148,7 +155,10 @@ class MazeSolver:
         sprint = self.maze.shortest_path((0, 0), self.maze.room_cells(*self.room), EAST)
         segs = MazeMap.compress(MazeMap.path_to_headings(sprint))
         log("[Phase 4] Sprint:", ", ".join("%s x%d" % (DIR_NAMES[d], n) for d, n in segs))
-        self.sweep(sprint, SPRINT_V, SPRINT_ARC_V, SPRINT_A)
+        if SPRINT_CURVES:
+            self.sweep(sprint, SPRINT_V, SPRINT_ARC_V, SPRINT_A)
+        else:
+            self.drive_path(sprint, SPRINT_V, SPRINT_A)
         log("[Mission complete] Stopped inside the target room")
 
 
@@ -157,6 +167,12 @@ def main():
         return
     uct_mouse.set_polarity(1, 1)
     uct_mouse.delay_ms(20)        # let the first sensor packet arrive
+    for sec in range(START_COUNTDOWN_S, 0, -1):
+        try:
+            uct_mouse.display_text(1, "Start in %d..." % sec)
+        except Exception:
+            pass
+        uct_mouse.delay_ms(1000)
     rows, cols = uct_mouse.get_maze_dimensions()
     try:
         MazeSolver(rows, cols).solve()
