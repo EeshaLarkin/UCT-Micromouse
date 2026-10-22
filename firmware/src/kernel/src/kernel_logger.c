@@ -232,6 +232,14 @@ void kernel_logger_tick(void) {
             if (log_partition_start == 0 && log_partition_max == 0) {
                 kernel_logger_init();
             }
+            if (!has_ext_flash) {
+                // If not previously detected, retry probing external flash in case SPI2 was initialized later
+                has_ext_flash = initZD25WQ80C();
+                if (has_ext_flash) {
+                    log_partition_start = EXT_LOGGER_PARTITION_START;
+                    log_partition_max = EXT_LOGGER_PARTITION_MAX;
+                }
+            }
             log_write_addr = log_partition_start;
             log_page_idx = 0;
             header_written = false;

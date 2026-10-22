@@ -46,8 +46,10 @@ static mp_obj_t mpy_uct_mouse_init(void) {
     
     extern void MX_I2C1_Init(void);
     extern void MX_I2C2_Init(void);
+    extern void MX_SPI2_Init(void);
     MX_I2C1_Init();
     MX_I2C2_Init();
+    MX_SPI2_Init();
 
     // Enable GPIO clocks for motors, encoders, LEDs
     __HAL_RCC_GPIOA_CLK_ENABLE();

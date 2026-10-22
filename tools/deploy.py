@@ -525,7 +525,8 @@ if __name__ == "__main__":
     # Define files/folders to ignore during deployment
     ignore_names = {
         "deploy", "ekf_research", "attic", "build", "matlab", "external", 
-        "tools", ".git", "__pycache__", "sub1_marking", "sub2_marking", 
+        "tools", ".git", "__pycache__", "sub1_marking", "sub2_marking", "sub3_marking", "sub4_marking",
+        "live_audit", "benchmark_submission4",
         "ga1_marking", "ga3_marking", "marking", "extracted_pages", "extracted_text",
         "raw_submissions", "tmp", "venv", ".venv", "env", ".vscode", ".idea"
     }
