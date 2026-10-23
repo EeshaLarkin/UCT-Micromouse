@@ -316,9 +316,11 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
         % (d2, ok2, true_m, ticks, yaw))
     # The gyro held the heading, so both wheels really rolled the same
     # distance: any difference in their counts is an encoder difference.
+    say("  left wheel %d ticks, right wheel %d ticks" % (l - l0, r - r0))
     if l - l0:
-        say("  left wheel %d ticks, right wheel %d ticks -> right/left = %.3f"
-            % (l - l0, r - r0, (r - r0) / float(l - l0)))
+        say("  -> right/left = %.3f" % ((r - r0) / float(l - l0)))
+    else:
+        say("  !! LEFT ENCODER COUNTED NOTHING")
     if tpm:
         say(">>> TICKS_PER_M = %.0f" % tpm)
         if cruise_time > 0.1:
