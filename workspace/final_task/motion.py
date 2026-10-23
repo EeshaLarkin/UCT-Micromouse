@@ -205,7 +205,9 @@ TURN_ALPHA = 600.0            # deg/s^2 slow-down: starts ~33 deg before the end
 TURN_W_MIN = 30.0             # deg/s crawl near the end
 TURN_DONE_DEG = 1.5           # finished when this close...
 TURN_DONE_RATE = 25.0         # ...and turning slower than this (deg/s)
-TURN_POS_GAIN = 4.0           # m/s of correction per m of creep during a turn
+TURN_POS_GAIN = 3.0           # m/s of correction per m of creep during a turn
+TURN_NEAR_DEG = 2.5           # within this of the target for...
+TURN_NEAR_TICKS = 25          # ...this many ticks (~0.3 s) = turn finished
 
 
 def clamp(v, lo, hi):
@@ -796,6 +798,7 @@ class Motion:
         w = 0.0
         settled = 0
         fwd = 0.0         # how far the centre has crept forward (+) / back (m)
+        near = 0          # ticks spent within TURN_NEAR_DEG of the target
         for _ in range(timeout_ticks):
             err = yaw_target - self.yaw()       # deg (can be up to 360 for the pirouette)
             a = abs(err)
@@ -805,6 +808,13 @@ class Motion:
                     break
             else:
                 settled = 0
+            # Don't hunt for the last degree forever (23 Oct: up to 4 s per
+            # turn, wiggling): close enough for long enough = done. The walls
+            # re-align the heading on the next straight anyway.
+            if a < TURN_NEAR_DEG:
+                near += 1
+                if near >= TURN_NEAR_TICKS:
+                    break
             w_mag = min(TURN_W_MAX, abs(w) + TURN_ALPHA * 2.0 * self.dt,
                         math.sqrt(2.0 * TURN_ALPHA * a))
             w_mag = max(w_mag, TURN_W_MIN) if a > TURN_DONE_DEG else 0.0
@@ -812,9 +822,11 @@ class Motion:
             # Position hold: unequal wheels made the mouse creep ~1-2 cm
             # forward per turn (23 Oct) and its back hit the wall. Drive the
             # creep back to zero while spinning.
+            # (only during the main part of the spin - near the end it made
+            # the mouse shuffle back and forth)
             v = 0.0
-            if w_mag > 0.0:
-                v = clamp(-TURN_POS_GAIN * fwd, -0.04, 0.04)
+            if a > 15.0:
+                v = clamp(-TURN_POS_GAIN * fwd, -0.025, 0.025)
             fwd += self._wheels(v, math.radians(w))
         self.stop()
 
