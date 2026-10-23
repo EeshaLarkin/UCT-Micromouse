@@ -38,8 +38,10 @@ if ON_HARDWARE:
     # 23 Oct: the LEFT encoder reads 0 (drivetest.wheels(): left 0, right
     # 974 / 933), so test 3's both-wheel average halved: 3121 / 3019 / 3198 /
     # 3199 -> the right wheel alone ~6270.
-    TICKS_PER_M = 5500.0      # with edge snaps off, 6470 overshot the first cell into the wall;
-                              # the learnt 0.83 had been an artefact of the bad edge snaps
+    # Full-maze run 23 Oct 16:57 (no edge snaps, no learning): moves through
+    # open cells came up 5-19% short (front readings dropped ~180 per "200 mm"
+    # move; after 5 cells it stopped 12 cm short of a wall). 5500 -> 5000.
+    TICKS_PER_M = 5000.0
     # ...but the mission log (23 Oct, 15:40) showed each "1 cell" move was
     # really ~235 mm (front 594 -> 359), and move(2)'s front readings agree
     # (~17% further than the encoder said). Test 3 assumed its start distance
@@ -124,6 +126,11 @@ SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 # and overshot a 3-cell move by ~11 cm into a post (full-maze run 23 Oct).
 EDGE_SNAP_MM = 0.0 if ON_HARDWARE else 45.0
 FRONT_FIX_MIN_MM = 18.0 if ON_HARDWARE else -100.0
+# How far the front wall may disagree with the encoders and still be used.
+# Readings under 200 mm in the last cell can only be that cell's own front
+# wall, so on the real mouse a big disagreement is still trusted: at (5,3)
+# it stopped 12 cm short of a wall because 0.08 m rejected the fix.
+FRONT_FIX_GATE = 0.15 if ON_HARDWARE else 0.08
 # Learning the distance scale from front walls: OFF on the real mouse. The
 # sensor's long-range bias taught it a too-small scale, so moves through
 # open cells (no wall ahead to stop against) overshot (23 Oct).
@@ -646,7 +653,7 @@ class Motion:
             if (use_front and FRONT_STOP_MM + FRONT_FIX_MIN_MM < self.tof_c < FRONT_TRUST_MM
                     and s_cell - s < 0.25):
                 s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
-                if abs(s_tof - s) < 0.08:
+                if abs(s_tof - s) < FRONT_FIX_GATE:
                     # First good look at the wall after a long stretch: the
                     # gap between where the encoders say we are and where the
                     # wall says we are is odometry error - learn from it
