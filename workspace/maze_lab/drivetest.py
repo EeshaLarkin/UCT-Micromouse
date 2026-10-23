@@ -10,6 +10,7 @@
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.pirouette()"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.sensors()"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.distance_check(2)"
+#   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.curve(2, 1, 2)"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.clock()"
 #
 # Each test: 3 s countdown on the OLED, gyro calibration (keep still), the
@@ -190,5 +191,21 @@ def distance_check(cells=2, v=0.16):
             return
         print(">>> TICKS_PER_M = %.0f   (motion.py now: %.0f)"
               % (motion.TICKS_PER_M * planned / actual, motion.TICKS_PER_M))
+    finally:
+        uct_mouse.set_motors(0, 0)
+
+
+def curve(before=2, quarter=1, after=2, v=0.20, v_arc=0.12):
+    """One smooth sprint corner. Put the mouse CENTRED in a cell facing an
+    L-shaped corridor: `before` cells straight ahead (counting the corner
+    cell), then the corner turns right (quarter=1) or left (quarter=-1) and
+    continues `after` cells. It drives the whole L without stopping."""
+    m = None
+    try:
+        m = _setup()
+        m.sweep_path([(before, 0), (after, quarter)], v, v_arc, 0.8)
+        uct_mouse.set_motors(0, 0)
+        _report(m, "curve(%d, %+d, %d) at %.2f / arc %.2f m/s" % (before, quarter, after, v, v_arc))
+        print("  curves taken: %d" % m.arcs_done)
     finally:
         uct_mouse.set_motors(0, 0)
