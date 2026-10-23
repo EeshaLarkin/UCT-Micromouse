@@ -266,6 +266,7 @@ class Motion:
         self.unsticks = 0
         self.overruns = 0
         self.med = (0, 0, 0)
+        self.votes = (0, 0, 0)
         self.driving = False        # True only during straight moves (front hold)
         self.left_ok = not LEFT_FROM_GYRO   # left encoder seen counting?
         self.left_seen = 0        # last read_walls medians (for the log)
@@ -403,12 +404,12 @@ class Motion:
     def read_walls(self, samples=WALL_SAMPLES):
         """Classify (left, front, right) walls from many raw readings.
 
-        Dropouts (8190) are common close to a wall - in a dead end the front
-        sensor gave 8190 in 6 of 10 readings - but the firmware already
-        throws away false short readings in open air. So a side counts as a
-        WALL when at least 3 of the 15 readings see something close, and
-        the wall's distance is the median of those close readings. Also
-        learns the centred side reading."""
+        A side counts as a WALL when MORE THAN HALF of the readings are
+        close (majority vote = median). The earlier '3 of 15' rule was for
+        the noisy firmware, whose close readings often dropped out to 8190;
+        on the current, clean firmware it turned a real opening into a wall
+        (23 Oct: a left opening was mapped as wall and the mouse gave up).
+        8190 (no echo) counts as far. Also learns the centred side reading."""
         ls = []
         cs = []
         rs = []
@@ -417,12 +418,12 @@ class Motion:
             ls.append(self.raw_l)
             cs.append(self.raw_c)
             rs.append(self.raw_r)
-        need = max(2, samples // 5)   # 3 of 15: a close echo is real (firmware
-                                       # rejects weak open-air echoes)
-        left, sl = self._wall_vote(ls, self.side_wall, need)
-        front, sc = self._wall_vote(cs, FRONT_WALL_MM, need)
-        right, sr = self._wall_vote(rs, self.side_wall, need)
+        need = samples // 2 + 1
+        left, sl, nl = self._wall_vote(ls, self.side_wall, need)
+        front, sc, nc = self._wall_vote(cs, FRONT_WALL_MM, need)
+        right, sr, nr = self._wall_vote(rs, self.side_wall, need)
         self.med = (sl, sc, sr)
+        self.votes = (nl, nc, nr)       # close readings out of `samples` (for the log)
         if left and right:
             self._learn_side(sl, sr)
         return left, front, right
@@ -430,11 +431,12 @@ class Motion:
     @staticmethod
     def _wall_vote(vals, limit, need):
         close = [v for v in vals if v < limit]
-        if len(close) >= need:
+        n = len(close)
+        if n >= need:
             close.sort()
-            return True, close[len(close) // 2]
+            return True, close[n // 2], n
         vals.sort()
-        return False, min(vals[len(vals) // 2], 9999)
+        return False, min(vals[len(vals) // 2], 9999), n
 
     def _learn_side(self, l, r):
         avg = (l + r) / 2.0
