@@ -26,6 +26,11 @@ ON_HARDWARE = (sys.implementation.name == "micropython")
 # Which of get_tof()'s 5 slots are the left / centre / right sensors
 # (hardware confirmed by calibrate test 1: slots 1 and 3 always read 2000)
 TOF_L, TOF_C, TOF_R = 0, 2, 4
+# If drivetest.sensors() shows the LEFT wall in the R column on the current
+# firmware, set this to True (left and right slots swapped).
+SWAP_SIDE_TOFS = False
+if SWAP_SIDE_TOFS:
+    TOF_L, TOF_R = TOF_R, TOF_L
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.018        # test 4 in the maze: 1.0179 (misfit 3.7 deg)
@@ -64,13 +69,17 @@ CELL_M = 0.20
 # Open cell: sides 280-850, front 265 / 440 (walls 1-2 cells further on)
 # ---------------------------------------------------------------------------
 if ON_HARDWARE:
-    SIDE_NOMINAL_MM = 100.0   # side reading when centred  (test 1: 104 / 96)
+    # Side reading when centred. Original firmware: 100 (test 1: 104 / 96).
+    # 23 Oct firmware, drivetest.sensors() in a dead end: 70 / 68. (Also
+    # re-learnt in the maze; drivetest.move() never learnt it, so it steered
+    # off-centre whenever only one side wall was visible.)
+    SIDE_NOMINAL_MM = 69.0
     FRONT_STOP_MM = 40.0      # front reading when centred. Mouse is 14 cm long in a 19 cm cell
                               # -> ~2.5 cm gap each end. drivetest stopped at ~77 with the nose
                               # ~6-7 cm away = ~3.8 cm short. (test 1's 75 was hand-placed)
-    SIDE_WALL_MM = 180.0      # reading below this at a cell centre = wall
+    SIDE_WALL_MM = 149.0      # reading below this at a cell centre = wall (nominal + 80)
     FRONT_WALL_MM = 180.0     #   (walls read 75-104, open reads >= 265)
-    SIDE_VALID_MM = 150.0     # use a side wall for centring only if this close
+    SIDE_VALID_MM = 119.0     # use a side wall for centring only if this close (nominal + 50)
     FRONT_TRUST_MM = 300.0    # front wall close enough to correct the odometry
 else:
     SIDE_NOMINAL_MM = 60.0
@@ -180,6 +189,7 @@ TURN_ALPHA = 600.0            # deg/s^2 slow-down: starts ~33 deg before the end
 TURN_W_MIN = 30.0             # deg/s crawl near the end
 TURN_DONE_DEG = 1.5           # finished when this close...
 TURN_DONE_RATE = 25.0         # ...and turning slower than this (deg/s)
+TURN_POS_GAIN = 4.0           # m/s of correction per m of creep during a turn
 
 
 def clamp(v, lo, hi):
@@ -505,6 +515,7 @@ class Motion:
         decel = accel if DECEL is None else min(accel, DECEL)
         stall = 0
         y_f = None                    # filtered lateral offset
+        rejected = 0
         # Wall edges use the RAW readings, but a change must last
         # EDGE_CONFIRM ticks (a dropout blip doesn't), is dated back to the
         # tick it started, and each edge position is used only once per move.
@@ -616,8 +627,17 @@ class Motion:
             else:
                 if y_f is None:
                     y_f = y
+                    rejected = 0
                 elif abs(y - y_f) < LAT_OUTLIER_M:
                     y_f += LAT_FILTER * (y - y_f)
+                    rejected = 0
+                else:
+                    # one wild reading: ignore it - but if it persists it's
+                    # real (e.g. a wall appeared/ended): start again from it
+                    rejected += 1
+                    if rejected >= 5:
+                        y_f = y
+                        rejected = 0
                 omega -= K_LATERAL * y_f
                 self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * y_f * self.dt),
                                       corr0 - YAW_CORR_MAX, corr0 + YAW_CORR_MAX)
@@ -744,6 +764,7 @@ class Motion:
         Near the end it crawls at W_MIN and may nudge back if it overshot."""
         w = 0.0
         settled = 0
+        fwd = 0.0         # how far the centre has crept forward (+) / back (m)
         for _ in range(timeout_ticks):
             err = yaw_target - self.yaw()       # deg (can be up to 360 for the pirouette)
             a = abs(err)
@@ -757,7 +778,13 @@ class Motion:
                         math.sqrt(2.0 * TURN_ALPHA * a))
             w_mag = max(w_mag, TURN_W_MIN) if a > TURN_DONE_DEG else 0.0
             w = w_mag if err > 0 else -w_mag
-            self._wheels(0.0, math.radians(w))
+            # Position hold: unequal wheels made the mouse creep ~1-2 cm
+            # forward per turn (23 Oct) and its back hit the wall. Drive the
+            # creep back to zero while spinning.
+            v = 0.0
+            if w_mag > 0.0:
+                v = clamp(-TURN_POS_GAIN * fwd, -0.04, 0.04)
+            fwd += self._wheels(v, math.radians(w))
         self.stop()
 
     def _rotate_to(self, yaw_target, fast_pwm=TURN_FAST_PWM, timeout_ticks=400):
