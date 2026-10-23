@@ -38,7 +38,7 @@ if ON_HARDWARE:
     # 23 Oct: the LEFT encoder reads 0 (drivetest.wheels(): left 0, right
     # 974 / 933), so test 3's both-wheel average halved: 3121 / 3019 / 3198 /
     # 3199 -> the right wheel alone ~6270.
-    TICKS_PER_M = 5500.0
+    TICKS_PER_M = 6470.0      # full-maze run 23 Oct: moves landed centred with 5500 x 0.83-0.86
     # ...but the mission log (23 Oct, 15:40) showed each "1 cell" move was
     # really ~235 mm (front 594 -> 359), and move(2)'s front readings agree
     # (~17% further than the encoder said). Test 3 assumed its start distance
@@ -90,13 +90,17 @@ if ON_HARDWARE:
     # 23 Oct firmware, drivetest.sensors() in a dead end: 70 / 68. (Also
     # re-learnt in the maze; drivetest.move() never learnt it, so it steered
     # off-centre whenever only one side wall was visible.)
-    SIDE_NOMINAL_MM = 69.0
+    SIDE_NOMINAL_MM = 66.0    # full-maze run: walls read 50-79 when stopped
     FRONT_STOP_MM = 40.0      # front reading when centred. Mouse is 14 cm long in a 19 cm cell
                               # -> ~2.5 cm gap each end. drivetest stopped at ~77 with the nose
                               # ~6-7 cm away = ~3.8 cm short. (test 1's 75 was hand-placed)
-    SIDE_WALL_MM = 149.0      # reading below this at a cell centre = wall (nominal + 80)
+    # Full-maze run 23 Oct: an OPENING beside a cell with a front wall can
+    # read as little as 133-150 (the side sensor sees the next wall at an
+    # angle), and the old limit (149) turned the target room's doorway at
+    # (5,0) into a wall (R 133). Walls never read more than ~80.
+    SIDE_WALL_MM = 106.0      # reading below this at a cell centre = wall (nominal + 40)
     FRONT_WALL_MM = 180.0     #   (walls read 75-104, open reads >= 265)
-    SIDE_VALID_MM = 119.0     # use a side wall for centring only if this close (nominal + 50)
+    SIDE_VALID_MM = 98.0      # use a side wall for centring only if this close (nominal + 32)
     FRONT_TRUST_MM = 300.0    # front wall close enough to correct the odometry
 else:
     SIDE_NOMINAL_MM = 60.0
@@ -106,7 +110,11 @@ else:
     SIDE_VALID_MM = 95.0
     FRONT_TRUST_MM = 230.0
 SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
-EDGE_SNAP_MM = 45.0           # max odometry error a wall edge may correct
+# Max odometry error a wall edge may correct. OFF on the real mouse: its
+# side sensors see a wall's end earlier than this model assumes, so each
+# "fix" pulled the position back, it learnt a too-small distance scale (0.75)
+# and overshot a 3-cell move by ~11 cm into a post (full-maze run 23 Oct).
+EDGE_SNAP_MM = 0.0 if ON_HARDWARE else 45.0
 ODO_SCALE_MIN = 0.75          # learnt odometry scale limits
 ODO_SCALE_MAX = 1.25
 
@@ -448,8 +456,10 @@ class Motion:
 
     def _learn_side(self, l, r):
         avg = (l + r) / 2.0
-        if not (15.0 < avg < 160.0):
-            return                      # nonsense - ignore
+        # Only learn from a convincing pair of walls: a short "opening"
+        # reading (133) once dragged this from 66 to 75.
+        if abs(avg - self.side_nom) > 15.0 or abs(l - r) > 40.0:
+            return
         if self.nom_samples == 0:
             self.side_nom = avg
         else:
@@ -619,9 +629,9 @@ class Motion:
                     # wall says we are is odometry error - learn from it
                     # (same as the wall-edge learner). With only the right
                     # encoder working this is what keeps cells 20 cm long.
-                    if self.since_fix > 0.12 and self.tof_c < 220.0:
+                    if self.since_fix > 0.15 and self.tof_c < 220.0:
                         ratio = 1.0 + (s_tof - s) / self.since_fix
-                        self.odo_scale = clamp(self.odo_scale * (1.0 + 0.5 * (ratio - 1.0)),
+                        self.odo_scale = clamp(self.odo_scale * (1.0 + 0.3 * (ratio - 1.0)),
                                                ODO_SCALE_MIN, ODO_SCALE_MAX)
                         self.front_learns += 1
                     s += FRONT_BLEND * (s_tof - s)
