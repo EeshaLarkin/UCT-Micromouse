@@ -52,6 +52,12 @@ else:
     V_AT_FULL = 0.40          # simulator max_speed
     HALF_AXLE_M = 0.054
 
+# Right-wheel ticks per left-wheel tick over the same distance (calibrate
+# test 3 prints it). 1.0 = both encoders count alike.
+ENC_RATIO_R_L = 1.0
+TICKS_L = TICKS_PER_M * 2.0 / (1.0 + ENC_RATIO_R_L)
+TICKS_R = TICKS_PER_M * 2.0 * ENC_RATIO_R_L / (1.0 + ENC_RATIO_R_L)
+
 LOOP_MS = 10
 DT = 0.01                     # keep fixed: the simulator steps in 10 ms
 CELL_M = 0.20
@@ -118,6 +124,10 @@ YAW_CORR_MAX = 6.0            # walls may re-align the heading by at most this p
 # reverse a few cm straight out, turn back to the corridor heading, carry on.
 BUMP_DEG = 20.0 if ON_HARDWARE else None
 BUMP_STALL_TICKS = 30         # ~0.3 s of wheels much slower than commanded
+# Pressed against a side wall/post: the wheels just slip, so neither the
+# heading nor the wheel speeds show it (move(2), 23 Oct: R read 22 while it
+# kept pushing). A side reading this low for 5 ticks also counts as a bump.
+SIDE_TOUCH_MM = 28.0 if ON_HARDWARE else -1.0
 MAX_UNSTICKS = 3              # per move; after that give up on the move
 BACKUP_M = 0.03
 BACKUP_V = 0.08
@@ -283,8 +293,8 @@ class Motion:
         dl, dr = l - self.lenc, r - self.renc
         self.lenc, self.renc = l, r
         # low-passed wheel speeds (encoder counts are coarse at 10 ms)
-        self.v_l += SPEED_FILTER * (dl / TICKS_PER_M / dt - self.v_l)
-        self.v_r += SPEED_FILTER * (dr / TICKS_PER_M / dt - self.v_r)
+        self.v_l += SPEED_FILTER * (dl / TICKS_L / dt - self.v_l)
+        self.v_r += SPEED_FILTER * (dr / TICKS_R / dt - self.v_r)
 
         self.rate = (uct_mouse.get_gyro() - self.gyro_bias) * GYRO_SCALE   # deg/s
         self.theta += self.rate * dt
@@ -529,6 +539,7 @@ class Motion:
         allowed = OVERRUN * (s_end - s) + OVERRUN_M
         corr0 = self.yaw_corr
         unsticks = 0
+        touch = 0
         for _ in range(int(20 * (s_end - s) / 0.2 / max(v_max, 0.05)) + 300):
             s_at = None
             now = self.raw_l < self.side_valid
@@ -606,8 +617,12 @@ class Motion:
                 stall = 0
 
             yaw_err_deg = wrap180(self.target_yaw - self.yaw())
+            if self.raw_l < SIDE_TOUCH_MM or self.raw_r < SIDE_TOUCH_MM:
+                touch += 1
+            else:
+                touch = 0
             if (BUMP_DEG is not None and unsticks < MAX_UNSTICKS and
-                    (abs(yaw_err_deg) > BUMP_DEG or stall > BUMP_STALL_TICKS)):
+                    (abs(yaw_err_deg) > BUMP_DEG or stall > BUMP_STALL_TICKS or touch >= 5)):
                 # Knocked into a wall: back out, square up, carry on.
                 unsticks += 1
                 back = self._unstick()
@@ -615,6 +630,7 @@ class Motion:
                 driven += back
                 v = 0.0
                 stall = 0
+                touch = 0
                 y_f = None
                 st_l = self.raw_l < self.side_valid
                 st_r = self.raw_r < self.side_valid
@@ -691,7 +707,7 @@ class Motion:
             # front ToF (mm) and the PWMs actually sent - 5 numbers per tick
             self.log.extend((int(v * 1000), int((self.v_l + self.v_r) * 500),
                              int(min(self.tof_c, 9999)), int(pl), int(pr)))
-        return (dl + dr) / 2.0 / TICKS_PER_M * self.odo_scale
+        return (dl / TICKS_L + dr / TICKS_R) / 2.0 * self.odo_scale
 
     # ------------------------------------------------------------------
     # Curved ("smooth") turns for the sprint
