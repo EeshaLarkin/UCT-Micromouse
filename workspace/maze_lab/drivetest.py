@@ -59,12 +59,16 @@ def _report(m, label):
     print("  odometry scale %.3f   wall-edge fixes %d   emergency stops %d   stalls %d"
           % (m.odo_scale, m.edge_fixes, m.emergency_stops, m.stalls))
     print("  bump recoveries %d   overrun stops %d" % (m.unsticks, m.overruns))
+    try:
+        print("  battery %.2f V" % uct_mouse.get_vbatt())
+    except Exception:
+        pass
     if m.turns_done:
         print("  turns: %d, mean error %.1f deg, worst %.1f deg"
               % (m.turns_done, m.turn_err_sum / m.turns_done, m.turn_err_max))
 
 
-def move(cells=1, v=0.20):
+def move(cells=1, v=0.16):
     """Drive `cells` cells straight and stop at the centre."""
     m = None
     try:
