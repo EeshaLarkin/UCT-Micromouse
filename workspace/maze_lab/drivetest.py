@@ -9,6 +9,7 @@
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.turns(-1, 4)"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.pirouette()"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.sensors()"
+#   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.clock()"
 #
 # Each test: 3 s countdown on the OLED, gyro calibration (keep still), the
 # move, then a report. Motors are always switched off, even on an error.
@@ -119,3 +120,21 @@ def sensors(n=10):
         print(line)
         uct_mouse.delay_ms(200)
     print("Calibration (old firmware) read about 100 / 40 / 100 here.")
+
+
+def clock(seconds=10):
+    """Is the mouse's microsecond clock right? Start a phone stopwatch when
+    the OLED shows GO and stop it when it shows STOP. Should be `seconds`."""
+    import time
+    uct_mouse.init()
+    for s in (3, 2, 1):
+        uct_mouse.display_text(1, "Ready %d..." % s)
+        uct_mouse.delay_ms(1000)
+    uct_mouse.display_text(1, "GO")
+    t0 = time.ticks_us()
+    m0 = time.ticks_ms()
+    while time.ticks_diff(time.ticks_us(), t0) < seconds * 1000000:
+        pass
+    uct_mouse.display_text(1, "STOP")
+    print("ticks_us says %d s; ticks_ms says %.2f s" % (seconds, time.ticks_diff(time.ticks_ms(), m0) / 1000.0))
+    print("What did your stopwatch say?")
