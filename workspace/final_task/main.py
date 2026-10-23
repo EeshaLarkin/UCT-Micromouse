@@ -35,11 +35,14 @@ if ON_HARDWARE:
     RETURN_A = 0.8            # exploration (0.20) worked, so match it for now
     SPRINT_V = 0.20
     SPRINT_A = 1.0
-    SPRINT_ARC_V = 0.18
-    # The curved corners were tuned on the simulator's 7 cm-radius body; the
-    # real mouse is 14 x 12 cm, so it sprints with stop-and-turn corners
-    # until curves are proven on the real maze.
-    SPRINT_CURVES = False
+    # Smooth (curved) sprint corners: a quarter circle of radius 10 cm
+    # around the inner corner post, without stopping. Geometry check for the
+    # 14 x 12 cm body: the outer front corner swings out to ~17 cm from the
+    # post, the outer wall is ~19 cm away -> ~2 cm clearance. Start slow
+    # (the outer wheel runs ~1.5x this) and raise it once drivetest.curve()
+    # is clean. Set SPRINT_CURVES = False to go back to stop-and-turn.
+    SPRINT_ARC_V = 0.12
+    SPRINT_CURVES = True
 else:
     EXPLORE_V = 0.25
     EXPLORE_A = 1.2
@@ -260,6 +263,7 @@ class MazeSolver:
         log("[Phase 4] Sprint:", ", ".join("%s x%d" % (DIR_NAMES[d], n) for d, n in segs))
         if SPRINT_CURVES:
             self.sweep(sprint, SPRINT_V, SPRINT_ARC_V, SPRINT_A)
+            self.trace("sprint %d curves" % self.m.arcs_done)
         else:
             self.drive_path(sprint, SPRINT_V, SPRINT_A)
         oled("Done!")
