@@ -142,3 +142,21 @@ def clock(seconds=10):
     uct_mouse.display_text(1, "STOP")
     print("ticks_us says %d s; ticks_ms says %.2f s" % (seconds, time.ticks_diff(time.ticks_ms(), m0) / 1000.0))
     print("What did your stopwatch say?")
+
+
+def wheels(pwm=40, ms=1000):
+    """LIFT THE MOUSE OFF THE FLOOR first. Spins both wheels forward for
+    `ms` ms and prints how many ticks each encoder counted."""
+    uct_mouse.init()
+    uct_mouse.set_polarity(1, 1)
+    uct_mouse.set_motors(0, 0)
+    uct_mouse.delay_ms(200)
+    try:
+        l0, r0 = uct_mouse.get_encoders()
+        uct_mouse.set_motors(pwm, pwm)
+        uct_mouse.delay_ms(ms)
+    finally:
+        uct_mouse.set_motors(0, 0)
+    uct_mouse.delay_ms(300)
+    l1, r1 = uct_mouse.get_encoders()
+    print("left encoder %d ticks, right encoder %d ticks" % (l1 - l0, r1 - r0))
