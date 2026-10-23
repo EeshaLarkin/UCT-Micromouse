@@ -106,7 +106,10 @@ if ON_HARDWARE:
     SIDE_WALL_MM = 106.0      # reading below this at a cell centre = wall (nominal + 40)
     FRONT_WALL_MM = 180.0     #   (walls read 75-104, open reads >= 265)
     SIDE_VALID_MM = 98.0      # use a side wall for centring only if this close (nominal + 32)
-    FRONT_TRUST_MM = 300.0    # front wall close enough to correct the odometry
+    # Front wall close enough to correct the position. The front sensor reads
+    # ~25 mm LONG at 250-300 mm (a centred mouse one cell from a wall reads
+    # 277-284, not ~252), so only use it from 200 mm in.
+    FRONT_TRUST_MM = 200.0
 else:
     SIDE_NOMINAL_MM = 60.0
     FRONT_STOP_MM = 35.0
@@ -121,6 +124,15 @@ SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 # and overshot a 3-cell move by ~11 cm into a post (full-maze run 23 Oct).
 EDGE_SNAP_MM = 0.0 if ON_HARDWARE else 45.0
 FRONT_FIX_MIN_MM = 18.0 if ON_HARDWARE else -100.0
+# Learning the distance scale from front walls: OFF on the real mouse. The
+# sensor's long-range bias taught it a too-small scale, so moves through
+# open cells (no wall ahead to stop against) overshot (23 Oct).
+FRONT_LEARN = not ON_HARDWARE
+# Too close to a front wall after a stop (reading between these): reverse
+# gently until the reading is back near FRONT_STOP_MM.
+BACKOFF_BELOW_MM = (FRONT_STOP_MM - 8.0) if ON_HARDWARE else -1.0
+BACKOFF_ABOVE_MM = 28.0       # below this the reading can't be trusted at all
+
 ODO_SCALE_MIN = 0.75          # learnt odometry scale limits
 ODO_SCALE_MAX = 1.25
 
@@ -288,6 +300,7 @@ class Motion:
         self.overruns = 0
         self.med = (0, 0, 0)
         self.front_learns = 0
+        self.backoffs = 0
         self.votes = (0, 0, 0)
         self.driving = False        # True only during straight moves (front hold)
         self.left_ok = not LEFT_FROM_GYRO   # left encoder seen counting?
@@ -639,7 +652,7 @@ class Motion:
                     # wall says we are is odometry error - learn from it
                     # (same as the wall-edge learner). With only the right
                     # encoder working this is what keeps cells 20 cm long.
-                    if self.since_fix > 0.15 and self.tof_c < 220.0:
+                    if FRONT_LEARN and self.since_fix > 0.15 and self.tof_c < 220.0:
                         ratio = 1.0 + (s_tof - s) / self.since_fix
                         self.odo_scale = clamp(self.odo_scale * (1.0 + 0.3 * (ratio - 1.0)),
                                                ODO_SCALE_MIN, ODO_SCALE_MAX)
@@ -725,6 +738,33 @@ class Motion:
             self.stop()
             if front_fix:
                 self.since_fix = 0.0  # we stopped at a measured distance from a wall
+            if use_front:
+                self._back_off()
+
+    def _back_off(self):
+        """Self-correction after a stop: if we ended up too close to the wall
+        in front, reverse slowly (holding the heading) until the front
+        reading is back near the centred value. At most 3 cm."""
+        c = self._front_median()
+        if not (BACKOFF_ABOVE_MM < c < BACKOFF_BELOW_MM):
+            return
+        self.backoffs += 1
+        back = 0.0
+        for _ in range(120):
+            yaw_err = math.radians(wrap180(self.target_yaw - self.yaw()))
+            back += self._wheels(-0.05, K_HEADING * yaw_err)
+            if self.tof_c >= FRONT_STOP_MM - 2.0 or back < -0.03:
+                break
+        self.v_cmd = 0.0
+        self.stop()
+
+    def _front_median(self, n=5):
+        vals = []
+        for _ in range(n):
+            self.tick(0, 0)
+            vals.append(self.raw_c)
+        vals.sort()
+        return vals[n // 2]
 
     def _unstick(self):
         """Bump recovery: stop, reverse BACKUP_M straight out (no steering -
