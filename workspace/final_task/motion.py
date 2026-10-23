@@ -899,8 +899,12 @@ class Motion:
             else:
                 q_next = segments[i + 1][1]
                 bias = ARC_INSET_M if q_next < 0 else -ARC_INSET_M   # towards the inside
-                if n * CELL_M - CELL_M / 2.0 - s0 < 0.25:
-                    bias = 0.0        # too short to shift sideways safely: stay centred
+                # Shift unless the straight is too short to do it safely: a
+                # 1-cell start from rest (0.1 m) stays centred, but the 0.2 m
+                # straights between two curves do shift (23 Oct: 2 of the 3
+                # sprint corners were taken centred and one clipped a post).
+                if n * CELL_M - CELL_M / 2.0 - s0 < 0.15:
+                    bias = 0.0
                 self._drive(s0, n * CELL_M - CELL_M / 2.0, n * CELL_M, v_max, v_turn, accel,
                             bias=bias)
 
