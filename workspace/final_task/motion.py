@@ -77,6 +77,26 @@ else:
 SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 EDGE_SNAP_MM = 45.0           # max odometry error a wall edge may correct
 
+# --- Robustness (added after the first untethered runs) ---------------------
+# Mission log, run 2: a side ToF 29-49 mm from a wall kept dropping out to
+# 8190 for a moment. Each blip looked like a wall EDGE, the edge snap pulled
+# the position estimate back to 50 mm again and again, so a 1-cell move drove
+# ~4 cells. Also 5-sample AVERAGES with a blip read a real wall as open.
+DROPOUT_MM = 2000.0           # a reading this big = no echo (8190) / no sensor (2000)
+DROPOUT_HOLD = 8 if ON_HARDWARE else 0   # ticks a close reading is kept through a dropout
+EDGE_CONFIRM = 5 if ON_HARDWARE else 1   # a wall edge must last this many ticks to count
+OVERRUN = 1.15                # stop if the encoders say we drove 15% + ...
+OVERRUN_M = 0.05              # ... 5 cm further than planned (safety net)
+YAW_CORR_MAX = 6.0            # walls may re-align the heading by at most this per move (deg)
+# Bump recovery (self-correction): a knock against a wall shows up as a big
+# sudden heading error (log: +66 deg) or the wheels stalling. Then: stop,
+# reverse a few cm straight out, turn back to the corridor heading, carry on.
+BUMP_DEG = 20.0 if ON_HARDWARE else None
+BUMP_STALL_TICKS = 30         # ~0.3 s of wheels much slower than commanded
+MAX_UNSTICKS = 3              # per move; after that give up on the move
+BACKUP_M = 0.03
+BACKUP_V = 0.08
+
 # ---------------------------------------------------------------------------
 # Controller gains (all in physical units)
 # ---------------------------------------------------------------------------
@@ -180,6 +200,19 @@ class Motion:
         self.stalls = 0
         self.late = 0.0           # how far past a curve's ideal start we are (m)
         self.rate = 0.0           # gyro turn rate, deg/s (CCW +)
+        self.raw_l = self.raw_c = self.raw_r = 8190.0   # unfiltered ToF
+        self.hold_l = self.hold_c = self.hold_r = 0
+        # Side-wall reading when centred: LEARNT whenever the mouse stands in
+        # a cell with walls on both sides ((L+R)/2 doesn't depend on where in
+        # the cell it is). The start readings (49/29) were far below the
+        # calibrated 100, and a wrong value steers the mouse into a wall.
+        self.side_nom = SIDE_NOMINAL_MM
+        self.side_valid = SIDE_VALID_MM
+        self.side_wall = SIDE_WALL_MM
+        self.nom_samples = 0
+        self.unsticks = 0
+        self.overruns = 0
+        self.med = (0, 0, 0)        # last read_walls medians (for the log)
 
     # ------------------------------------------------------------------
     # The 10 ms heartbeat
@@ -221,7 +254,27 @@ class Motion:
         self.theta += self.rate * dt
 
         t = uct_mouse.get_tof()
-        self.tof_l, self.tof_c, self.tof_r = t[TOF_L], t[TOF_C], t[TOF_R]
+        self.raw_l, self.raw_c, self.raw_r = t[TOF_L], t[TOF_C], t[TOF_R]
+        # Bridge short dropouts: a sensor that was close to a wall and
+        # suddenly reads 8190 keeps its last value for a few ticks.
+        r = self.raw_l
+        if r >= DROPOUT_MM and self.tof_l < 300.0 and self.hold_l < DROPOUT_HOLD:
+            self.hold_l += 1
+        else:
+            self.tof_l = r
+            self.hold_l = 0
+        r = self.raw_c
+        if r >= DROPOUT_MM and self.tof_c < 300.0 and self.hold_c < DROPOUT_HOLD:
+            self.hold_c += 1
+        else:
+            self.tof_c = r
+            self.hold_c = 0
+        r = self.raw_r
+        if r >= DROPOUT_MM and self.tof_r < 300.0 and self.hold_r < DROPOUT_HOLD:
+            self.hold_r += 1
+        else:
+            self.tof_r = r
+            self.hold_r = 0
         return dl, dr
 
     def yaw(self):
@@ -283,18 +336,41 @@ class Motion:
     # ------------------------------------------------------------------
     # Wall sensing (call while stopped at a cell centre)
     # ------------------------------------------------------------------
-    def read_walls(self, samples=5):
-        """Average a few readings and classify (left, front, right) walls."""
-        sl = sc = sr = 0.0
+    def read_walls(self, samples=7):
+        """Classify (left, front, right) walls from the MEDIAN of a few raw
+        readings: one 8190 dropout can't turn a wall into an opening (an
+        average could). Also learns the centred side reading."""
+        ls = []
+        cs = []
+        rs = []
         for _ in range(samples):
             self.tick(0, 0)
-            sl += min(self.tof_l, 500)
-            sc += min(self.tof_c, 500)
-            sr += min(self.tof_r, 500)
-        sl /= samples
-        sc /= samples
-        sr /= samples
-        return sl < SIDE_WALL_MM, sc < FRONT_WALL_MM, sr < SIDE_WALL_MM
+            ls.append(min(self.raw_l, 500))
+            cs.append(min(self.raw_c, 500))
+            rs.append(min(self.raw_r, 500))
+        ls.sort()
+        cs.sort()
+        rs.sort()
+        m = samples // 2
+        sl, sc, sr = ls[m], cs[m], rs[m]
+        self.med = (sl, sc, sr)
+        left = sl < self.side_wall
+        right = sr < self.side_wall
+        if left and right:
+            self._learn_side(sl, sr)
+        return left, sc < FRONT_WALL_MM, right
+
+    def _learn_side(self, l, r):
+        avg = (l + r) / 2.0
+        if not (15.0 < avg < 160.0):
+            return                      # nonsense - ignore
+        if self.nom_samples == 0:
+            self.side_nom = avg
+        else:
+            self.side_nom += 0.3 * (avg - self.side_nom)
+        self.nom_samples += 1
+        self.side_valid = self.side_nom + (SIDE_VALID_MM - SIDE_NOMINAL_MM)
+        self.side_wall = self.side_nom + (SIDE_WALL_MM - SIDE_NOMINAL_MM)
 
     # ------------------------------------------------------------------
     # Pure wheel-speed control
@@ -323,14 +399,14 @@ class Motion:
     def _lateral_offset(self):
         """Offset from the corridor centre-line in metres (+ = left of centre),
         or None when there's no side wall close enough to measure from."""
-        lv = self.tof_l < SIDE_VALID_MM
-        rv = self.tof_r < SIDE_VALID_MM
+        lv = self.tof_l < self.side_valid
+        rv = self.tof_r < self.side_valid
         if lv and rv:
             return (self.tof_r - self.tof_l) / 2000.0
         if lv:
-            return (SIDE_NOMINAL_MM - self.tof_l) / 1000.0
+            return (self.side_nom - self.tof_l) / 1000.0
         if rv:
-            return (self.tof_r - SIDE_NOMINAL_MM) / 1000.0
+            return (self.tof_r - self.side_nom) / 1000.0
         return None
 
     # ------------------------------------------------------------------
@@ -382,28 +458,61 @@ class Motion:
         decel = accel if DECEL is None else min(accel, DECEL)
         stall = 0
         y_f = None                    # filtered lateral offset
-        prev_l = self.tof_l < SIDE_VALID_MM
-        prev_r = self.tof_r < SIDE_VALID_MM
+        # Wall edges use the RAW readings, but a change must last
+        # EDGE_CONFIRM ticks (a dropout blip doesn't), is dated back to the
+        # tick it started, and each edge position is used only once per move.
+        st_l = self.raw_l < self.side_valid
+        st_r = self.raw_r < self.side_valid
+        cnt_l = cnt_r = 0
+        s_chg_l = s_chg_r = 0.0
+        used = []
         front_fix = False
+        driven = 0.0                  # encoder distance actually driven
+        allowed = OVERRUN * (s_end - s) + OVERRUN_M
+        corr0 = self.yaw_corr
+        unsticks = 0
         for _ in range(int(20 * (s_end - s) / 0.2 / max(v_max, 0.05)) + 300):
-            now_l = self.tof_l < SIDE_VALID_MM
-            now_r = self.tof_r < SIDE_VALID_MM
-            if now_l != prev_l or now_r != prev_r:
+            s_at = None
+            now = self.raw_l < self.side_valid
+            if now == st_l:
+                cnt_l = 0
+            else:
+                if cnt_l == 0:
+                    s_chg_l = s
+                cnt_l += 1
+                if cnt_l >= EDGE_CONFIRM:
+                    st_l = now
+                    cnt_l = 0
+                    s_at = s_chg_l
+            now = self.raw_r < self.side_valid
+            if now == st_r:
+                cnt_r = 0
+            else:
+                if cnt_r == 0:
+                    s_chg_r = s
+                cnt_r += 1
+                if cnt_r >= EDGE_CONFIRM:
+                    st_r = now
+                    cnt_r = 0
+                    if s_at is None:
+                        s_at = s_chg_r
+            if s_at is not None:
                 half = CELL_M * 500.0                             # 100 mm
-                k = round((s * 1000.0 - (half - SENSOR_AHEAD_MM)) / (2 * half))
+                k = round((s_at * 1000.0 - (half - SENSOR_AHEAD_MM)) / (2 * half))
                 s_edge = (k * 2 * half + half - SENSOR_AHEAD_MM) / 1000.0
-                if abs(s_edge - s) < EDGE_SNAP_MM / 1000.0:
+                err = s_edge - s_at
+                if k not in used and abs(err) < EDGE_SNAP_MM / 1000.0:
+                    used.append(k)
                     # The error built up over `since_fix` metres tells us how
                     # much the encoders over/under-read: learn that ratio.
                     if self.since_fix > 0.08:
-                        ratio = 1.0 + (s_edge - s) / self.since_fix
+                        ratio = 1.0 + err / self.since_fix
                         self.odo_scale = clamp(self.odo_scale * (1.0 + 0.5 * (ratio - 1.0)),
                                                0.85, 1.15)
                     self.since_fix = 0.0
                     self.edge_fixes += 1
-                    self.edge_err_sum += abs(s_edge - s)
-                    s = s_edge
-            prev_l, prev_r = now_l, now_r
+                    self.edge_err_sum += abs(err)
+                    s += err
 
             # front wall of the last cell -> exact distance to its centre
             if use_front and self.tof_c < FRONT_TRUST_MM and s_cell - s < 0.25:
@@ -415,6 +524,9 @@ class Motion:
                     # from here, or the jump would be mistaken for slip.
                     self.since_fix = 0.0
             rem = s_end - s
+            if driven > allowed:
+                self.overruns += 1                 # safety net: never run on
+                break
             if self.tof_c < FRONT_EMERGENCY_MM:
                 self.emergency_stops += 1          # too close to a wall: stop
                 break
@@ -435,18 +547,34 @@ class Motion:
             else:
                 stall = 0
 
-            yaw_err = math.radians(wrap180(self.target_yaw - self.yaw()))
-            omega = K_HEADING * yaw_err
+            yaw_err_deg = wrap180(self.target_yaw - self.yaw())
+            if (BUMP_DEG is not None and unsticks < MAX_UNSTICKS and
+                    (abs(yaw_err_deg) > BUMP_DEG or stall > BUMP_STALL_TICKS)):
+                # Knocked into a wall: back out, square up, carry on.
+                unsticks += 1
+                back = self._unstick()
+                s += back
+                driven += back
+                v = 0.0
+                stall = 0
+                y_f = None
+                st_l = self.raw_l < self.side_valid
+                st_r = self.raw_r < self.side_valid
+                cnt_l = cnt_r = 0
+                continue
+            omega = K_HEADING * math.radians(yaw_err_deg)
             y = self._lateral_offset()
             if y is None:
                 y_f = None
             else:
                 y_f = y if y_f is None else y_f + 0.3 * (y - y_f)
                 omega -= K_LATERAL * y_f
-                self.yaw_corr += math.degrees(K_ALIGN * y_f * self.dt)
+                self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * y_f * self.dt),
+                                      corr0 - YAW_CORR_MAX, corr0 + YAW_CORR_MAX)
 
             ds = self._wheels(v, omega)
             s += ds
+            driven += ds
             self.since_fix += ds
         self.v_cmd = v
         self.late = max(0.0, s - s_end)        # how far past the handover point
@@ -454,6 +582,22 @@ class Motion:
             self.stop()
             if front_fix:
                 self.since_fix = 0.0  # we stopped at a measured distance from a wall
+
+    def _unstick(self):
+        """Bump recovery: stop, reverse BACKUP_M straight out (no steering -
+        the wall is right there), then turn back to the corridor heading.
+        Returns the (negative) distance moved."""
+        self.unsticks += 1
+        self.stop()
+        back = 0.0
+        for _ in range(150):
+            back += self._wheels(-BACKUP_V, 0.0)
+            if back <= -BACKUP_M:
+                break
+        self.v_cmd = 0.0
+        self.stop()
+        self._rotate_to(self.target_yaw)
+        return back
 
     def _wheels(self, v, omega):
         """One tick of wheel-speed control for forward speed v (m/s) and turn
