@@ -55,7 +55,7 @@ class Clock:
         return d
 
 # Starting guesses - each test prints what to put in motion.py instead.
-TICKS_PER_M = 6000.0     # test 3 at home: 6163-6431 (boxes); nominal 5730
+TICKS_PER_M = 3070.0     # 23 Oct firmware, test 3: 3121 / 3019 (original firmware ~6000)
 DEAD_BAND = 25.0         # test 2 on the real mouse: left 22, right 28
 DB_L, DB_R = 22.0, 28.0
 
