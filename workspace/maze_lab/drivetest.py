@@ -8,6 +8,7 @@
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.turns(1, 4)"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.turns(-1, 4)"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.pirouette()"
+#   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.sensors()"
 #
 # Each test: 3 s countdown on the OLED, gyro calibration (keep still), the
 # move, then a report. Motors are always switched off, even on an error.
@@ -56,6 +57,7 @@ def _report(m, label):
           % (m.target_yaw - m.yaw(), m.yaw_corr))
     print("  odometry scale %.3f   wall-edge fixes %d   emergency stops %d   stalls %d"
           % (m.odo_scale, m.edge_fixes, m.emergency_stops, m.stalls))
+    print("  bump recoveries %d   overrun stops %d" % (m.unsticks, m.overruns))
     if m.turns_done:
         print("  turns: %d, mean error %.1f deg, worst %.1f deg"
               % (m.turns_done, m.turn_err_sum / m.turns_done, m.turn_err_max))
@@ -98,3 +100,22 @@ def pirouette():
         _report(m, "pirouette")
     finally:
         uct_mouse.set_motors(0, 0)
+
+
+def sensors(n=10):
+    """Put the mouse CENTRED in a dead end (walls left, front and right),
+    then run this. Prints the processed and raw ToF readings (L / C / R)."""
+    uct_mouse.init()
+    uct_mouse.set_motors(0, 0)
+    uct_mouse.delay_ms(200)
+    raw = getattr(uct_mouse, "get_tof_raw", None)
+    print("        get_tof L/C/R        get_tof_raw L/C/R")
+    for _ in range(n):
+        t = uct_mouse.get_tof()
+        line = "  %5d %5d %5d" % (t[0], t[2], t[4])
+        if raw is not None:
+            r = raw()
+            line += "      %5d %5d %5d" % (r[0], r[2], r[4])
+        print(line)
+        uct_mouse.delay_ms(200)
+    print("Calibration (old firmware) read about 100 / 40 / 100 here.")
