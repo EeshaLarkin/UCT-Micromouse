@@ -21,11 +21,12 @@ from motion import Motion, ON_HARDWARE, TURN_FAST_PWM
 if ON_HARDWARE:
     # real mouse tops out at ~0.41 m/s (calibrate test 3): leave headroom
     # for steering. Start gentle; raise once driving is proven on the maze.
-    EXPLORE_V = 0.20
+    # 23 Oct firmware: top speed only ~0.24 m/s, so keep headroom for steering
+    EXPLORE_V = 0.16
     EXPLORE_A = 0.8
-    RETURN_V = 0.20           # first real run crashed on the return at 0.25;
+    RETURN_V = 0.16           # first real run crashed on the return at 0.25;
     RETURN_A = 0.8            # exploration (0.20) worked, so match it for now
-    SPRINT_V = 0.32
+    SPRINT_V = 0.20
     SPRINT_A = 1.0
     SPRINT_ARC_V = 0.18
     # The curved corners were tuned on the simulator's 7 cm-radius body; the
