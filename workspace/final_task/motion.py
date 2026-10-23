@@ -29,7 +29,11 @@ TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.018        # test 4 in the maze: 1.0179 (misfit 3.7 deg)
-    TICKS_PER_M = 6000.0      # test 3 in the maze: 6144 / 5893 / 5979 (mean 6005)
+    # Old firmware, test 3 in the maze: 6144 / 5893 / 5979 (mean 6005).
+    # The LATEST firmware counts only about half as many encoder ticks:
+    # drivetest.move(2) measured ~100 mm/s while really doing ~190 mm/s and
+    # ran into the end wall. Confirm with calibrate test 3 (calibrate.run(3, cells=2)) and put its number here.
+    TICKS_PER_M = 3000.0
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
     V_AT_FULL = 0.41          # test 3 in the maze, real timing: 0.40 / 0.41 / 0.42 m/s
