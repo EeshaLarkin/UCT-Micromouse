@@ -314,6 +314,11 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
     tpm = ticks / true_m if true_m > 0.05 else 0
     say("front wall at end: %.0f mm (%d of 60 valid) -> moved %.3f m, %d ticks, heading %+.1f deg"
         % (d2, ok2, true_m, ticks, yaw))
+    # The gyro held the heading, so both wheels really rolled the same
+    # distance: any difference in their counts is an encoder difference.
+    if l - l0:
+        say("  left wheel %d ticks, right wheel %d ticks -> right/left = %.3f"
+            % (l - l0, r - r0, (r - r0) / float(l - l0)))
     if tpm:
         say(">>> TICKS_PER_M = %.0f" % tpm)
         if cruise_time > 0.1:
