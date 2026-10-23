@@ -15,7 +15,14 @@
 import sys
 import uct_mouse
 from maze_logic import MazeMap, EAST, DIR_NAMES, DX, DY
-from motion import Motion, ON_HARDWARE, TURN_FAST_PWM, WALL_SAMPLES
+from motion import Motion, ON_HARDWARE, TURN_FAST_PWM, WALL_SAMPLES, SIDE_WALL_MM, FRONT_WALL_MM
+from maze_logic import WALL, OPEN
+
+# A side wall whose reading was this close to the wall/opening limit is
+# "doubtful": real walls read ~60-80 when the mouse is centred, but a mouse
+# stopped slightly off can see an opening's edge and read 90 (run 1, 23 Oct:
+# a false wall sealed off half the maze and the mouse went home).
+DOUBT_MM = SIDE_WALL_MM - 45.0
 
 # Speeds (m/s) and accelerations (m/s^2) for each phase
 if ON_HARDWARE:
@@ -78,6 +85,7 @@ class MazeSolver:
         self.heading = EAST           # start pose: (0,0) facing East
         self.room = None
         self.phase = 1
+        self.doubts = []              # (x, y, dir) side walls worth a second look
         self.t0 = uct_mouse.get_ticks_ms() if hasattr(uct_mouse, "get_ticks_ms") else 0
         if ON_HARDWARE:
             try:
@@ -147,6 +155,11 @@ class MazeSolver:
     def sense(self):
         left, front, right = self.m.read_walls()
         self.maze.record_cell(self.x, self.y, self.heading, left, front, right)
+        sl, _, sr = self.m.med
+        if left and sl > DOUBT_MM:
+            self.doubts.append((self.x, self.y, (self.heading + 3) % 4))
+        if right and sr > DOUBT_MM:
+            self.doubts.append((self.x, self.y, (self.heading + 1) % 4))
         self.trace("walls %s%s%s" % ("L" if left else "-", "F" if front else "-",
                                      "R" if right else "-"))
 
@@ -165,6 +178,8 @@ class MazeSolver:
                 log("[Phase 1] Room confirmed at", self.room)
                 break
             path = self.maze.path_to_nearest_unvisited(self.x, self.y, self.heading)
+            if path is None and self.recheck():
+                continue                  # a doubtful wall was really open: explore on
             if path is None:
                 self.room = self.maze.find_target_room(final=True)
                 log("[Phase 1] Maze fully explored, best room guess:", self.room)
@@ -176,6 +191,34 @@ class MazeSolver:
             path = self.maze.shortest_path((self.x, self.y),
                                            self.maze.room_cells(*self.room), self.heading)
             self.drive_path(path, EXPLORE_V, EXPLORE_A)
+
+    def recheck(self):
+        """Before giving up without a room: double-check every doubtful side
+        wall that is hiding unvisited cells. Drive to its cell, turn to FACE
+        it and measure it with the front sensor (the most reliable one).
+        Returns True if one turned out to be open."""
+        mz = self.maze
+        while self.doubts:
+            x, y, d = self.doubts.pop()
+            nx, ny = x + DX[d], y + DY[d]
+            if not mz.in_bounds(nx, ny) or mz.visited[ny][nx]:
+                continue                  # nothing new behind it - doesn't matter
+            if mz.get_wall(x, y, d) != WALL:
+                continue
+            path = mz.shortest_path((self.x, self.y), [(x, y)], self.heading)
+            if path is None:
+                continue
+            self.drive_path(path, EXPLORE_V, EXPLORE_A)
+            q = turn_amount(self.heading, d)
+            self.m.turn(q)
+            self.heading = d
+            _, front, _ = self.m.read_walls()
+            self.trace("recheck %s" % ("wall" if front else "OPEN"))
+            if not front:
+                mz.set_wall(x, y, d, OPEN)
+                log("[Phase 1] Re-check: wall at", (x, y), DIR_NAMES[d], "is open")
+                return True
+        return False
 
     # ------------------------------------------------------------------
     # The whole mission
