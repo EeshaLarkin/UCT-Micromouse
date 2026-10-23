@@ -38,7 +38,8 @@ if ON_HARDWARE:
     # 23 Oct: the LEFT encoder reads 0 (drivetest.wheels(): left 0, right
     # 974 / 933), so test 3's both-wheel average halved: 3121 / 3019 / 3198 /
     # 3199 -> the right wheel alone ~6270.
-    TICKS_PER_M = 6470.0      # full-maze run 23 Oct: moves landed centred with 5500 x 0.83-0.86
+    TICKS_PER_M = 5500.0      # with edge snaps off, 6470 overshot the first cell into the wall;
+                              # the learnt 0.83 had been an artefact of the bad edge snaps
     # ...but the mission log (23 Oct, 15:40) showed each "1 cell" move was
     # really ~235 mm (front 594 -> 359), and move(2)'s front readings agree
     # (~17% further than the encoder said). Test 3 assumed its start distance
@@ -91,9 +92,13 @@ if ON_HARDWARE:
     # re-learnt in the maze; drivetest.move() never learnt it, so it steered
     # off-centre whenever only one side wall was visible.)
     SIDE_NOMINAL_MM = 66.0    # full-maze run: walls read 50-79 when stopped
-    FRONT_STOP_MM = 40.0      # front reading when centred. Mouse is 14 cm long in a 19 cm cell
-                              # -> ~2.5 cm gap each end. drivetest stopped at ~77 with the nose
-                              # ~6-7 cm away = ~3.8 cm short. (test 1's 75 was hand-placed)
+    # Front reading when centred (nose ~2.5 cm from the wall). The 40 we used
+    # left the nose ~1 cm away (photo of the move(1) stop: front 41), and
+    # the mission stops at ~50 were "too far forward". Under ~5 cm this
+    # sensor is unreliable (55 with the nose almost touching), so the front
+    # fix only uses readings above FRONT_STOP_MM + FRONT_FIX_MIN_MM; the last
+    # couple of cm are done on the encoder.
+    FRONT_STOP_MM = 52.0
     # Full-maze run 23 Oct: an OPENING beside a cell with a front wall can
     # read as little as 133-150 (the side sensor sees the next wall at an
     # angle), and the old limit (149) turned the target room's doorway at
@@ -115,6 +120,7 @@ SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 # "fix" pulled the position back, it learnt a too-small distance scale (0.75)
 # and overshot a 3-cell move by ~11 cm into a post (full-maze run 23 Oct).
 EDGE_SNAP_MM = 0.0 if ON_HARDWARE else 45.0
+FRONT_FIX_MIN_MM = 18.0 if ON_HARDWARE else -100.0
 ODO_SCALE_MIN = 0.75          # learnt odometry scale limits
 ODO_SCALE_MAX = 1.25
 
@@ -167,7 +173,7 @@ if ON_HARDWARE:
     STOP_LEAD_M = 0.008 # drivetest 2: still ~10-20 mm past centre -> end 8 mm early
     # 23 Oct firmware: centred reads ~38 but touching the wall reads ~29, so
     # the old 28 never fired (move(2) pushed the wall at 29 for 0.7 s)
-    FRONT_EMERGENCY_MM = FRONT_STOP_MM - 6.0    # past the centre: stop NOW
+    FRONT_EMERGENCY_MM = 36.0   # nose ~1 cm from the wall: stop NOW
     # drivetest showed NO slowing before the stop (v_cmd 200 -> 0 in one
     # step) and then a ~30 mm coast. So on the real mouse:
     DECEL = 0.25        # m/s^2 for slowing down: starts ~80 mm before a stop
@@ -621,7 +627,11 @@ class Motion:
                     s += err
 
             # front wall of the last cell -> exact distance to its centre
-            if use_front and self.tof_c < FRONT_TRUST_MM and s_cell - s < 0.25:
+            # (not in the last ~1 cm: very close to a wall the front sensor
+            # reads LONGER again - 55 with the nose almost touching - which
+            # would make the fix push the mouse further in)
+            if (use_front and FRONT_STOP_MM + FRONT_FIX_MIN_MM < self.tof_c < FRONT_TRUST_MM
+                    and s_cell - s < 0.25):
                 s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
                 if abs(s_tof - s) < 0.08:
                     # First good look at the wall after a long stretch: the
