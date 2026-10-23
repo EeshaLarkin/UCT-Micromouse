@@ -81,7 +81,7 @@ class MazeSolver:
         if ON_HARDWARE:
             try:
                 with open(LOG_FILE, "w") as f:
-                    f.write("time  phase cell  heading move  tof L/C/R  heading_err\n")
+                    f.write("time  phase cell  heading move  tof L/C/R  heading_err  side_nom bumps overruns\n")
             except Exception:
                 pass
 
@@ -96,10 +96,13 @@ class MazeSolver:
                 t = (uct_mouse.get_ticks_ms() - self.t0) / 1000.0
             m = self.m
             with open(LOG_FILE, "a") as f:
-                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f\n"
+                l, c, r = m.tof_l, m.tof_c, m.tof_r
+                if what[:5] == "walls":
+                    l, c, r = m.med            # the medians the decision used
+                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f  %3d %d %d\n"
                         % (t, self.phase, self.x, self.y, DIR_NAMES[self.heading], what,
-                           min(m.tof_l, 9999), min(m.tof_c, 9999), min(m.tof_r, 9999),
-                           m.target_yaw - m.yaw()))
+                           min(l, 9999), min(c, 9999), min(r, 9999),
+                           m.target_yaw - m.yaw(), m.side_nom, m.unsticks, m.overruns))
         except Exception:
             pass
 
