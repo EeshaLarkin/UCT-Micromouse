@@ -749,8 +749,11 @@ class Motion:
                         rejected = 0
                 y_t = bias if (bias and s_end - s < ARC_SHIFT_ZONE_M) else 0.0
                 omega -= K_LATERAL * (y_f - y_t)
-                self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * (y_f - y_t) * self.dt),
-                                      corr0 - YAW_CORR_MAX, corr0 + YAW_CORR_MAX)
+                if y_t == 0.0:
+                    # (not while deliberately off-centre: the offset is not a
+                    # heading error and must not bend the heading estimate)
+                    self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * y_f * self.dt),
+                                          corr0 - YAW_CORR_MAX, corr0 + YAW_CORR_MAX)
                 self.last_y = y_f
 
             ds = self._wheels(v, omega)
@@ -881,32 +884,42 @@ class Motion:
         begins). The last straight ends at the cell centre and stops.
         """
         last = len(segments) - 1
+        curve_next = False            # was the corner INTO this segment planned as a curve?
         for i in range(len(segments)):
             n, q = segments[i]
             if i == 0:
                 if q != 0:
                     self.turn(q)                    # first heading: on the spot
                 s0 = 0.0
-            elif q in (1, -1):
+            elif q in (1, -1) and curve_next:
                 self.arc(q, v_turn)
                 s0 = CELL_M / 2.0
-            else:                                    # U-turn (BFS paths never need one)
+            else:                                    # stop-and-turn corner (or U-turn)
                 self.stop()
                 self.turn(q)
                 s0 = 0.0
             if i == last:
                 self._drive(s0, n * CELL_M, n * CELL_M, v_max, 0.0, accel)
-            else:
-                q_next = segments[i + 1][1]
-                bias = ARC_INSET_M if q_next < 0 else -ARC_INSET_M   # towards the inside
-                # Shift unless the straight is too short to do it safely: a
-                # 1-cell start from rest (0.1 m) stays centred, but the 0.2 m
-                # straights between two curves do shift (23 Oct: 2 of the 3
-                # sprint corners were taken centred and one clipped a post).
-                if n * CELL_M - CELL_M / 2.0 - s0 < 0.15:
-                    bias = 0.0
+                continue
+            q_next = segments[i + 1][1]
+            length = n * CELL_M - CELL_M / 2.0 - s0   # straight before the next corner
+            curve_next = q_next in (1, -1)
+            bias = 0.0
+            if curve_next and ARC_INSET_M > 0.0:
+                # Real mouse: a corner is only curved if this straight is long
+                # enough to first move 2 cm to the inside. A curve taken
+                # centred (e.g. 1 cell from a standing start) exited too far
+                # in, the next corner then came from the outside and clipped
+                # a post (23 Oct). Such corners are stop-and-turn instead.
+                if length < 0.15:
+                    curve_next = False
+                else:
+                    bias = ARC_INSET_M if q_next < 0 else -ARC_INSET_M   # towards the inside
+            if curve_next:
                 self._drive(s0, n * CELL_M - CELL_M / 2.0, n * CELL_M, v_max, v_turn, accel,
                             bias=bias)
+            else:
+                self._drive(s0, n * CELL_M, n * CELL_M, v_max, 0.0, accel)   # stop at the centre
 
     # ------------------------------------------------------------------
     # Turning on the spot (two-speed bang-bang on gyro angle)
