@@ -105,7 +105,10 @@ if ON_HARDWARE:
     # read as little as 133-150 (the side sensor sees the next wall at an
     # angle), and the old limit (149) turned the target room's doorway at
     # (5,0) into a wall (R 133). Walls never read more than ~80.
-    SIDE_WALL_MM = 106.0      # reading below this at a cell centre = wall (nominal + 40)
+    # (23 Oct 17:24: when stopped at the right spot - front ~52 - openings
+    # read 250+ and walls up to ~90. Openings only read low when the mouse
+    # stopped too far forward, which the back-off now fixes before sensing.)
+    SIDE_WALL_MM = 126.0      # reading below this at a cell centre = wall (nominal + 60)
     FRONT_WALL_MM = 180.0     #   (walls read 75-104, open reads >= 265)
     SIDE_VALID_MM = 98.0      # use a side wall for centring only if this close (nominal + 32)
     # Front wall close enough to correct the position. The front sensor reads
@@ -137,7 +140,7 @@ FRONT_FIX_GATE = 0.15 if ON_HARDWARE else 0.08
 FRONT_LEARN = not ON_HARDWARE
 # Too close to a front wall after a stop (reading between these): reverse
 # gently until the reading is back near FRONT_STOP_MM.
-BACKOFF_BELOW_MM = (FRONT_STOP_MM - 8.0) if ON_HARDWARE else -1.0
+BACKOFF_BELOW_MM = (FRONT_STOP_MM - 4.0) if ON_HARDWARE else -1.0
 BACKOFF_ABOVE_MM = 28.0       # below this the reading can't be trusted at all
 
 ODO_SCALE_MIN = 0.75          # learnt odometry scale limits
@@ -246,7 +249,7 @@ TURN_W_MIN = 30.0             # deg/s crawl near the end
 TURN_DONE_DEG = 1.5           # finished when this close...
 TURN_DONE_RATE = 25.0         # ...and turning slower than this (deg/s)
 TURN_POS_GAIN = 3.0           # m/s of correction per m of creep during a turn
-TURN_NEAR_DEG = 2.5           # within this of the target for...
+TURN_NEAR_DEG = 1.5           # within this of the target for...
 TURN_NEAR_TICKS = 25          # ...this many ticks (~0.3 s) = turn finished
 
 
@@ -760,7 +763,7 @@ class Motion:
         for _ in range(120):
             yaw_err = math.radians(wrap180(self.target_yaw - self.yaw()))
             back += self._wheels(-0.05, K_HEADING * yaw_err)
-            if self.tof_c >= FRONT_STOP_MM - 2.0 or back < -0.03:
+            if self.tof_c >= FRONT_STOP_MM - 1.0 or back < -0.03:
                 break
         self.v_cmd = 0.0
         self.stop()
