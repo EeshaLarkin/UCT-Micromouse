@@ -271,16 +271,26 @@ def maze_dimensions():
     Older mouse firmware doesn't have get_maze_dimensions() (it was added to
     the course firmware in October), so fall back to its alias, then to the
     standard 4 x 6 lab maze."""
+    rows, cols = 4, 6
     for name in ("get_maze_dimensions", "get_maze_size"):
         fn = getattr(uct_mouse, name, None)
         if fn is not None:
             try:
-                rows, cols = fn()
-                if rows >= 2 and cols >= 2:
-                    return int(rows), int(cols)
+                r, c = fn()
+                if r >= 2 and c >= 2:
+                    rows, cols = int(r), int(c)
+                    break
             except Exception:
                 pass
-    return 4, 6
+    if ON_HARDWARE:
+        # The firmware always answers (4, 6), but a lab maze can be laid out
+        # the other way round (6 cells to the mouse's LEFT) or be a different
+        # size: tests 1 and 5 on 23 Oct found open cells beyond row 3 and gave
+        # up as "fully explored". A square map as big as the longer side
+        # works either way: the real outer walls are simply sensed.
+        n = max(rows, cols)
+        rows, cols = n, n
+    return rows, cols
 
 
 def wait_for_start():
