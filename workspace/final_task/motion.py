@@ -38,7 +38,12 @@ if ON_HARDWARE:
     # 23 Oct: the LEFT encoder reads 0 (drivetest.wheels(): left 0, right
     # 974 / 933), so test 3's both-wheel average halved: 3121 / 3019 / 3198 /
     # 3199 -> the right wheel alone ~6270.
-    TICKS_PER_M = 6270.0
+    TICKS_PER_M = 5500.0
+    # ...but the mission log (23 Oct, 15:40) showed each "1 cell" move was
+    # really ~235 mm (front 594 -> 359), and move(2)'s front readings agree
+    # (~17% further than the encoder said). Test 3 assumed its start distance
+    # from geometry, which can't see that. 5500 sits between the two; the
+    # odometry learner (wall edges + front walls) fine-tunes it in the maze.
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
     V_AT_FULL = 0.45          # 23 Oct test 3: 0.49 / 0.50 (0.165 m/s at PWM 50), but
@@ -102,6 +107,8 @@ else:
     FRONT_TRUST_MM = 230.0
 SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 EDGE_SNAP_MM = 45.0           # max odometry error a wall edge may correct
+ODO_SCALE_MIN = 0.75          # learnt odometry scale limits
+ODO_SCALE_MAX = 1.25
 
 # --- Robustness (added after the first untethered runs) ---------------------
 # Mission log, run 2: a side ToF 29-49 mm from a wall kept dropping out to
@@ -266,6 +273,7 @@ class Motion:
         self.unsticks = 0
         self.overruns = 0
         self.med = (0, 0, 0)
+        self.front_learns = 0
         self.votes = (0, 0, 0)
         self.driving = False        # True only during straight moves (front hold)
         self.left_ok = not LEFT_FROM_GYRO   # left encoder seen counting?
@@ -596,7 +604,7 @@ class Motion:
                     if self.since_fix > 0.08:
                         ratio = 1.0 + err / self.since_fix
                         self.odo_scale = clamp(self.odo_scale * (1.0 + 0.5 * (ratio - 1.0)),
-                                               0.85, 1.15)
+                                               ODO_SCALE_MIN, ODO_SCALE_MAX)
                     self.since_fix = 0.0
                     self.edge_fixes += 1
                     self.edge_err_sum += abs(err)
@@ -606,6 +614,16 @@ class Motion:
             if use_front and self.tof_c < FRONT_TRUST_MM and s_cell - s < 0.25:
                 s_tof = s_cell - (self.tof_c - FRONT_STOP_MM) / 1000.0
                 if abs(s_tof - s) < 0.08:
+                    # First good look at the wall after a long stretch: the
+                    # gap between where the encoders say we are and where the
+                    # wall says we are is odometry error - learn from it
+                    # (same as the wall-edge learner). With only the right
+                    # encoder working this is what keeps cells 20 cm long.
+                    if self.since_fix > 0.12 and self.tof_c < 220.0:
+                        ratio = 1.0 + (s_tof - s) / self.since_fix
+                        self.odo_scale = clamp(self.odo_scale * (1.0 + 0.5 * (ratio - 1.0)),
+                                               ODO_SCALE_MIN, ODO_SCALE_MAX)
+                        self.front_learns += 1
                     s += FRONT_BLEND * (s_tof - s)
                     front_fix = True
                     # This is a position fix too: restart the slip learner
