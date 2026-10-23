@@ -15,7 +15,7 @@
 import sys
 import uct_mouse
 from maze_logic import MazeMap, EAST, DIR_NAMES, DX, DY
-from motion import Motion, ON_HARDWARE, TURN_FAST_PWM
+from motion import Motion, ON_HARDWARE, TURN_FAST_PWM, WALL_SAMPLES
 
 # Speeds (m/s) and accelerations (m/s^2) for each phase
 if ON_HARDWARE:
@@ -100,10 +100,13 @@ class MazeSolver:
                 l, c, r = m.tof_l, m.tof_c, m.tof_r
                 if what[:5] == "walls":
                     l, c, r = m.med            # the medians the decision used
-                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f  %3d %d %d\n"
+                extra = ""
+                if what[:5] == "walls":
+                    extra = "  close %d/%d/%d of %d" % (m.votes + (WALL_SAMPLES,))
+                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f  %3d %d %d%s\n"
                         % (t, self.phase, self.x, self.y, DIR_NAMES[self.heading], what,
                            min(l, 9999), min(c, 9999), min(r, 9999),
-                           m.target_yaw - m.yaw(), m.side_nom, m.unsticks, m.overruns))
+                           m.target_yaw - m.yaw(), m.side_nom, m.unsticks, m.overruns, extra))
         except Exception:
             pass
 
