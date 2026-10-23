@@ -29,13 +29,15 @@ TOF_L, TOF_C, TOF_R = 0, 2, 4
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.018        # test 4 in the maze: 1.0179 (misfit 3.7 deg)
-    TICKS_PER_M = 6000.0      # test 3 in the maze: 6144 / 5893 / 5979 (mean 6005)
-                              # (the Oct firmware update counted only ~half - if
-                              # drivetest.move(2) shows v_real ~100 at v_cmd 200
-                              # and an emergency stop, set this to 3000)
+    # Lecturer's firmware (23 Oct) counts only ~half the encoder ticks of the
+    # original one (6000): in drivetest.move(2) the front ToF showed ~0.23 m/s
+    # while the encoders said ~0.11, so the mouse never braked. Clock checked OK.
+    # calibrate test 3 on that firmware: 3121 / 3019
+    TICKS_PER_M = 3070.0
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
-    V_AT_FULL = 0.41          # test 3 in the maze, real timing: 0.40 / 0.41 / 0.42 m/s
+    V_AT_FULL = 0.45          # 23 Oct test 3: 0.49 / 0.50 (0.165 m/s at PWM 50), but
+                              # move(2) topped out lower - 0.45 is a safe middle
     HALF_AXLE_M = 0.052       # test 4 in the maze: 0.051 / 0.0521; chassis value 0.054
 else:
     GYRO_SCALE = 1.0
@@ -123,7 +125,9 @@ if ON_HARDWARE:
     # speed feedback lets the controller actually brake (negative PWM).
     K_VEL = 150.0       # PWM per (m/s) of wheel-speed error
     STOP_LEAD_M = 0.008 # drivetest 2: still ~10-20 mm past centre -> end 8 mm early
-    FRONT_EMERGENCY_MM = FRONT_STOP_MM - 12.0   # past the centre: stop NOW
+    # 23 Oct firmware: centred reads ~38 but touching the wall reads ~29, so
+    # the old 28 never fired (move(2) pushed the wall at 29 for 0.7 s)
+    FRONT_EMERGENCY_MM = FRONT_STOP_MM - 6.0    # past the centre: stop NOW
     # drivetest showed NO slowing before the stop (v_cmd 200 -> 0 in one
     # step) and then a ~30 mm coast. So on the real mouse:
     DECEL = 0.25        # m/s^2 for slowing down: starts ~80 mm before a stop
