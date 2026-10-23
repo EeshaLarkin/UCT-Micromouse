@@ -268,6 +268,10 @@ class MazeSolver:
             self.drive_path(sprint, SPRINT_V, SPRINT_A)
         oled("Done!")
         log("[Mission complete] Stopped inside the target room")
+        secs = 0.0
+        if hasattr(uct_mouse, "get_ticks_ms"):
+            secs = (uct_mouse.get_ticks_ms() - self.t0) / 1000.0
+        celebrate(secs)
 
 
 def maze_dimensions():
@@ -329,9 +333,68 @@ def wait_for_start():
         uct_mouse.delay_ms(1000)
 
 
+def show(row, text):
+    try:
+        uct_mouse.display_text(row, text[:18])
+    except Exception:
+        pass
+
+
+def leds(a, b):
+    try:
+        uct_mouse.set_led(0, a)
+        uct_mouse.set_led(1, b)
+    except Exception:
+        pass
+
+
+def celebrate(secs):
+    """Victory screen after the sprint (motors are already off, so it
+    doesn't touch the run itself). The OLED has 4 rows of 18 characters and
+    refreshes ~10 times a second. ~6 s:
+      1. a little mouse <:3)~ runs across row 2 to the cheese [#]
+      2. "nom nom!"
+      3. twinkling stars around MAZE SOLVED! + the mission time, LEDs flashing
+    The final screen stays until the next run (SW1)."""
+    if not ON_HARDWARE:
+        return
+    try:
+        mouse = "<:3)~"
+        cheese = "[#]"
+        show(1, "")
+        show(3, "")
+        show(4, "")
+        for x in range(18 - len(mouse), len(cheese), -1):      # 1. the run
+            show(2, cheese + " " * (x - len(cheese)) + mouse)
+            leds(x % 2, (x + 1) % 2)
+            uct_mouse.delay_ms(110)
+        for _ in range(3):                                      # 2. eating
+            show(2, cheese + mouse + " nom nom!")
+            uct_mouse.delay_ms(250)
+            show(2, "[" + mouse + "   nom nom!")
+            uct_mouse.delay_ms(250)
+        stars = ("*  .   *  +  .  *",                           # 3. party
+                 " .  *  +  . *  . ",
+                 "+ .  *   .  +  * ",
+                 " *  +  .  *  .  +")
+        show(2, "  MAZE SOLVED!")
+        show(4, "  time %.1f s" % secs)
+        for i in range(24):
+            show(1, stars[i % 4])
+            show(3, stars[(i + 2) % 4])
+            leds(i % 2, (i + 1) % 2)
+            uct_mouse.delay_ms(200)
+        show(1, "*  YOU DID IT!  *")
+        show(3, "    <:3)~ [#]")
+    finally:
+        leds(0, 0)
+
+
 def run_once():
     """One complete mission. Any error stops the motors, shows ERROR on the
     OLED and is saved to mission_error.txt - never a silent failure."""
+    for r in (2, 3, 4):
+        show(r, "")               # back to normal telemetry (clears the party)
     oled("Calibrating")
     try:
         rows, cols = maze_dimensions()
