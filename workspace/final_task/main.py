@@ -176,6 +176,23 @@ class MazeSolver:
         log("[Mission complete] Stopped inside the target room")
 
 
+def maze_dimensions():
+    """(rows, cols) of the arena, queried dynamically as the brief requires.
+    Older mouse firmware doesn't have get_maze_dimensions() (it was added to
+    the course firmware in October), so fall back to its alias, then to the
+    standard 4 x 6 lab maze."""
+    for name in ("get_maze_dimensions", "get_maze_size"):
+        fn = getattr(uct_mouse, name, None)
+        if fn is not None:
+            try:
+                rows, cols = fn()
+                if rows >= 2 and cols >= 2:
+                    return int(rows), int(cols)
+            except Exception:
+                pass
+    return 4, 6
+
+
 def main():
     uct_mouse.init()               # (returns None on the real mouse)
     uct_mouse.set_motors(0, 0)
@@ -186,9 +203,7 @@ def main():
         uct_mouse.delay_ms(1000)
     oled("Calibrating")
     try:
-        rows, cols = uct_mouse.get_maze_dimensions()
-        if rows < 2 or cols < 2:
-            rows, cols = 4, 6
+        rows, cols = maze_dimensions()
         MazeSolver(rows, cols).solve()
     except Exception as e:
         # never fail silently: show it on the OLED and save the details
