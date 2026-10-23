@@ -253,7 +253,9 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
     if dead_band is None:
         dead_band = DEAD_BAND
     hw = sys.implementation.name == "micropython"
-    front_centred = 75.0 if hw else 35.0          # test 1: centred dead-end reading
+    # centred dead-end front reading. Lecturer's firmware (23 Oct,
+    # drivetest.sensors()): 36-40. The original firmware read ~75.
+    front_centred = 38.0 if hw else 35.0
     if dist_mm is None:
         say("=== TEST 3: straight run, PWM %d, wall %d cells ahead ===" % (pwm, cells))
         d1 = front_centred + 200.0 * cells
