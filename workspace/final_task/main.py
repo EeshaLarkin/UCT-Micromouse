@@ -14,7 +14,7 @@
 
 import sys
 import uct_mouse
-from maze_logic import MazeMap, EAST, DIR_NAMES
+from maze_logic import MazeMap, EAST, DIR_NAMES, DX, DY
 from motion import Motion, ON_HARDWARE, TURN_FAST_PWM
 
 # Speeds (m/s) and accelerations (m/s^2) for each phase
@@ -23,8 +23,8 @@ if ON_HARDWARE:
     # for steering. Start gentle; raise once driving is proven on the maze.
     EXPLORE_V = 0.20
     EXPLORE_A = 0.8
-    RETURN_V = 0.25
-    RETURN_A = 1.0
+    RETURN_V = 0.20           # first real run crashed on the return at 0.25;
+    RETURN_A = 0.8            # exploration (0.20) worked, so match it for now
     SPRINT_V = 0.32
     SPRINT_A = 1.0
     SPRINT_ARC_V = 0.18
@@ -32,7 +32,6 @@ if ON_HARDWARE:
     # real mouse is 14 x 12 cm, so it sprints with stop-and-turn corners
     # until curves are proven on the real maze.
     SPRINT_CURVES = False
-    START_COUNTDOWN_S = 5        # time to put the mouse down after power-on
 else:
     EXPLORE_V = 0.25
     EXPLORE_A = 1.2
@@ -42,7 +41,6 @@ else:
     SPRINT_A = 1.5
     SPRINT_ARC_V = 0.22          # speed through curved corners (outer wheel ~1.5x this)
     SPRINT_CURVES = True
-    START_COUNTDOWN_S = 0
 
 VERBOSE = not ON_HARDWARE     # printing disturbs loop timing on the STM32
 
@@ -60,6 +58,9 @@ def oled(text):
         pass
 
 
+LOG_FILE = "mission_log.txt"     # flight recorder (real mouse only)
+
+
 def turn_amount(heading, d):
     """Quarter-turns from heading to d: +1 right, -1 left, 2 about-face."""
     return (0, 1, 2, -1)[(d - heading) % 4]
@@ -75,6 +76,32 @@ class MazeSolver:
         self.y = 0
         self.heading = EAST           # start pose: (0,0) facing East
         self.room = None
+        self.phase = 1
+        self.t0 = uct_mouse.get_ticks_ms() if hasattr(uct_mouse, "get_ticks_ms") else 0
+        if ON_HARDWARE:
+            try:
+                with open(LOG_FILE, "w") as f:
+                    f.write("time  phase cell  heading move  tof L/C/R  heading_err\n")
+            except Exception:
+                pass
+
+    def trace(self, what):
+        """Flight recorder: one line per move, written while stopped, so after
+        a crash the last lines show where the mouse was and what it saw."""
+        if not ON_HARDWARE:
+            return
+        try:
+            t = 0.0
+            if hasattr(uct_mouse, "get_ticks_ms"):
+                t = (uct_mouse.get_ticks_ms() - self.t0) / 1000.0
+            m = self.m
+            with open(LOG_FILE, "a") as f:
+                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f\n"
+                        % (t, self.phase, self.x, self.y, DIR_NAMES[self.heading], what,
+                           min(m.tof_l, 9999), min(m.tof_c, 9999), min(m.tof_r, 9999),
+                           m.target_yaw - m.yaw()))
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Driving along a planned path
@@ -84,9 +111,15 @@ class MazeSolver:
         [E,E,E,N] becomes 'turn, drive 3 cells, turn, drive 1 cell'."""
         segs = MazeMap.compress(MazeMap.path_to_headings(path))
         for d, n in segs:
-            self.m.turn(turn_amount(self.heading, d), turn_pwm)
+            q = turn_amount(self.heading, d)
+            self.m.turn(q, turn_pwm)
             self.heading = d
+            if q:
+                self.trace("turn %+d" % q)
             self.m.move(n, v_max=v_max, accel=accel)
+            self.x += DX[d] * n
+            self.y += DY[d] * n
+            self.trace("move %d" % n)
         if path:
             self.x, self.y = path[-1]
 
@@ -106,6 +139,8 @@ class MazeSolver:
     def sense(self):
         left, front, right = self.m.read_walls()
         self.maze.record_cell(self.x, self.y, self.heading, left, front, right)
+        self.trace("walls %s%s%s" % ("L" if left else "-", "F" if front else "-",
+                                     "R" if right else "-"))
 
     # ------------------------------------------------------------------
     # Phase 1: exploration
@@ -147,10 +182,13 @@ class MazeSolver:
             log("[Phase 1] No target room found - returning to start")
         else:
             oled("2 Pirouette")
+            self.phase = 2
             log("[Phase 2] Target recognised - 360 deg pirouette")
             self.m.pirouette()
+            self.trace("pirouette")
 
         oled("3 Return")
+        self.phase = 3
         log("[Phase 3] Returning to (0,0)")
         back = self.maze.shortest_path((self.x, self.y), [(0, 0)], self.heading)
         if back is not None:
@@ -161,6 +199,7 @@ class MazeSolver:
             return
 
         oled("4 Pause 3s")
+        self.phase = 4
         log("[Phase 4] Pausing 3.0 s")
         for _ in range(300):
             self.m.tick(0, 0)         # keep the gyro integrating while we wait
@@ -193,20 +232,46 @@ def maze_dimensions():
     return 4, 6
 
 
-def main():
-    uct_mouse.init()               # (returns None on the real mouse)
-    uct_mouse.set_motors(0, 0)
-    uct_mouse.set_polarity(1, 1)
-    uct_mouse.delay_ms(20)        # let the first sensor packet arrive
-    for sec in range(START_COUNTDOWN_S, 0, -1):
+def wait_for_start():
+    """Real mouse: wait for SW1 (the RESET button doesn't work), then give
+    3 s to take your hand away. We don't know whether SW1 reads 1 or 0 when
+    pressed, so wait for it to CHANGE from its power-on reading. If this
+    firmware has no get_button(), fall back to a 10 s countdown."""
+    button = getattr(uct_mouse, "get_button", None)
+    base = None
+    if button is not None:
+        try:
+            base = button()
+        except Exception:
+            base = None
+    if base is None:
+        for sec in range(10, 0, -1):
+            oled("Start in %d..." % sec)
+            uct_mouse.delay_ms(1000)
+        return
+    oled("Press SW1")
+    held = 0
+    while held < 3:                          # 3 readings in a row = pressed
+        uct_mouse.delay_ms(10)
+        held = held + 1 if button() != base else 0
+    oled("Release SW1")
+    for _ in range(300):                     # up to 3 s for the release
+        uct_mouse.delay_ms(10)
+        if button() == base:
+            break
+    for sec in range(3, 0, -1):
         oled("Start in %d..." % sec)
         uct_mouse.delay_ms(1000)
+
+
+def run_once():
+    """One complete mission. Any error stops the motors, shows ERROR on the
+    OLED and is saved to mission_error.txt - never a silent failure."""
     oled("Calibrating")
     try:
         rows, cols = maze_dimensions()
         MazeSolver(rows, cols).solve()
     except Exception as e:
-        # never fail silently: show it on the OLED and save the details
         uct_mouse.set_motors(0, 0)
         oled("ERROR: see file")
         if hasattr(sys, "print_exception"):
@@ -224,6 +289,28 @@ def main():
             raise
     finally:
         uct_mouse.set_motors(0, 0)   # never leave the motors running after an error
+
+
+def main():
+    uct_mouse.init()               # (returns None on the real mouse)
+    uct_mouse.set_motors(0, 0)
+    uct_mouse.set_polarity(1, 1)
+    uct_mouse.delay_ms(20)        # let the first sensor packet arrive
+    if not ON_HARDWARE:
+        run_once()                 # simulator / autograder: just go
+        return
+    # Real mouse: press SW1 for each run. After a run (or a crash) it waits
+    # for SW1 again, so you can put it back at the start and go again
+    # without switching it off. mpremote can still interrupt it to upload.
+    while True:
+        wait_for_start()
+        run_once()
+        uct_mouse.delay_ms(500)
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
