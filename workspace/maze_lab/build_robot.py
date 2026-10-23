@@ -10,7 +10,7 @@
 #   python workspace/maze_lab/build_robot.py --port COM5 --main-as mission.py
 #        -> uploads main.py as mission.py so it does NOT run at power-on
 #   python workspace/maze_lab/build_robot.py --port COM5 --extra workspace/maze_lab/calibrate.py
-#   python workspace/maze_lab/build_robot.py --port COM5 --mpy  # precompiled .mpy (needs mpy-cross)
+#   python workspace/maze_lab/build_robot.py --port COM5 --mpy  # precompiled .mpy (pip install mpy-cross)
 #
 # What it does
 #   1. Parses each module with Python's ast, removes docstrings, and writes it
@@ -106,16 +106,25 @@ def verify(port, built):
     checks = []
     for local, remote in built:
         checks.append((remote, os.path.getsize(local)))
-    code = ("import os\n"
+    # The SIZE check is what catches a damaged file. The compile check is a
+    # bonus: the program that was running (main.py) still holds most of the
+    # RAM after mpremote interrupts it, so a MemoryError there does NOT mean
+    # the file is broken - it's reported as a warning, not BROKEN.
+    code = ("import os, gc\n"
             "for name, size in %r:\n"
             "    try:\n"
             "        got = os.stat(name)[6]\n"
             "        if got != size:\n"
             "            print('BROKEN', name, 'size', got, 'expected', size)\n"
             "            continue\n"
-            "        if name.endswith('.py'):\n"
-            "            with open(name) as f:\n"
-            "                compile(f.read(), name, 'exec')\n"
+            "        if name.endswith('.py') and name != 'main.py':\n"
+            "            gc.collect()\n"
+            "            try:\n"
+            "                with open(name) as f:\n"
+            "                    compile(f.read(), name, 'exec')\n"
+            "            except MemoryError:\n"
+            "                print('OK    ', name, got, '(size right; not enough free RAM to test-compile here)')\n"
+            "                continue\n"
             "        print('OK    ', name, got)\n"
             "    except Exception as e:\n"
             "        print('BROKEN', name, repr(e))\n" % (checks,))
@@ -223,12 +232,20 @@ def main():
         if not upload(a.port, local, remote):
             print("!! Upload of %s failed - check the port, close other mpremote windows" % remote)
             sys.exit(1)
+    if a.mpy:
+        # MicroPython imports motion.py in preference to motion.mpy, so the
+        # old source copies must go (errors = it wasn't there, which is fine).
+        for _, remote in built:
+            if remote.endswith(".mpy"):
+                cmd = [sys.executable, "-m", "mpremote"]
+                if a.port != "auto":
+                    cmd += ["connect", a.port]
+                cmd += ["resume", "fs", "rm", ":" + remote[:-4] + ".py"]
+                subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("Removed the old .py copies of the precompiled modules.")
     if not a.no_verify:
         if not verify(a.port, built):
             sys.exit(1)
-    if a.mpy:
-        print("NOTE: delete any old .py copies of these modules on the drive -")
-        print("      MicroPython prefers a .py over a .mpy with the same name.")
     print("Done.")
     if a.main_as == "main.py":
         print("main.py will run at the next power-on (battery OFF->ON with USB unplugged).")
