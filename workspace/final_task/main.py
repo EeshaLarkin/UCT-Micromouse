@@ -82,7 +82,7 @@ class MazeSolver:
         if ON_HARDWARE:
             try:
                 with open(LOG_FILE, "w") as f:
-                    f.write("time  phase cell  heading move  tof L/C/R  heading_err  side_nom bumps overruns\n")
+                    f.write("time  phase cell  heading move  tof L/C/R  heading_err  side_nom bumps overruns odo_scale\n")
             except Exception:
                 pass
 
@@ -103,10 +103,11 @@ class MazeSolver:
                 extra = ""
                 if what[:5] == "walls":
                     extra = "  close %d/%d/%d of %d" % (m.votes + (WALL_SAMPLES,))
-                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f  %3d %d %d%s\n"
+                f.write("%6.1f P%d (%d,%d) %s %-10s %4d/%4d/%4d %+5.1f  %3d %d %d odo%.2f%s\n"
                         % (t, self.phase, self.x, self.y, DIR_NAMES[self.heading], what,
                            min(l, 9999), min(c, 9999), min(r, 9999),
-                           m.target_yaw - m.yaw(), m.side_nom, m.unsticks, m.overruns, extra))
+                           m.target_yaw - m.yaw(), m.side_nom, m.unsticks, m.overruns,
+                           m.odo_scale, extra))
         except Exception:
             pass
 
