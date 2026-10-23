@@ -136,7 +136,12 @@ if ON_HARDWARE:
     BRAKE_MAX = 35.0    # ...but never more than this
     STALL_TICKS = 100   # ~1 s at under a third of commanded speed -> give up
     BRAKE_HOLD = 2.0    # PWM per degree of heading error while braking (max 15)
-    BRAKE_FF_CUT = 0.04 # m/s too fast -> drop the forward PWM, let feedback brake
+    BRAKE_FF_CUT = 0.04 # m/s too fast -> drop the forward PWM, let feedback brake...
+    BRAKE_FF_BELOW = 0.10  # ...but only while slowing to a stop (wheel asked < this).
+                        # With ~3070 ticks/m the measured speed jitters +-0.03 m/s, and
+                        # the cut fired mid-corridor: PWM 70 -> -5 -> 70 every few ticks
+                        # (move(2), 23 Oct) = the wobble that steered into the wall.
+    SPEED_FILTER = 0.25 # low-pass on the measured wheel speeds (coarser encoders now)
 else:
     K_VEL = 60.0
     STOP_LEAD_M = 0.0
@@ -148,6 +153,8 @@ else:
     STALL_TICKS = 100000
     BRAKE_HOLD = 0.0
     BRAKE_FF_CUT = None
+    BRAKE_FF_BELOW = 0.0
+    SPEED_FILTER = 0.4
 K_VEL_I = 400.0     # PWM per (m/s * s): integral term, cancels motor imbalance
 ACCEL = 1.2         # m/s^2  speed-up / slow-down for straights
 V_MIN = 0.05        # m/s    crawl speed at the very end of a move
@@ -266,8 +273,8 @@ class Motion:
         dl, dr = l - self.lenc, r - self.renc
         self.lenc, self.renc = l, r
         # low-passed wheel speeds (encoder counts are coarse at 10 ms)
-        self.v_l += 0.4 * (dl / TICKS_PER_M / dt - self.v_l)
-        self.v_r += 0.4 * (dr / TICKS_PER_M / dt - self.v_r)
+        self.v_l += SPEED_FILTER * (dl / TICKS_PER_M / dt - self.v_l)
+        self.v_r += SPEED_FILTER * (dr / TICKS_PER_M / dt - self.v_r)
 
         self.rate = (uct_mouse.get_gyro() - self.gyro_bias) * GYRO_SCALE   # deg/s
         self.theta += self.rate * dt
@@ -419,7 +426,8 @@ class Motion:
         err = v_cmd - v_meas
         integ = clamp(integ + K_VEL_I * err * self.dt, -25.0, 25.0)
         ff = DEAD_BAND + abs(v_cmd) / V_AT_FULL * (100.0 - DEAD_BAND)
-        if BRAKE_FF_CUT is not None and (err * v_cmd) < 0 and abs(err) > BRAKE_FF_CUT:
+        if (BRAKE_FF_CUT is not None and abs(v_cmd) < BRAKE_FF_BELOW and
+                (err * v_cmd) < 0 and abs(err) > BRAKE_FF_CUT):
             # Real mouse: drivetest showed v_real ~170 when asked for ~70,
             # because the feed-forward kept ~35 PWM pushing forward. When a
             # wheel is clearly too fast (either direction), drop it and let
