@@ -59,6 +59,7 @@ def _report(m, label):
     print("  odometry scale %.3f   wall-edge fixes %d   emergency stops %d   stalls %d"
           % (m.odo_scale, m.edge_fixes, m.emergency_stops, m.stalls))
     print("  bump recoveries %d   overrun stops %d" % (m.unsticks, m.overruns))
+    print("  left encoder: %s" % ("working" if m.left_ok else "NOT counting - estimated from right wheel + gyro"))
     try:
         print("  battery %.2f V" % uct_mouse.get_vbatt())
     except Exception:
