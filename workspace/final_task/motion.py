@@ -34,11 +34,11 @@ if SWAP_SIDE_TOFS:
 
 if ON_HARDWARE:
     GYRO_SCALE = 1.018        # test 4 in the maze: 1.0179 (misfit 3.7 deg)
-    # Lecturer's firmware (23 Oct) counts only ~half the encoder ticks of the
-    # original one (6000): in drivetest.move(2) the front ToF showed ~0.23 m/s
-    # while the encoders said ~0.11, so the mouse never braked. Clock checked OK.
-    # calibrate test 3 on that firmware: 3121 / 3019
-    TICKS_PER_M = 3070.0
+    # Ticks per metre of ONE wheel. Original firmware, test 3: ~6000.
+    # 23 Oct: the LEFT encoder reads 0 (drivetest.wheels(): left 0, right
+    # 974 / 933), so test 3's both-wheel average halved: 3121 / 3019 / 3198 /
+    # 3199 -> the right wheel alone ~6270.
+    TICKS_PER_M = 6270.0
     ODO_SCALE_START = 1.0     # learnt online from wall edges
     DEAD_BAND = 25.0          # calibrate test 2: left 22, right 28 PWM
     V_AT_FULL = 0.45          # 23 Oct test 3: 0.49 / 0.50 (0.165 m/s at PWM 50), but
@@ -55,6 +55,12 @@ else:
 # Right-wheel ticks per left-wheel tick over the same distance (calibrate
 # test 3 prints it). 1.0 = both encoders count alike.
 ENC_RATIO_R_L = 1.0
+# Dead left encoder: until the left encoder has counted anything, its
+# movement is CALCULATED from the right wheel and the gyro - the difference
+# between the wheel speeds is exactly what turns the mouse:
+#     v_left = v_right - turn_rate * (2 * half_axle)
+# As soon as the left encoder counts (cable fixed), it is used again.
+LEFT_FROM_GYRO = ON_HARDWARE
 TICKS_L = TICKS_PER_M * 2.0 / (1.0 + ENC_RATIO_R_L)
 TICKS_R = TICKS_PER_M * 2.0 * ENC_RATIO_R_L / (1.0 + ENC_RATIO_R_L)
 
@@ -258,7 +264,9 @@ class Motion:
         self.unsticks = 0
         self.overruns = 0
         self.med = (0, 0, 0)
-        self.driving = False        # True only during straight moves (front hold)        # last read_walls medians (for the log)
+        self.driving = False        # True only during straight moves (front hold)
+        self.left_ok = not LEFT_FROM_GYRO   # left encoder seen counting?
+        self.left_seen = 0        # last read_walls medians (for the log)
 
     # ------------------------------------------------------------------
     # The 10 ms heartbeat
@@ -292,12 +300,19 @@ class Motion:
         l, r = uct_mouse.get_encoders()
         dl, dr = l - self.lenc, r - self.renc
         self.lenc, self.renc = l, r
+        self.rate = (uct_mouse.get_gyro() - self.gyro_bias) * GYRO_SCALE   # deg/s
+        self.theta += self.rate * dt
+        if not self.left_ok:
+            if dl != 0:
+                self.left_seen += abs(dl)
+                if self.left_seen > 30:
+                    self.left_ok = True        # the left encoder works after all
+            if not self.left_ok:
+                # left wheel distance from the right wheel and the gyro
+                dl = (dr / TICKS_R - math.radians(self.rate) * dt * 2.0 * HALF_AXLE_M) * TICKS_L
         # low-passed wheel speeds (encoder counts are coarse at 10 ms)
         self.v_l += SPEED_FILTER * (dl / TICKS_L / dt - self.v_l)
         self.v_r += SPEED_FILTER * (dr / TICKS_R / dt - self.v_r)
-
-        self.rate = (uct_mouse.get_gyro() - self.gyro_bias) * GYRO_SCALE   # deg/s
-        self.theta += self.rate * dt
 
         t = uct_mouse.get_tof()
         self.raw_l, self.raw_c, self.raw_r = t[TOF_L], t[TOF_C], t[TOF_R]
