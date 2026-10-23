@@ -84,6 +84,17 @@ EDGE_SNAP_MM = 45.0           # max odometry error a wall edge may correct
 # ~4 cells. Also 5-sample AVERAGES with a blip read a real wall as open.
 DROPOUT_MM = 2000.0           # a reading this big = no echo (8190) / no sensor (2000)
 DROPOUT_HOLD = 8 if ON_HARDWARE else 0   # ticks a close reading is kept through a dropout
+# The current course firmware reports anything closer than 20 mm as 8190
+# (VL53L0X.c: "distance > 20"), and the front reads only ~25-45 mm when the
+# mouse is centred against a wall. So a front 8190 straight after a close
+# reading means TOO CLOSE, not open: keep the close value until a real one.
+FRONT_CLOSE_HOLD_MM = 80.0 if ON_HARDWARE else -1.0
+# The current firmware's side readings jump +-40 mm with the mouse standing
+# still, so on the real mouse the centring uses a slower filter and ignores
+# single readings that disagree wildly with it.
+LAT_FILTER = 0.12 if ON_HARDWARE else 0.3
+LAT_OUTLIER_M = 0.05 if ON_HARDWARE else 1.0
+WALL_SAMPLES = 15 if ON_HARDWARE else 7  # read_walls: ticks to sample (sensors update every ~30 ms)
 EDGE_CONFIRM = 5 if ON_HARDWARE else 1   # a wall edge must last this many ticks to count
 OVERRUN = 1.15                # stop if the encoders say we drove 15% + ...
 OVERRUN_M = 0.05              # ... 5 cm further than planned (safety net)
@@ -212,7 +223,8 @@ class Motion:
         self.nom_samples = 0
         self.unsticks = 0
         self.overruns = 0
-        self.med = (0, 0, 0)        # last read_walls medians (for the log)
+        self.med = (0, 0, 0)
+        self.driving = False        # True only during straight moves (front hold)        # last read_walls medians (for the log)
 
     # ------------------------------------------------------------------
     # The 10 ms heartbeat
@@ -264,7 +276,8 @@ class Motion:
             self.tof_l = r
             self.hold_l = 0
         r = self.raw_c
-        if r >= DROPOUT_MM and self.tof_c < 300.0 and self.hold_c < DROPOUT_HOLD:
+        if r >= DROPOUT_MM and ((self.driving and self.tof_c < FRONT_CLOSE_HOLD_MM) or
+                                (self.tof_c < 300.0 and self.hold_c < DROPOUT_HOLD)):
             self.hold_c += 1
         else:
             self.tof_c = r
@@ -336,29 +349,41 @@ class Motion:
     # ------------------------------------------------------------------
     # Wall sensing (call while stopped at a cell centre)
     # ------------------------------------------------------------------
-    def read_walls(self, samples=7):
-        """Classify (left, front, right) walls from the MEDIAN of a few raw
-        readings: one 8190 dropout can't turn a wall into an opening (an
-        average could). Also learns the centred side reading."""
+    def read_walls(self, samples=WALL_SAMPLES):
+        """Classify (left, front, right) walls from many raw readings.
+
+        Dropouts (8190) are common close to a wall - in a dead end the front
+        sensor gave 8190 in 6 of 10 readings - but the firmware already
+        throws away false short readings in open air. So a side counts as a
+        WALL when at least 3 of the 15 readings see something close, and
+        the wall's distance is the median of those close readings. Also
+        learns the centred side reading."""
         ls = []
         cs = []
         rs = []
         for _ in range(samples):
             self.tick(0, 0)
-            ls.append(min(self.raw_l, 500))
-            cs.append(min(self.raw_c, 500))
-            rs.append(min(self.raw_r, 500))
-        ls.sort()
-        cs.sort()
-        rs.sort()
-        m = samples // 2
-        sl, sc, sr = ls[m], cs[m], rs[m]
+            ls.append(self.raw_l)
+            cs.append(self.raw_c)
+            rs.append(self.raw_r)
+        need = max(2, samples // 5)   # 3 of 15: a close echo is real (firmware
+                                       # rejects weak open-air echoes)
+        left, sl = self._wall_vote(ls, self.side_wall, need)
+        front, sc = self._wall_vote(cs, FRONT_WALL_MM, need)
+        right, sr = self._wall_vote(rs, self.side_wall, need)
         self.med = (sl, sc, sr)
-        left = sl < self.side_wall
-        right = sr < self.side_wall
         if left and right:
             self._learn_side(sl, sr)
-        return left, sc < FRONT_WALL_MM, right
+        return left, front, right
+
+    @staticmethod
+    def _wall_vote(vals, limit, need):
+        close = [v for v in vals if v < limit]
+        if len(close) >= need:
+            close.sort()
+            return True, close[len(close) // 2]
+        vals.sort()
+        return False, min(vals[len(vals) // 2], 9999)
 
     def _learn_side(self, l, r):
         avg = (l + r) / 2.0
@@ -454,6 +479,13 @@ class Motion:
                 return
             s = s_tof
             self.since_fix = 0.0
+        self.driving = True
+        try:
+            self._drive_loop(s, s_end, s_cell, v_max, v_end, accel, use_front)
+        finally:
+            self.driving = False
+
+    def _drive_loop(self, s, s_end, s_cell, v_max, v_end, accel, use_front):
         v = self.v_cmd
         decel = accel if DECEL is None else min(accel, DECEL)
         stall = 0
@@ -567,7 +599,10 @@ class Motion:
             if y is None:
                 y_f = None
             else:
-                y_f = y if y_f is None else y_f + 0.3 * (y - y_f)
+                if y_f is None:
+                    y_f = y
+                elif abs(y - y_f) < LAT_OUTLIER_M:
+                    y_f += LAT_FILTER * (y - y_f)
                 omega -= K_LATERAL * y_f
                 self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * y_f * self.dt),
                                       corr0 - YAW_CORR_MAX, corr0 + YAW_CORR_MAX)
