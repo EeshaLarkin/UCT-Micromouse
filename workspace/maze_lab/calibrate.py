@@ -55,7 +55,7 @@ class Clock:
         return d
 
 # Starting guesses - each test prints what to put in motion.py instead.
-TICKS_PER_M = 3000.0     # latest firmware counts ~half (old firmware: ~6000)
+TICKS_PER_M = 6000.0     # test 3 at home: 6163-6431 (boxes); nominal 5730
 DEAD_BAND = 25.0         # test 2 on the real mouse: left 22, right 28
 DB_L, DB_R = 22.0, 28.0
 
@@ -253,9 +253,7 @@ def test_straight(cells=2, pwm=50, dead_band=None, dist_mm=None):
     if dead_band is None:
         dead_band = DEAD_BAND
     hw = sys.implementation.name == "micropython"
-    # centred dead-end front reading: ~40 with the latest firmware
-    # (drivetest.sensors(): 29-45); the old firmware read ~75 here
-    front_centred = 40.0 if hw else 35.0
+    front_centred = 75.0 if hw else 35.0          # test 1: centred dead-end reading
     if dist_mm is None:
         say("=== TEST 3: straight run, PWM %d, wall %d cells ahead ===" % (pwm, cells))
         d1 = front_centred + 200.0 * cells
