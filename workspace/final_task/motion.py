@@ -129,6 +129,14 @@ SENSOR_AHEAD_MM = 50.0        # side sensors are this far ahead of the centre
 # and overshot a 3-cell move by ~11 cm into a post (full-maze run 23 Oct).
 EDGE_SNAP_MM = 0.0 if ON_HARDWARE else 45.0
 FRONT_FIX_MIN_MM = 18.0 if ON_HARDWARE else -100.0
+# Curved sprint corners on the real 14 x 12 cm body: centred, a 10 cm arc
+# leaves only ~2 cm between the swinging tail and the outer wall (drivetest
+# .curve() clipped posts). Moving 2 cm towards the INSIDE before the corner
+# and taking a 2 cm smaller arc doubles that to ~4 cm while the inner post
+# keeps ~5.5 cm. Needs a side wall to measure the shift; without one the
+# mouse stays centred and takes the normal arc.
+ARC_INSET_M = 0.02 if ON_HARDWARE else 0.0
+ARC_SHIFT_ZONE_M = 0.20
 # How far the front wall may disagree with the encoders and still be used.
 # Readings under 200 mm in the last cell can only be that cell's own front
 # wall, so on the real mouse a big disagreement is still trusted: at (5,3)
@@ -296,6 +304,7 @@ class Motion:
         self.stalls = 0
         self.late = 0.0           # how far past a curve's ideal start we are (m)
         self.rate = 0.0           # gyro turn rate, deg/s (CCW +)
+        self.last_y = None        # last measured lateral offset (m), for arc()
         self.raw_l = self.raw_c = self.raw_r = 8190.0   # unfiltered ToF
         self.hold_l = self.hold_c = self.hold_r = 0
         # Side-wall reading when centred: LEARNT whenever the mouse stands in
@@ -542,7 +551,7 @@ class Motion:
         """Drive `cells` cells straight along target_yaw and stop at the centre."""
         self._drive(0.0, cells * CELL_M, cells * CELL_M, v_max, 0.0, accel, use_front)
 
-    def _drive(self, s, s_end, s_cell, v_max, v_end, accel, use_front=True):
+    def _drive(self, s, s_end, s_cell, v_max, v_end, accel, use_front=True, bias=0.0):
         """Drive straight along target_yaw from s to s_end (metres, measured
         from the centre of the cell this straight started in). s_cell is the
         centre of the last cell of the straight. Arrive at speed v_end:
@@ -582,11 +591,15 @@ class Motion:
             self.since_fix = 0.0
         self.driving = True
         try:
-            self._drive_loop(s, s_end, s_cell, v_max, v_end, accel, use_front)
+            self._drive_loop(s, s_end, s_cell, v_max, v_end, accel, use_front, bias)
         finally:
             self.driving = False
 
-    def _drive_loop(self, s, s_end, s_cell, v_max, v_end, accel, use_front):
+    def _drive_loop(self, s, s_end, s_cell, v_max, v_end, accel, use_front, bias=0.0):
+        """bias: lateral offset (m, + = left) to steer to over the last
+        ARC_SHIFT_ZONE_M before s_end - used to hug the inside of a coming
+        curve. self.last_y remembers the last measured offset for arc()."""
+        self.last_y = None
         v = self.v_cmd
         decel = accel if DECEL is None else min(accel, DECEL)
         stall = 0
@@ -734,9 +747,11 @@ class Motion:
                     if rejected >= 5:
                         y_f = y
                         rejected = 0
-                omega -= K_LATERAL * y_f
-                self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * y_f * self.dt),
+                y_t = bias if (bias and s_end - s < ARC_SHIFT_ZONE_M) else 0.0
+                omega -= K_LATERAL * (y_f - y_t)
+                self.yaw_corr = clamp(self.yaw_corr + math.degrees(K_ALIGN * (y_f - y_t) * self.dt),
                                       corr0 - YAW_CORR_MAX, corr0 + YAW_CORR_MAX)
+                self.last_y = y_f
 
             ds = self._wheels(v, omega)
             s += ds
@@ -834,6 +849,13 @@ class Motion:
         # line of the new corridor (late distance + radius = same 100 mm),
         # instead of swinging d mm closer to the outer wall.
         R = CELL_M / 2.0 - clamp(self.late, 0.0, 0.04)
+        # Hugging the inside (see ARC_INSET_M): a mouse already `inward` m
+        # towards the inner post takes a radius that much smaller, so it
+        # still passes the post and exits on its own side of the corridor.
+        if ARC_INSET_M > 0.0 and self.last_y is not None:
+            inward = -self.last_y if quarter > 0 else self.last_y
+            R -= clamp(inward, 0.0, ARC_INSET_M + 0.01)
+        self.last_y = None
         self.late = 0.0
         sign = -1.0 if quarter > 0 else 1.0        # right = clockwise = -
         yaw0 = self.target_yaw
@@ -875,7 +897,12 @@ class Motion:
             if i == last:
                 self._drive(s0, n * CELL_M, n * CELL_M, v_max, 0.0, accel)
             else:
-                self._drive(s0, n * CELL_M - CELL_M / 2.0, n * CELL_M, v_max, v_turn, accel)
+                q_next = segments[i + 1][1]
+                bias = ARC_INSET_M if q_next < 0 else -ARC_INSET_M   # towards the inside
+                if n * CELL_M - CELL_M / 2.0 - s0 < 0.25:
+                    bias = 0.0        # too short to shift sideways safely: stay centred
+                self._drive(s0, n * CELL_M - CELL_M / 2.0, n * CELL_M, v_max, v_turn, accel,
+                            bias=bias)
 
     # ------------------------------------------------------------------
     # Turning on the spot (two-speed bang-bang on gyro angle)
