@@ -38,10 +38,10 @@ if ON_HARDWARE:
     # 23 Oct: the LEFT encoder reads 0 (drivetest.wheels(): left 0, right
     # 974 / 933), so test 3's both-wheel average halved: 3121 / 3019 / 3198 /
     # 3199 -> the right wheel alone ~6270.
-    # Full-maze run 23 Oct 16:57 (no edge snaps, no learning): moves through
-    # open cells came up 5-19% short (front readings dropped ~180 per "200 mm"
-    # move; after 5 cells it stopped 12 cm short of a wall). 5500 -> 5000.
-    TICKS_PER_M = 5000.0
+    # Right wheel only (left encoder dead). drivetest.distance_check(2),
+    # encoders only, 23 Oct: 6211 / 6135 / 5970 (mean 6105). Agrees with the
+    # 16:57 maze run, whose moves were ~10% short at 5500.
+    TICKS_PER_M = 6100.0
     # ...but the mission log (23 Oct, 15:40) showed each "1 cell" move was
     # really ~235 mm (front 594 -> 359), and move(2)'s front readings agree
     # (~17% further than the encoder said). Test 3 assumed its start distance
