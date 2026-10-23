@@ -9,6 +9,7 @@
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.turns(-1, 4)"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.pirouette()"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.sensors()"
+#   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.distance_check(2)"
 #   python -m mpremote connect COM6 resume exec "import drivetest; drivetest.clock()"
 #
 # Each test: 3 s countdown on the OLED, gyro calibration (keep still), the
@@ -161,3 +162,33 @@ def wheels(pwm=40, ms=1000):
     uct_mouse.delay_ms(300)
     l1, r1 = uct_mouse.get_encoders()
     print("left encoder %d ticks, right encoder %d ticks" % (l1 - l0, r1 - r0))
+
+
+def distance_check(cells=2, v=0.16):
+    """Is TICKS_PER_M right? Put the mouse CENTRED in a cell with a wall
+    exactly `cells` cells ahead (cells=2: two open cells, then the wall).
+    It drives on the encoders ONLY (no front-wall help) and then measures
+    how far it is from the wall - close up, where the sensor is accurate."""
+    m = None
+    try:
+        m = _setup()
+        m.move(cells, v_max=v, accel=0.8, use_front=False)
+        uct_mouse.set_motors(0, 0)
+        uct_mouse.delay_ms(300)
+        vals = []
+        for _ in range(15):
+            m.tick(0, 0)
+            vals.append(m.raw_c)
+        vals.sort()
+        c = vals[7]
+        target = motion.FRONT_STOP_MM
+        planned = cells * 200.0
+        actual = planned - (c - target)
+        print("front now %d (centred = %d) -> drove %.0f mm for %.0f planned" % (c, target, actual, planned))
+        if c > 400 or actual < 50:
+            print("!! reading not usable - is the wall really %d cells ahead?" % cells)
+            return
+        print(">>> TICKS_PER_M = %.0f   (motion.py now: %.0f)"
+              % (motion.TICKS_PER_M * planned / actual, motion.TICKS_PER_M))
+    finally:
+        uct_mouse.set_motors(0, 0)
