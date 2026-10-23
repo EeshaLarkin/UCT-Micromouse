@@ -246,6 +246,17 @@ def main():
     if not a.no_verify:
         if not verify(a.port, built):
             sys.exit(1)
+    # 'resume' keeps the mouse's Python session running between mpremote
+    # commands, so modules imported earlier (by main.py at power-on, or by an
+    # earlier "import drivetest") stay in memory and `import` would quietly
+    # reuse the OLD code. Forget them so the next import loads the new files.
+    names = sorted(set(r.rsplit(".", 1)[0] for _, r in built if r != "main.py"))
+    cmd = [sys.executable, "-m", "mpremote"]
+    if a.port != "auto":
+        cmd += ["connect", a.port]
+    cmd += ["resume", "exec", "import sys\nfor m in %r:\n    sys.modules.pop(m, None)\n" % (names,)]
+    subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("Cleared the old copies from the mouse's memory - new code is used from now on.")
     print("Done.")
     if a.main_as == "main.py":
         print("main.py will run at the next power-on (battery OFF->ON with USB unplugged).")
